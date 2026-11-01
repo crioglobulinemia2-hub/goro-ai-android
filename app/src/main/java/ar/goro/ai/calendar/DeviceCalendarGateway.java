@@ -21,15 +21,41 @@ public final class DeviceCalendarGateway implements CalendarGateway {
  public DeviceCalendarGateway(Context c){context=c.getApplicationContext();}
  private boolean has(String p){return context.checkSelfPermission(p)==PackageManager.PERMISSION_GRANTED;}
  private long millis(String value){try{return OffsetDateTime.parse(value).toInstant().toEpochMilli();}catch(Exception e){return Instant.parse(value).toEpochMilli();}}
- private CalendarEvent read(Cursor c){long id=c.getLong(c.getColumnIndexOrThrow(CalendarContract.Events._ID));String title=c.getString(c.getColumnIndexOrThrow(CalendarContract.Events.TITLE));long begin=c.getLong(c.getColumnIndexOrThrow(CalendarContract.Events.DTSTART));long end=c.getLong(c.getColumnIndexOrThrow(CalendarContract.Events.DTEND));String zone=c.getString(c.getColumnIndex(CalendarContract.Events.EVENT_TIMEZONE));String desc=c.getString(c.getColumnIndex(CalendarContract.Events.DESCRIPTION));ZoneId z=ZoneId.of(zone==null?ZoneId.systemDefault().getId():zone);return new CalendarEvent(String.valueOf(id),title,Instant.ofEpochMilli(begin).atZone(z).toOffsetDateTime().toString(),Instant.ofEpochMilli(end).atZone(z).toOffsetDateTime().toString(),z.getId(),desc);}
- private Long writableCalendar(){String[] p={CalendarContract.Calendars._ID,CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL,CalendarContract.Calendars.VISIBLE,CalendarContract.Calendars.SYNC_EVENTS};try(Cursor c=context.getContentResolver().query(CalendarContract.Calendars.CONTENT_URI,p,CalendarContract.Calendars.VISIBLE+"=1 AND "+CalendarContract.Calendars.SYNC_EVENTS+"=1 AND "+CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL+">=?",new String[]{String.valueOf(CalendarContract.Calendars.CAL_ACCESS_CONTRIBUTOR)},CalendarContract.Calendars.IS_PRIMARY+" DESC")){if(c!=null&&c.moveToFirst())return c.getLong(0);}return null;}
+ private Long writableCalendar(){
+  String[] p={CalendarContract.Calendars._ID};
+  String where=CalendarContract.Calendars.ACCOUNT_TYPE+"=? AND "+CalendarContract.Calendars.VISIBLE+"=1 AND "+CalendarContract.Calendars.SYNC_EVENTS+"=1 AND "+CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL+">=?";
+  try(Cursor c=context.getContentResolver().query(CalendarContract.Calendars.CONTENT_URI,p,where,new String[]{"com.google",String.valueOf(CalendarContract.Calendars.CAL_ACCESS_CONTRIBUTOR)},CalendarContract.Calendars.IS_PRIMARY+" DESC")){
+   if(c!=null&&c.moveToFirst())return c.getLong(0);
+  }
+  return null;
+ }
  @Override public void list(String query,String min,String max,Callback<List<CalendarEvent>> cb){
-  if(!has(Manifest.permission.READ_CALENDAR)){cb.complete(null,"GORO necesita permiso para leer los calendarios del dispositivo.");return;}
-  io.execute(()->{List<CalendarEvent> out=new ArrayList<>();try{String selection=CalendarContract.Events.DTSTART+">=? AND "+CalendarContract.Events.DTSTART+"< ? AND "+CalendarContract.Events.DELETED+"=0 AND "+CalendarContract.Events.RRULE+" IS NULL";List<String> args=new ArrayList<>();args.add(String.valueOf(millis(min)));args.add(String.valueOf(millis(max)));if(query!=null&&!query.trim().isEmpty()){selection+=" AND "+CalendarContract.Events.TITLE+" LIKE ?";args.add("%"+query.trim()+"%");}String[] cols={CalendarContract.Events._ID,CalendarContract.Events.TITLE,CalendarContract.Events.DTSTART,CalendarContract.Events.DTEND,CalendarContract.Events.EVENT_TIMEZONE,CalendarContract.Events.DESCRIPTION};try(Cursor c=context.getContentResolver().query(CalendarContract.Events.CONTENT_URI,cols,selection,args.toArray(new String[0]),CalendarContract.Events.DTSTART+" ASC")){if(c!=null)while(c.moveToNext())out.add(read(c));}main.post(()->cb.complete(out,null));}catch(Exception e){main.post(()->cb.complete(null,"No pude leer los calendarios del dispositivo."));}});
+  if(!has(Manifest.permission.READ_CALENDAR)){cb.complete(null,"GORO necesita permiso para leer Google Calendar sincronizado.");return;}
+  io.execute(()->{
+   List<CalendarEvent> out=new ArrayList<>();
+   try{
+    long begin=millis(min),end=millis(max);
+    if(begin>=end)throw new IllegalArgumentException("Rango de agenda inválido.");
+    String[] cols={CalendarContract.Instances.EVENT_ID,CalendarContract.Instances.TITLE,CalendarContract.Instances.BEGIN,CalendarContract.Instances.END,CalendarContract.Instances.EVENT_TIMEZONE,CalendarContract.Instances.DESCRIPTION,CalendarContract.Instances.ACCOUNT_TYPE};
+    try(Cursor c=CalendarContract.Instances.query(context.getContentResolver(),cols,begin,end)){
+     if(c!=null)while(c.moveToNext()){
+      String accountType=c.getString(6),title=c.getString(1);
+      if(!"com.google".equals(accountType)||title==null||title.trim().isEmpty())continue;
+      if(query!=null&&!query.trim().isEmpty()&&!title.toLowerCase(java.util.Locale.ROOT).contains(query.trim().toLowerCase(java.util.Locale.ROOT)))continue;
+      String timezone=c.getString(4),desc=c.getString(5);
+      ZoneId z;
+      try{z=ZoneId.of(timezone==null||timezone.isEmpty()?ZoneId.systemDefault().getId():timezone);}catch(Exception invalid){z=ZoneId.systemDefault();}
+      long startMs=c.getLong(2),endMs=c.getLong(3);
+      out.add(new CalendarEvent(String.valueOf(c.getLong(0)),title,Instant.ofEpochMilli(startMs).atZone(z).toOffsetDateTime().toString(),Instant.ofEpochMilli(endMs).atZone(z).toOffsetDateTime().toString(),z.getId(),desc));
+     }
+    }
+    main.post(()->cb.complete(out,null));
+   }catch(Exception e){main.post(()->cb.complete(null,"No pude leer Google Calendar sincronizado."));}
+  });
  }
  @Override public void create(CalendarEvent e,Callback<CalendarEvent> cb){
   if(!has(Manifest.permission.WRITE_CALENDAR)){cb.complete(null,"GORO necesita permiso para modificar el calendario.");return;}
-  io.execute(()->{try{Long cal=writableCalendar();if(cal==null)throw new IllegalStateException("No hay un calendario visible y editable sincronizado.");ContentValues v=new ContentValues();v.put(CalendarContract.Events.CALENDAR_ID,cal);v.put(CalendarContract.Events.TITLE,e.title);v.put(CalendarContract.Events.DTSTART,millis(e.start));v.put(CalendarContract.Events.DTEND,millis(e.end));v.put(CalendarContract.Events.EVENT_TIMEZONE,e.timezone);v.put(CalendarContract.Events.DESCRIPTION,e.description);v.put(CalendarContract.Events.HAS_ALARM,0);android.net.Uri uri=context.getContentResolver().insert(CalendarContract.Events.CONTENT_URI,v);if(uri==null)throw new IllegalStateException("El proveedor no devolvió un evento.");String id=String.valueOf(ContentUris.parseId(uri));CalendarEvent created=new CalendarEvent(id,e.title,e.start,e.end,e.timezone,e.description);main.post(()->cb.complete(created,null));}catch(Exception x){main.post(()->cb.complete(null,x.getMessage()==null?"No se pudo crear el evento.":x.getMessage()));}});
+  io.execute(()->{try{Long cal=writableCalendar();if(cal==null)throw new IllegalStateException("No hay un calendario Google visible, sincronizado y editable.");ContentValues v=new ContentValues();v.put(CalendarContract.Events.CALENDAR_ID,cal);v.put(CalendarContract.Events.TITLE,e.title);v.put(CalendarContract.Events.DTSTART,millis(e.start));v.put(CalendarContract.Events.DTEND,millis(e.end));v.put(CalendarContract.Events.EVENT_TIMEZONE,e.timezone);v.put(CalendarContract.Events.DESCRIPTION,e.description);v.put(CalendarContract.Events.HAS_ALARM,0);android.net.Uri uri=context.getContentResolver().insert(CalendarContract.Events.CONTENT_URI,v);if(uri==null)throw new IllegalStateException("El proveedor no devolvió un evento.");String id=String.valueOf(ContentUris.parseId(uri));CalendarEvent created=new CalendarEvent(id,e.title,e.start,e.end,e.timezone,e.description);main.post(()->cb.complete(created,null));}catch(Exception x){main.post(()->cb.complete(null,x.getMessage()==null?"No se pudo crear el evento.":x.getMessage()));}});
  }
  @Override public void update(CalendarEvent e,Callback<CalendarEvent> cb){
   if(!has(Manifest.permission.WRITE_CALENDAR)){cb.complete(null,"GORO necesita permiso para modificar el calendario.");return;}
