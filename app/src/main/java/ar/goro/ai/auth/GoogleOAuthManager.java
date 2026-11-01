@@ -33,7 +33,7 @@ public final class GoogleOAuthManager {
  }
  public void handleAuthorizationResult(Intent data,Callback callback){
   AuthorizationResponse response=data==null?null:AuthorizationResponse.fromIntent(data);
-  AuthorizationException error=data==null?AuthorizationException.fromIntent(data):AuthorizationException.fromIntent(data);
+  AuthorizationException error=data==null?null:AuthorizationException.fromIntent(data);
   if(response==null){callback.complete(false,error==null?"Google authorization cancelled.":error.error);return;}
   service.performTokenRequest(response.createTokenExchangeRequest(),(token,ex)->{
    if(token==null){callback.complete(false,ex==null?"Token exchange failed.":ex.error);return;}
