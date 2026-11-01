@@ -37,6 +37,7 @@ public class MainActivity extends Activity {
     super.onCreate(saved);
     memory=getSharedPreferences("goro_memory",MODE_PRIVATE);
     memoryStore=new MemoryStore(this);
+    memoryStore.migrateLegacy(memory);
     voiceSession=new ContinuousVoiceSession(this,new ContinuousVoiceSession.Listener(){
       public void onState(ConversationState s){if(state!=null)state.setText("GORO • "+s.name());}
       public void onFinalText(String text){if(voiceSession!=null){voiceSession.pauseForResponse();} if(command!=null)command.setText(text);runCommand(text);}
@@ -126,6 +127,18 @@ public class MainActivity extends Activity {
         for(MemoryRecord record:records)list.append(record.content).append(". ");
         say(list.toString());
       }catch(Exception e){say("No pude recuperar la memoria.");}
+    } else if(text.startsWith("buscá en recuerdos ") || text.startsWith("busca en recuerdos ")) {
+      String query=raw.substring(raw.toLowerCase(new Locale("es","AR")).indexOf("recuerdos ")+10).trim();
+      try{java.util.List<MemoryRecord> found=memoryStore.search(query,8);if(found.isEmpty()){say("No encontré recuerdos sobre "+query+".");return;}StringBuilder b=new StringBuilder("Encontré: ");for(MemoryRecord record:found)b.append("Número ").append(record.id).append(": ").append(record.content).append(". ");say(b.toString());}
+      catch(Exception e){say("No pude buscar en la memoria.");}
+    } else if(text.startsWith("borrá recuerdo ") || text.startsWith("borra recuerdo ")) {
+      try{long id=Long.parseLong(text.replaceAll("[^0-9]",""));say(memoryStore.delete(id)?"Recuerdo eliminado.":"No encontré ese número de recuerdo.");}
+      catch(Exception e){say("Decime el número del recuerdo que querés borrar.");}
+    } else if(text.startsWith("editá recuerdo ") || text.startsWith("edita recuerdo ")) {
+      Matcher edit=Pattern.compile("(?i)edit[aá] recuerdo (\\d+) (.+)").matcher(raw);
+      if(!edit.matches()){say("Decime: editá recuerdo, número y nuevo texto.");return;}
+      try{boolean ok=memoryStore.update(Long.parseLong(edit.group(1)),"general",edit.group(2));say(ok?"Recuerdo actualizado.":"No encontré ese número de recuerdo.");}
+      catch(Exception e){say("No pude actualizar ese recuerdo.");}
     } else if(text.contains("borrá todos los recuerdos") || text.contains("borra todos los recuerdos")) {
       try{int deleted=memoryStore.clearAll();say("Eliminé "+deleted+" recuerdos locales.");}
       catch(Exception e){say("No pude eliminar la memoria.");}
