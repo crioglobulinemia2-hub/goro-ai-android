@@ -7,4 +7,15 @@ public class AssistantCommandParserTest {
  @Test public void rejectsInvalidAlarm(){assertNull(AssistantCommandParser.alarm("alarma a las 27:90"));}
  @Test public void parsesTimerUnits(){assertEquals(600,AssistantCommandParser.timer("temporizador 10 minutos").seconds);assertEquals(90,AssistantCommandParser.timer("temporizador 90 segundos").seconds);assertEquals(7200,AssistantCommandParser.timer("temporizador 2 horas").seconds);}
  @Test public void rejectsInvalidTimer(){assertNull(AssistantCommandParser.timer("temporizador 0 segundos"));assertNull(AssistantCommandParser.timer("temporizador 30 días"));}
+ @Test public void displayCommandsAreClassifiedBeforeCreateCommands(){
+  assertTrue(AssistantCommandParser.requestsAlarmList("mostrame las alarmas"));
+  assertTrue(AssistantCommandParser.requestsAlarmList("mostrá las alarmas"));
+  assertTrue(AssistantCommandParser.requestsAlarmList("ver alarmas"));
+  assertTrue(AssistantCommandParser.requestsTimerList("mostrame los temporizadores"));
+  assertTrue(AssistantCommandParser.requestsTimerList("ver temporizadores"));
+  assertFalse(AssistantCommandParser.requestsAlarmList("alarma a las 07:30"));
+  assertFalse(AssistantCommandParser.requestsTimerList("temporizador 5 minutos"));
+  assertFalse(AssistantCommandParser.requestsAlarmList(null));
+  assertFalse(AssistantCommandParser.requestsTimerList(null));
+ }
 }
