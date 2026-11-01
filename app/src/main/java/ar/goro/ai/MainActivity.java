@@ -12,6 +12,10 @@ import ar.goro.ai.memory.MemoryRecord;
 import ar.goro.ai.tools.AssistantCommandParser;
 import ar.goro.ai.tools.AlarmClockIntents;
 import ar.goro.ai.automation.ReminderScheduler;
+import ar.goro.ai.auth.GoogleTokenStore;
+import ar.goro.ai.auth.GoogleOAuthManager;
+import ar.goro.ai.auth.GoogleCalendarTokenProvider;
+import ar.goro.ai.calendar.GoogleCalendarRestGateway;
 import java.util.concurrent.TimeUnit;
 import android.content.SharedPreferences;
 import android.content.ActivityNotFoundException;
@@ -38,11 +42,16 @@ public class MainActivity extends Activity {
   private ContinuousVoiceSession voiceSession;
   private boolean voiceActive=false;
   private ReminderScheduler reminderScheduler;
+  private GoogleTokenStore googleTokenStore;
+  private GoogleOAuthManager googleOAuth;
+  private GoogleCalendarRestGateway calendarGateway;
+  private static final int GOOGLE_AUTH_REQUEST=61;
   @Override public void onCreate(Bundle saved) {
     super.onCreate(saved);
     memory=getSharedPreferences("goro_memory",MODE_PRIVATE);
     memoryStore=new MemoryStore(this);
     reminderScheduler=new ReminderScheduler(this);
+    try{googleTokenStore=new GoogleTokenStore(this);String clientId=getString(R.string.google_oauth_client_id);googleOAuth=new GoogleOAuthManager(this,googleTokenStore,clientId);GoogleCalendarTokenProvider tokenProvider=new GoogleCalendarTokenProvider(this,googleTokenStore,clientId);calendarGateway=new GoogleCalendarRestGateway(tokenProvider::validAccessToken); }catch(Exception e){googleTokenStore=null;}
     memoryStore.migrateLegacy(memory);
     voiceSession=new ContinuousVoiceSession(this,new ContinuousVoiceSession.Listener(){
       public void onState(ConversationState s){if(state!=null)state.setText("GORO • "+s.name());}
@@ -75,7 +84,9 @@ public class MainActivity extends Activity {
     state=new TextView(this);state.setText("Asistente de voz • Android");state.setTextColor(0xff607589);
     body.addView(state);
     TextView avatar=new TextView(this);
-    avatar.setText("◉\n\nGORO AI");avatar.setTextSize(30);avatar.setGravity(Gravity.CENTER);
+    avatar.setText("◉
+
+GORO AI");avatar.setTextSize(30);avatar.setGravity(Gravity.CENTER);
     avatar.setTextColor(0xff214E73);avatar.setBackgroundColor(0xffd1e4e2);
     LinearLayout.LayoutParams avatarParams=new LinearLayout.LayoutParams(-1,300);
     avatarParams.setMargins(0,25,0,20);body.addView(avatar,avatarParams);
@@ -92,7 +103,11 @@ public class MainActivity extends Activity {
       if(!voiceSession.available()){say("No hay reconocimiento de voz disponible.");return;}
       voiceActive=true;talk.setText("Detener sesión");voiceSession.start();
     });
-    Button reminders=new Button(this);reminders.setText("Activar recordatorios");body.addView(reminders);\n    reminders.setOnClickListener(v->{if(Build.VERSION.SDK_INT>=33&&checkSelfPermission("android.permission.POST_NOTIFICATIONS")!=PackageManager.PERMISSION_GRANTED){requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"},52);}else say("Notificaciones disponibles para los recordatorios de GORO.");});\n    Button execute=new Button(this);execute.setText("Enviar texto");body.addView(execute);
+    Button calendarConnect=new Button(this);calendarConnect.setText("Conectar Google Calendar");body.addView(calendarConnect);
+    calendarConnect.setOnClickListener(v->{try{if(googleOAuth==null)throw new IllegalStateException("Almacenamiento seguro no disponible.");startActivityForResult(googleOAuth.authorizationIntent(),GOOGLE_AUTH_REQUEST);}catch(Exception e){say("Google Calendar requiere configurar el ID de cliente OAuth Android en la compilación.");}});
+    Button reminders=new Button(this);reminders.setText("Activar recordatorios");body.addView(reminders);
+    reminders.setOnClickListener(v->{if(Build.VERSION.SDK_INT>=33&&checkSelfPermission("android.permission.POST_NOTIFICATIONS")!=PackageManager.PERMISSION_GRANTED){requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"},52);}else say("Notificaciones disponibles para los recordatorios de GORO.");});
+    Button execute=new Button(this);execute.setText("Enviar texto");body.addView(execute);
     execute.setOnClickListener(v->runCommand(command.getText().toString().trim()));
     scroll.addView(body);root.addView(scroll);setContentView(root);
   }
@@ -192,6 +207,9 @@ public class MainActivity extends Activity {
       say("Todavía no tengo conexión a Nemotron. No ejecuté ninguna acción.");
     }
   }
+  @Override protected void onActivityResult(int request,int result,Intent data){super.onActivityResult(request,result,data);if(request==GOOGLE_AUTH_REQUEST){if(result==RESULT_OK&&googleOAuth!=null)googleOAuth.handleAuthorizationResult(data,(ok,error)->say(ok?"Google Calendar quedó autorizado.": "No se pudo autorizar Google Calendar: "+error));else say("Autorización de Google Calendar cancelada.");return;}
+    if(request==VOICE_REQUEST && result==RESULT_OK && data!=null){ArrayList<String> words=data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);if(words!=null&&!words.isEmpty()){command.setText(words.get(0));runCommand(words.get(0));}}
+  }
   @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results){super.onRequestPermissionsResult(request,permissions,results);if(request==41&&results.length>0&&results[0]==PackageManager.PERMISSION_GRANTED){voiceActive=true;voiceSession.start();}}
-  @Override protected void onDestroy(){if(voiceSession!=null)voiceSession.destroy();if(tts!=null){tts.stop();tts.shutdown();}super.onDestroy();}
+  @Override protected void onDestroy(){if(calendarGateway!=null)calendarGateway.close();if(googleOAuth!=null)googleOAuth.close();if(voiceSession!=null)voiceSession.destroy();if(tts!=null){tts.stop();tts.shutdown();}super.onDestroy();}
 }
