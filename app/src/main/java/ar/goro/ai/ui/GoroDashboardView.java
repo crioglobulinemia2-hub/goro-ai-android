@@ -59,7 +59,7 @@ public final class GoroDashboardView extends LinearLayout {
   super(activity);
   this.activity=activity;this.actions=actions;
   tablet=activity.getResources().getConfiguration().smallestScreenWidthDp>=600;
-  palette=GoroTheme.of(activity.getSharedPreferences("goro_ui",Activity.MODE_PRIVATE).getBoolean("dark",false)?GoroTheme.Mode.DARK:GoroTheme.Mode.LIGHT);
+  palette=GoroTheme.of(readTheme(activity));
   setOrientation(VERTICAL);setBackgroundColor(palette.background);
   setPadding(dp(12),dp(12),dp(12),dp(8));
 
@@ -157,7 +157,7 @@ public final class GoroDashboardView extends LinearLayout {
   LinearLayout tools=new LinearLayout(activity);
   tools.setOrientation(VERTICAL);
   tools.setPadding(dp(9),dp(6),dp(9),dp(4));
-  if(tablet) columns.addView(tools,new LinearLayout.LayoutParams(dp(244),-1));
+  if(tablet){ScrollView toolsScroll=new ScrollView(activity);toolsScroll.addView(tools);columns.addView(toolsScroll,new LinearLayout.LayoutParams(dp(244),-1));}
   else mainColumn.addView(tools,new LinearLayout.LayoutParams(-1,-2));
   weatherValue=text("Sin consultar. Usar ubicación GPS.",14,false,palette.text);
   agendaValue=text("Sin consultar. Vinculá tu cuenta Google.",14,false,palette.text);
@@ -177,10 +177,10 @@ public final class GoroDashboardView extends LinearLayout {
   tools.addView(warning);
 
   LinearLayout featureRow=new LinearLayout(activity);featureRow.setOrientation(HORIZONTAL);
-  Button theme=button("Tema claro / oscuro",()->toggleTheme(),false);
-  featureRow.addView(theme,new LinearLayout.LayoutParams(0,dp(48),1f));
-  Button permissions=button("Cuenta Google",()->actions.onLinkAccount(),false);
-  featureRow.addView(permissions,new LinearLayout.LayoutParams(0,dp(48),1f));
+  for(GoroTheme.Mode mode:GoroTheme.Mode.values()){
+   String name=mode==GoroTheme.Mode.LIGHT?"Claro":mode==GoroTheme.Mode.DARK?"Oscuro":"Profesional";
+   featureRow.addView(button(name,()->selectTheme(mode),false),new LinearLayout.LayoutParams(0,dp(48),1f));
+  }
   addView(featureRow,new LinearLayout.LayoutParams(-1,dp(48)));
   select(GoroSection.HOME);
  }
@@ -203,9 +203,13 @@ public final class GoroDashboardView extends LinearLayout {
  public void showWeather(String value){weatherValue.setText(value==null?"Sin datos.":value);}
  public void showDeviceStatus(String value){devicesValue.setText(value==null?"Sin datos de dispositivo.":value);}
  public void setVoiceActive(boolean active){talk.setText(active?"Detener conversación":"Micrófono · Conversación continua");}
- private void toggleTheme(){
-  boolean dark=activity.getSharedPreferences("goro_ui",Activity.MODE_PRIVATE).getBoolean("dark",false);
-  activity.getSharedPreferences("goro_ui",Activity.MODE_PRIVATE).edit().putBoolean("dark",!dark).apply();
+ private static GoroTheme.Mode readTheme(Activity a){
+  String saved=a.getSharedPreferences("goro_ui",Activity.MODE_PRIVATE).getString("theme_mode",null);
+  if(saved==null){return a.getSharedPreferences("goro_ui",Activity.MODE_PRIVATE).getBoolean("dark",false)?GoroTheme.Mode.DARK:GoroTheme.Mode.LIGHT;}
+  try{return GoroTheme.Mode.valueOf(saved);}catch(Exception e){return GoroTheme.Mode.LIGHT;}
+ }
+ private void selectTheme(GoroTheme.Mode mode){
+  activity.getSharedPreferences("goro_ui",Activity.MODE_PRIVATE).edit().putString("theme_mode",mode.name()).apply();
   activity.recreate();
  }
  private LinearLayout card(String heading,TextView value){
