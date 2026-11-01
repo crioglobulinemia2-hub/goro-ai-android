@@ -1,6 +1,8 @@
 package ar.goro.ai;
 
 import android.app.Activity;
+import android.accounts.AccountManager;
+import android.location.Location;
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.os.Build;
@@ -15,6 +17,7 @@ import ar.goro.ai.automation.ReminderScheduler;
 import ar.goro.ai.calendar.DeviceCalendarGateway;
 import ar.goro.ai.calendar.CalendarEvent;
 import ar.goro.ai.weather.WeatherService;
+import ar.goro.ai.weather.DeviceLocationProvider;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.concurrent.TimeUnit;
@@ -45,16 +48,22 @@ public class MainActivity extends Activity {
   private ReminderScheduler reminderScheduler;
   private DeviceCalendarGateway calendarGateway;
   private WeatherService weatherService;
+  private DeviceLocationProvider locationProvider;
+  private TextView calendarAccountLabel;
+  private boolean pendingWeatherForecast=false;
   private CalendarEvent pendingCalendarEvent;
   private String pendingCalendarDeleteId;
   private final java.util.List<CalendarEvent> lastCalendarEvents=new java.util.ArrayList<>();
   private static final int CALENDAR_PERMISSION_REQUEST=62;
+  private static final int GOOGLE_ACCOUNT_REQUEST=63;
+  private static final int LOCATION_PERMISSION_REQUEST=64;
   @Override public void onCreate(Bundle saved) {
     super.onCreate(saved);
     memory=getSharedPreferences("goro_memory",MODE_PRIVATE);
     memoryStore=new MemoryStore(this);
     reminderScheduler=new ReminderScheduler(this);
     weatherService=new WeatherService();
+    locationProvider=new DeviceLocationProvider(this);
     calendarGateway=new DeviceCalendarGateway(this);
     memoryStore.migrateLegacy(memory);
     voiceSession=new ContinuousVoiceSession(this,new ContinuousVoiceSession.Listener(){
@@ -105,8 +114,11 @@ public class MainActivity extends Activity {
       if(!voiceSession.available()){say("No hay reconocimiento de voz disponible.");return;}
       voiceActive=true;talk.setText("Detener sesión");voiceSession.start();
     });
-    Button calendarConnect=new Button(this);calendarConnect.setText("Permitir agenda sincronizada");body.addView(calendarConnect);
-    calendarConnect.setOnClickListener(v->{if(Build.VERSION.SDK_INT>=23&&(checkSelfPermission(Manifest.permission.READ_CALENDAR)!=PackageManager.PERMISSION_GRANTED||checkSelfPermission(Manifest.permission.WRITE_CALENDAR)!=PackageManager.PERMISSION_GRANTED)){requestPermissions(new String[]{Manifest.permission.READ_CALENDAR,Manifest.permission.WRITE_CALENDAR},CALENDAR_PERMISSION_REQUEST);}else say("Acceso al calendario del dispositivo habilitado.");});
+    calendarAccountLabel=new TextView(this);String linkedAccount=calendarGateway.selectedGoogleAccount();calendarAccountLabel.setText(linkedAccount==null?"Google Calendar: cuenta sin vincular":"Google Calendar: "+linkedAccount);calendarAccountLabel.setTextColor(0xff263446);body.addView(calendarAccountLabel);
+    Button calendarConnect=new Button(this);calendarConnect.setText("Vincular / cambiar cuenta Gmail");body.addView(calendarConnect);
+    calendarConnect.setOnClickListener(v->chooseGoogleAccount());
+    Button weatherNow=new Button(this);weatherNow.setText("Clima actual · GPS");body.addView(weatherNow);weatherNow.setOnClickListener(v->requestWeatherLocation(false));
+    Button weatherForecast=new Button(this);weatherForecast.setText("Pronóstico · 3 días");body.addView(weatherForecast);weatherForecast.setOnClickListener(v->requestWeatherLocation(true));
     Button reminders=new Button(this);reminders.setText("Activar recordatorios");body.addView(reminders);
     reminders.setOnClickListener(v->{if(Build.VERSION.SDK_INT>=33&&checkSelfPermission("android.permission.POST_NOTIFICATIONS")!=PackageManager.PERMISSION_GRANTED){requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"},52);}else say("Notificaciones disponibles para los recordatorios de GORO.");});
     Button execute=new Button(this);execute.setText("Enviar texto");body.addView(execute);
@@ -123,6 +135,10 @@ public class MainActivity extends Activity {
   }
   @Override protected void onActivityResult(int request,int result,Intent data) {
     super.onActivityResult(request,result,data);
+    if(request==GOOGLE_ACCOUNT_REQUEST){
+      if(result==RESULT_OK&&data!=null){String email=data.getStringExtra(AccountManager.KEY_ACCOUNT_NAME);String type=data.getStringExtra(AccountManager.KEY_ACCOUNT_TYPE);if(email==null||!"com.google".equals(type)){say("No se seleccionó una cuenta Google válida.");return;}try{calendarGateway.setSelectedGoogleAccount(email);calendarAccountLabel.setText("Google Calendar: "+email);say("Cuenta "+email+" seleccionada para GORO. Ahora autorizá el acceso al calendario.");requestCalendarPermissions();}catch(Exception e){say("No pude vincular esa cuenta Google.");}}
+      else say("Vinculación de Gmail cancelada.");return;
+    }
     state.setText("Asistente de voz • Android");
     if(request==VOICE_REQUEST && result==RESULT_OK && data!=null){
       ArrayList<String> words=data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
@@ -138,6 +154,8 @@ public class MainActivity extends Activity {
     if(raw.isEmpty()) return;
     String text=raw.toLowerCase(new Locale("es","AR")).trim();
     if(text.equals("confirmar")||text.equals("confirmá")){confirmCalendarAction();return;}
+    if(text.equals("clima")||text.equals("clima ahora")||text.equals("clima actual")||text.equals("qué clima hace")||text.equals("que clima hace")||text.equals("tiempo")||text.equals("temperatura")||text.equals("clima de acá")||text.equals("clima de aca")){requestWeatherLocation(false);return;}
+    if(text.equals("pronóstico")||text.equals("pronostico")||text.equals("pronóstico de tres días")||text.equals("pronostico de tres dias")){requestWeatherLocation(true);return;}
     if(text.equals("cancelar")||text.equals("cancelá")){pendingCalendarEvent=null;pendingCalendarDeleteId=null;say("Operación de agenda cancelada.");return;}
     if(text.startsWith("pronóstico en ")||text.startsWith("pronostico en ")){showForecast(raw.substring(raw.toLowerCase(new Locale("es","AR")).indexOf(" en ")+4).trim());return;}
     if(text.startsWith("clima en ")||text.startsWith("qué clima hace en ")||text.startsWith("que clima hace en ")){showWeather(raw.substring(raw.toLowerCase(new Locale("es","AR")).indexOf(" en ")+4).trim());return;}
@@ -217,6 +235,14 @@ public class MainActivity extends Activity {
       say("Todavía no tengo conexión a Nemotron. No ejecuté ninguna acción.");
     }
   }
+  private void chooseGoogleAccount(){
+    try{Intent picker=AccountManager.newChooseAccountIntent(null,null,new String[]{"com.google"},null,null,null,null);startActivityForResult(picker,GOOGLE_ACCOUNT_REQUEST);}
+    catch(Exception e){say("Android no pudo abrir el selector de cuentas Google.");}
+  }
+  private void requestCalendarPermissions(){if(checkSelfPermission(Manifest.permission.READ_CALENDAR)!=PackageManager.PERMISSION_GRANTED||checkSelfPermission(Manifest.permission.WRITE_CALENDAR)!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{Manifest.permission.READ_CALENDAR,Manifest.permission.WRITE_CALENDAR},CALENDAR_PERMISSION_REQUEST);else say("Google Calendar vinculado a "+calendarGateway.selectedGoogleAccount()+".");}
+  private void requestWeatherLocation(boolean forecast){pendingWeatherForecast=forecast;if(locationProvider.hasPermission()){if(forecast)showForecastHere();else showWeatherHere();return;}requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION},LOCATION_PERMISSION_REQUEST);}
+  private void showWeatherHere(){say("Obteniendo tu ubicación GPS para consultar el clima.");locationProvider.current((location,error)->{if(error!=null||location==null){say(error==null?"No pude determinar tu ubicación.":error);return;}weatherService.current(location.getLatitude(),location.getLongitude(),(weather,problem)->{if(problem!=null||weather==null){say(problem==null?"Clima no disponible.":problem);return;}say("En tu ubicación actual: "+Math.round(weather.temperature)+" "+weather.temperatureUnit+", viento "+Math.round(weather.wind)+" "+weather.windUnit+". "+weatherDescription(weather.code)+".");});});}
+  private void showForecastHere(){say("Obteniendo tu ubicación GPS para preparar el pronóstico.");locationProvider.current((location,error)->{if(error!=null||location==null){say(error==null?"No pude determinar tu ubicación.":error);return;}weatherService.forecast(location.getLatitude(),location.getLongitude(),3,(days,problem)->{if(problem!=null||days==null){say(problem==null?"Pronóstico no disponible.":problem);return;}StringBuilder b=new StringBuilder("Pronóstico de tres días para tu ubicación: ");for(WeatherService.ForecastDay d:days)b.append(d.date).append(", mínima ").append(Math.round(d.min)).append(" y máxima ").append(Math.round(d.max)).append(" grados, probabilidad de lluvia ").append(d.precipitationChance).append(" por ciento. ");say(b.toString());});});}
   private void showWeather(String place){
     if(weatherService==null){say("El servicio meteorológico no está disponible.");return;}
     say("Buscando el clima de "+place+".");
@@ -287,6 +313,6 @@ public class MainActivity extends Activity {
     if(pendingCalendarDeleteId!=null){String id=pendingCalendarDeleteId;pendingCalendarDeleteId=null;calendarGateway.delete(id,(ok,error)->say(Boolean.TRUE.equals(ok)?"Evento eliminado de Google Calendar.":error==null?"No se pudo confirmar la eliminación.":error));return;}
     say("No hay ninguna operación de calendario pendiente.");
   }
-  @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results){super.onRequestPermissionsResult(request,permissions,results);if(results.length==0)return;if(request==41&&results[0]==PackageManager.PERMISSION_GRANTED){voiceActive=true;voiceSession.start();}else if(request==CALENDAR_PERMISSION_REQUEST){boolean granted=checkSelfPermission(Manifest.permission.READ_CALENDAR)==PackageManager.PERMISSION_GRANTED&&checkSelfPermission(Manifest.permission.WRITE_CALENDAR)==PackageManager.PERMISSION_GRANTED;say(granted?"Acceso a los calendarios sincronizados habilitado.":"El calendario necesita permisos de lectura y escritura; no se modificó ningún evento.");}else if(request==52){say(results[0]==PackageManager.PERMISSION_GRANTED?"Notificaciones habilitadas. Ya puedo entregarte recordatorios.":"Las notificaciones están deshabilitadas; GORO no puede mostrar recordatorios hasta que las habilites en Android.");}}
+  @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results){super.onRequestPermissionsResult(request,permissions,results);if(results.length==0)return;if(request==41&&results[0]==PackageManager.PERMISSION_GRANTED){voiceActive=true;voiceSession.start();}else if(request==CALENDAR_PERMISSION_REQUEST){boolean granted=checkSelfPermission(Manifest.permission.READ_CALENDAR)==PackageManager.PERMISSION_GRANTED&&checkSelfPermission(Manifest.permission.WRITE_CALENDAR)==PackageManager.PERMISSION_GRANTED;say(granted?"Google Calendar vinculado a "+calendarGateway.selectedGoogleAccount()+".":"El calendario necesita permisos de lectura y escritura; no se modificó ningún evento.");}else if(request==LOCATION_PERMISSION_REQUEST){if(locationProvider.hasPermission()){if(pendingWeatherForecast)showForecastHere();else showWeatherHere();}else say("No se concedió permiso de ubicación. No consulté una ubicación aproximada ni inventé tu clima.");}else if(request==52){say(results[0]==PackageManager.PERMISSION_GRANTED?"Notificaciones habilitadas. Ya puedo entregarte recordatorios.":"Las notificaciones están deshabilitadas; GORO no puede mostrar recordatorios hasta que las habilites en Android.");}}
   @Override protected void onDestroy(){if(calendarGateway!=null)calendarGateway.close();if(weatherService!=null)weatherService.close();if(voiceSession!=null)voiceSession.destroy();if(tts!=null){tts.stop();tts.shutdown();}super.onDestroy();}
 }
