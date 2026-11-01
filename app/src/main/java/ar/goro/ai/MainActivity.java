@@ -117,6 +117,8 @@ public class MainActivity extends Activity {
     calendarAccountLabel=new TextView(this);String linkedAccount=calendarGateway.selectedGoogleAccount();calendarAccountLabel.setText(linkedAccount==null?"Google Calendar: cuenta sin vincular":"Google Calendar: "+linkedAccount);calendarAccountLabel.setTextColor(0xff263446);body.addView(calendarAccountLabel);
     Button calendarConnect=new Button(this);calendarConnect.setText("Vincular / cambiar cuenta Gmail");body.addView(calendarConnect);
     calendarConnect.setOnClickListener(v->chooseGoogleAccount());
+    Button calendarUnlink=new Button(this);calendarUnlink.setText("Desvincular Gmail");body.addView(calendarUnlink);
+    calendarUnlink.setOnClickListener(v->{calendarGateway.unlinkGoogleAccount();calendarAccountLabel.setText("Google Calendar: cuenta sin vincular");lastCalendarEvents.clear();pendingCalendarEvent=null;pendingCalendarDeleteId=null;say("Desvinculé la cuenta de Google Calendar de GORO. No se borraron eventos de Google.");});
     Button weatherNow=new Button(this);weatherNow.setText("Clima actual · GPS");body.addView(weatherNow);weatherNow.setOnClickListener(v->requestWeatherLocation(false));
     Button weatherForecast=new Button(this);weatherForecast.setText("Pronóstico · 3 días");body.addView(weatherForecast);weatherForecast.setOnClickListener(v->requestWeatherLocation(true));
     Button reminders=new Button(this);reminders.setText("Activar recordatorios");body.addView(reminders);
