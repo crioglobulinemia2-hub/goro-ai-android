@@ -29,10 +29,10 @@ public final class GoogleOAuthManager {
   AuthorizationServiceConfiguration config=new AuthorizationServiceConfiguration(Uri.parse("https://accounts.google.com/o/oauth2/v2/auth"),Uri.parse("https://oauth2.googleapis.com/token"));
   String verifier=CodeVerifierUtil.generateRandomCodeVerifier();
   java.util.Map<String,String> parameters=new java.util.HashMap<>();parameters.put("access_type","offline");parameters.put("prompt","consent");
-  AuthorizationRequest request=new AuthorizationRequest.Builder(config,clientId,ResponseTypeValues.CODE,Uri.parse(redirectUri(clientId))).setScope("openid email "+SCOPE).setCodeVerifier(verifier,CodeVerifierUtil.deriveCodeVerifierChallenge(verifier),CodeVerifierUtil.getCodeVerifierChallengeMethod()).setAdditionalParameters(parameters).build();
+  AuthorizationRequest request=new AuthorizationRequest.Builder(config,clientId,ResponseTypeValues.CODE,Uri.parse(redirectUri(clientId))).setScope(SCOPE).setCodeVerifier(verifier,CodeVerifierUtil.deriveCodeVerifierChallenge(verifier),CodeVerifierUtil.getCodeVerifierChallengeMethod()).setAdditionalParameters(parameters).build();
   service.performAuthorizationRequest(request,completed,cancelled);
  }
- public void handleAuthorizationResult(Intent data,Callback callback){
+ public boolean isAuthorizationResponse(Intent data){return data!=null&&(AuthorizationResponse.fromIntent(data)!=null||AuthorizationException.fromIntent(data)!=null);}\n public void handleAuthorizationResult(Intent data,Callback callback){
   AuthorizationResponse response=data==null?null:AuthorizationResponse.fromIntent(data);
   AuthorizationException error=data==null?null:AuthorizationException.fromIntent(data);
   if(response==null){callback.complete(false,error==null?"Google authorization cancelled.":error.error);return;}
