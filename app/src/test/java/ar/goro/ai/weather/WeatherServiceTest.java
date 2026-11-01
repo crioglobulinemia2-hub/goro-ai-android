@@ -11,7 +11,8 @@ public class WeatherServiceTest {
   service.current(120,200,(value,message)->error[0]=message);
   assertNotNull(error[0]);service.close();
  }
- @Test public void rejectsInvalidForecastWindow(){WeatherService service=new WeatherService();final String[] error={null};service.forecast(-91,0,8,(days,message)->error[0]=message);assertNotNull(error[0]);service.close();}\n @Test public void rejectsBlankCity(){
+ @Test public void rejectsInvalidForecastWindow(){WeatherService service=new WeatherService();final String[] error={null};service.forecast(-91,0,8,(days,message)->error[0]=message);assertNotNull(error[0]);service.close();}
+ @Test public void rejectsBlankCity(){
   WeatherService service=new WeatherService();
   final String[] error={null};
   service.geocode(" ",(places,message)->error[0]=message);
