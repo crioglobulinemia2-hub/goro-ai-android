@@ -10,5 +10,5 @@ public final class ConversationTurnMachine {
  public ConversationState idle(){return move(ConversationState.IDLE);}
  public ConversationState error(){return move(ConversationState.ERROR);}
  private ConversationState move(ConversationState next){state=next;return state;}
- public boolean acceptsSpeech(){return state==ConversationState.LISTENING||state==ConversationState.SPEAKING;}
+ public boolean acceptsSpeech(){return state==ConversationState.LISTENING||state==ConversationState.SPEAKING||state==ConversationState.INTERRUPTED;}
 }
