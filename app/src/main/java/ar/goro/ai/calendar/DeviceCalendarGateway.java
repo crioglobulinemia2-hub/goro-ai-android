@@ -36,11 +36,16 @@ public final class DeviceCalendarGateway implements CalendarGateway {
    try{
     long begin=millis(min),end=millis(max);
     if(begin>=end)throw new IllegalArgumentException("Rango de agenda inválido.");
-    String[] cols={CalendarContract.Instances.EVENT_ID,CalendarContract.Instances.TITLE,CalendarContract.Instances.BEGIN,CalendarContract.Instances.END,CalendarContract.Instances.EVENT_TIMEZONE,CalendarContract.Instances.DESCRIPTION,CalendarContract.Instances.ACCOUNT_TYPE};
+    java.util.Set<Long> googleCalendarIds=new java.util.HashSet<>();
+    String[] calendarsProjection={CalendarContract.Calendars._ID};
+    try(Cursor calendars=context.getContentResolver().query(CalendarContract.Calendars.CONTENT_URI,calendarsProjection,CalendarContract.Calendars.ACCOUNT_TYPE+"=? AND "+CalendarContract.Calendars.VISIBLE+"=1 AND "+CalendarContract.Calendars.SYNC_EVENTS+"=1",new String[]{"com.google"},null)){
+      if(calendars!=null)while(calendars.moveToNext())googleCalendarIds.add(calendars.getLong(0));
+    }
+    String[] cols={CalendarContract.Instances.EVENT_ID,CalendarContract.Instances.TITLE,CalendarContract.Instances.BEGIN,CalendarContract.Instances.END,CalendarContract.Instances.EVENT_TIMEZONE,CalendarContract.Instances.DESCRIPTION,CalendarContract.Instances.CALENDAR_ID};
     try(Cursor c=CalendarContract.Instances.query(context.getContentResolver(),cols,begin,end)){
      if(c!=null)while(c.moveToNext()){
-      String accountType=c.getString(6),title=c.getString(1);
-      if(!"com.google".equals(accountType)||title==null||title.trim().isEmpty())continue;
+      String title=c.getString(1);
+      if(!googleCalendarIds.contains(c.getLong(6))||title==null||title.trim().isEmpty())continue;
       if(query!=null&&!query.trim().isEmpty()&&!title.toLowerCase(java.util.Locale.ROOT).contains(query.trim().toLowerCase(java.util.Locale.ROOT)))continue;
       String timezone=c.getString(4),desc=c.getString(5);
       ZoneId z;
