@@ -20,7 +20,7 @@ public final class DeviceCalendarGateway implements CalendarGateway {
  private final Context context;private final ExecutorService io=Executors.newSingleThreadExecutor();private final Handler main=new Handler(Looper.getMainLooper());
  private final android.content.SharedPreferences prefs;
  public DeviceCalendarGateway(Context c){context=c.getApplicationContext();prefs=context.getSharedPreferences("goro_calendar_link",Context.MODE_PRIVATE);}
- public void setSelectedGoogleAccount(String email){if(email==null||!email.toLowerCase(java.util.Locale.ROOT).matches("[^@\\s]+@gmail\\.com|[^@\\s]+@googlemail\\.com"))throw new IllegalArgumentException("Elegí una cuenta Gmail válida.");prefs.edit().putString("account_name",email.trim()).putString("account_type","com.google").apply();}
+ public void setSelectedGoogleAccount(String email){if(email==null||!email.trim().contains("@"))throw new IllegalArgumentException("Elegí una cuenta Google válida.");prefs.edit().putString("account_name",email.trim()).putString("account_type","com.google").apply();}
  public String selectedGoogleAccount(){return prefs.getString("account_name",null);}
  public void unlinkGoogleAccount(){prefs.edit().clear().apply();}
  private java.util.Set<Long> selectedCalendarIds(boolean writable){
