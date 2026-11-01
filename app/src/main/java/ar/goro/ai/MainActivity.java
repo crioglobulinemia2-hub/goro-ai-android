@@ -210,9 +210,6 @@ public class MainActivity extends Activity {
       say("Todavía no tengo conexión a Nemotron. No ejecuté ninguna acción.");
     }
   }
-  @Override protected void onActivityResult(int request,int result,Intent data){super.onActivityResult(request,result,data);if(request==GOOGLE_AUTH_REQUEST){if(result==RESULT_OK&&googleOAuth!=null)googleOAuth.handleAuthorizationResult(data,(ok,error)->say(ok?"Google Calendar quedó autorizado.": "No se pudo autorizar Google Calendar: "+error));else say("Autorización de Google Calendar cancelada.");return;}
-    if(request==VOICE_REQUEST && result==RESULT_OK && data!=null){ArrayList<String> words=data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);if(words!=null&&!words.isEmpty()){command.setText(words.get(0));runCommand(words.get(0));}}
-  }
   @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results){super.onRequestPermissionsResult(request,permissions,results);if(request==41&&results.length>0&&results[0]==PackageManager.PERMISSION_GRANTED){voiceActive=true;voiceSession.start();}}
   @Override protected void onDestroy(){if(calendarGateway!=null)calendarGateway.close();if(googleOAuth!=null)googleOAuth.close();if(voiceSession!=null)voiceSession.destroy();if(tts!=null){tts.stop();tts.shutdown();}super.onDestroy();}
 }
