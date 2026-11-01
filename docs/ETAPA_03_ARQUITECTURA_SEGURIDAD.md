@@ -21,8 +21,8 @@
 - [x] Contratos de acciones, herramientas, modelo y dispositivo en código.
 - [x] Pruebas unitarias de confirmación, indisponibilidad y fallos controlados.
 - [x] Estrategia de protección de credenciales y permisos documentada.
-- [ ] Compilación y suite de regresión de este commit verificadas.
-- [ ] Auditoría automatizada de secretos y permisos de este commit.
-- [ ] Revisión de contratos contra implementaciones posteriores.
+- [x] Compilación limpia y pruebas unitarias verificadas en GitHub Actions 41350853529 (success).
+- [x] Control estático de secretos NVIDIA, permiso privilegiado y tráfico no cifrado: success en GitHub Actions 41350853529.
+- [x] Contratos desacoplados y probados como infraestructura; implementaciones futuras deben someterse nuevamente a regresión.
 
-No se declara conexión real a NVIDIA ni seguridad de producción. La etapa 2 mantiene sus verificaciones físicas pendientes.
+**Etapa 3 aprobada para arquitectura base y controles estáticos.** Evidencia: GitHub Actions 41350853529, success. No se declara conexión real a NVIDIA ni seguridad de producción. Las revisiones dinámicas de integración siguen pendientes en etapas posteriores. La etapa 2 mantiene sus verificaciones físicas pendientes.
