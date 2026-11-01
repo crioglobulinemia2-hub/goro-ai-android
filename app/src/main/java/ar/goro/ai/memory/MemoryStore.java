@@ -1,6 +1,7 @@
 package ar.goro.ai.memory;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
@@ -42,4 +43,17 @@ public final class MemoryStore extends SQLiteOpenHelper {
  }
  public int clearAll(){return getWritableDatabase().delete("memories",null,null);}
  public int count(){try(Cursor c=getReadableDatabase().rawQuery("SELECT COUNT(*) FROM memories",null)){return c.moveToFirst()?c.getInt(0):0;}}
+ /** One-time migration from the first prototype SharedPreferences store. */
+ public int migrateLegacy(SharedPreferences legacy){
+  if(legacy==null||legacy.getBoolean("sqlite_migrated",false))return 0;
+  int imported=0; SQLiteDatabase db=getWritableDatabase(); db.beginTransaction();
+  try{
+   int n=legacy.getInt("next",0); long now=System.currentTimeMillis();
+   for(int i=0;i<n;i++){String value=legacy.getString("fact_"+i,null);if(value==null||value.trim().isEmpty())continue;
+    ContentValues v=new ContentValues();v.put("category","general");v.put("content",value.trim());v.put("created_at",now);v.put("updated_at",now);db.insertOrThrow("memories",null,v);imported++;
+   }
+   db.setTransactionSuccessful();
+  } finally {db.endTransaction();}
+  legacy.edit().putBoolean("sqlite_migrated",true).apply(); return imported;
+ }
 }
