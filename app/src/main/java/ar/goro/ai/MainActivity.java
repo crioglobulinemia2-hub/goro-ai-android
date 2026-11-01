@@ -82,9 +82,9 @@ public class MainActivity extends Activity {
       if(voiceReady) {
         tts.setLanguage(new Locale("es","AR"));
         tts.setOnUtteranceProgressListener(new UtteranceProgressListener(){
-          public void onStart(String id){}
-          public void onDone(String id){runOnUiThread(()->{if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();});}
-          public void onError(String id){runOnUiThread(()->{if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();});}
+          public void onStart(String id){runOnUiThread(()->{if(state!=null)state.setText("GORO · Hablando");});}
+          public void onDone(String id){runOnUiThread(()->{if(state!=null)state.setText(voiceActive?"GORO · Escuchando":"GORO · Listo");if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();});}
+          public void onError(String id){runOnUiThread(()->{if(state!=null)state.setText("GORO · Voz no disponible");if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();});}
         });
       }
     });
@@ -145,6 +145,7 @@ public class MainActivity extends Activity {
   }
   private void say(String message) {
     output.setText(message);
+    if(state!=null)state.setText(voiceReady?"GORO · Respondiendo":"GORO · Listo");
     if(voiceReady) { if(voiceSession!=null)voiceSession.pauseForResponse(); tts.speak(message,TextToSpeech.QUEUE_FLUSH,null,"goro_reply"); }
     else if(voiceSession!=null)voiceSession.resumeAfterResponse();
   }
@@ -257,7 +258,7 @@ public class MainActivity extends Activity {
   private void requestCalendarPermissions(){if(checkSelfPermission(Manifest.permission.READ_CALENDAR)!=PackageManager.PERMISSION_GRANTED||checkSelfPermission(Manifest.permission.WRITE_CALENDAR)!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{Manifest.permission.READ_CALENDAR,Manifest.permission.WRITE_CALENDAR},CALENDAR_PERMISSION_REQUEST);else say("Google Calendar vinculado a "+calendarGateway.selectedGoogleAccount()+".");}
   private void requestWeatherLocation(boolean forecast){pendingWeatherForecast=forecast;if(locationProvider.hasPermission()){if(forecast)showForecastHere();else showWeatherHere();return;}requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION},LOCATION_PERMISSION_REQUEST);}
   private void showWeatherHere(){say("Obteniendo tu ubicación GPS para consultar el clima.");locationProvider.current((location,error)->{if(error!=null||location==null){say(error==null?"No pude determinar tu ubicación.":error);return;}weatherService.current(location.getLatitude(),location.getLongitude(),(weather,problem)->{if(problem!=null||weather==null){say(problem==null?"Clima no disponible.":problem);return;}String report="En tu ubicación actual: "+Math.round(weather.temperature)+" "+weather.temperatureUnit+", viento "+Math.round(weather.wind)+" "+weather.windUnit+". "+weatherDescription(weather.code)+".";if(dashboard!=null)dashboard.showWeather(report);say(report);});});}
-  private void showForecastHere(){say("Obteniendo tu ubicación GPS para preparar el pronóstico.");locationProvider.current((location,error)->{if(error!=null||location==null){say(error==null?"No pude determinar tu ubicación.":error);return;}weatherService.forecast(location.getLatitude(),location.getLongitude(),3,(days,problem)->{if(problem!=null||days==null){say(problem==null?"Pronóstico no disponible.":problem);return;}StringBuilder b=new StringBuilder("Pronóstico de tres días para tu ubicación: ");for(WeatherService.ForecastDay d:days)b.append(d.date).append(", mínima ").append(Math.round(d.min)).append(" y máxima ").append(Math.round(d.max)).append(" grados, probabilidad de lluvia ").append(d.precipitationChance).append(" por ciento. ");say(b.toString());});});}
+  private void showForecastHere(){say("Obteniendo tu ubicación GPS para preparar el pronóstico.");locationProvider.current((location,error)->{if(error!=null||location==null){say(error==null?"No pude determinar tu ubicación.":error);return;}weatherService.forecast(location.getLatitude(),location.getLongitude(),3,(days,problem)->{if(problem!=null||days==null){if(dashboard!=null)dashboard.showWeather(problem==null?"Pronóstico no disponible.":problem);say(problem==null?"Pronóstico no disponible.":problem);return;}StringBuilder b=new StringBuilder("Pronóstico de tres días para tu ubicación: ");for(WeatherService.ForecastDay d:days)b.append(d.date).append(", mínima ").append(Math.round(d.min)).append(" y máxima ").append(Math.round(d.max)).append(" grados, probabilidad de lluvia ").append(d.precipitationChance).append(" por ciento. ");if(dashboard!=null)dashboard.showWeather(b.toString());say(b.toString());});});}
   private void showWeather(String place){
     if(weatherService==null){say("El servicio meteorológico no está disponible.");return;}
     say("Buscando el clima de "+place+".");
@@ -269,13 +270,13 @@ public class MainActivity extends Activity {
       WeatherService.Place chosen=selected;
       weatherService.current(chosen.latitude,chosen.longitude,(weather,problem)->{
         if(problem!=null||weather==null){say(problem==null?"Clima no disponible.":problem);return;}
-        say("En "+chosen.name+", "+chosen.country+": "+Math.round(weather.temperature)+" grados, viento "+Math.round(weather.wind)+" kilómetros por hora. "+weatherDescription(weather.code)+".");
+        String report="En "+chosen.name+", "+chosen.country+": "+Math.round(weather.temperature)+" grados, viento "+Math.round(weather.wind)+" kilómetros por hora. "+weatherDescription(weather.code)+".";if(dashboard!=null)dashboard.showWeather(report);say(report);
       });
     });
   }
   private void showForecast(String place){
     if(weatherService==null){say("El servicio meteorológico no está disponible.");return;}
-    say("Buscando el pronóstico de "+place+".");weatherService.geocode(place,(places,error)->{if(error!=null||places==null||places.isEmpty()){say(error==null?"No encontré esa localidad.":error);return;}WeatherService.Place chosen=null;for(WeatherService.Place p:places)if("Argentina".equalsIgnoreCase(p.country)){chosen=p;break;}if(chosen==null)chosen=places.get(0);WeatherService.Place selected=chosen;weatherService.forecast(selected.latitude,selected.longitude,3,(days,problem)->{if(problem!=null||days==null){say(problem==null?"Pronóstico no disponible.":problem);return;}StringBuilder b=new StringBuilder("Pronóstico para ").append(selected.name).append(": ");for(WeatherService.ForecastDay d:days)b.append(d.date).append(", mínima ").append(Math.round(d.min)).append(" y máxima ").append(Math.round(d.max)).append(" grados, probabilidad de lluvia ").append(d.precipitationChance).append(" por ciento. ");say(b.toString());});});
+    say("Buscando el pronóstico de "+place+".");weatherService.geocode(place,(places,error)->{if(error!=null||places==null||places.isEmpty()){say(error==null?"No encontré esa localidad.":error);return;}WeatherService.Place chosen=null;for(WeatherService.Place p:places)if("Argentina".equalsIgnoreCase(p.country)){chosen=p;break;}if(chosen==null)chosen=places.get(0);WeatherService.Place selected=chosen;weatherService.forecast(selected.latitude,selected.longitude,3,(days,problem)->{if(problem!=null||days==null){say(problem==null?"Pronóstico no disponible.":problem);return;}StringBuilder b=new StringBuilder("Pronóstico para ").append(selected.name).append(": ");for(WeatherService.ForecastDay d:days)b.append(d.date).append(", mínima ").append(Math.round(d.min)).append(" y máxima ").append(Math.round(d.max)).append(" grados, probabilidad de lluvia ").append(d.precipitationChance).append(" por ciento. ");if(dashboard!=null)dashboard.showWeather(b.toString());say(b.toString());});});
   }
   private String weatherDescription(int code){
     if(code==0)return "cielo despejado";if(code<=3)return "parcialmente nublado";if(code==45||code==48)return "niebla";if(code>=51&&code<=67)return "llovizna o lluvia";if(code>=71&&code<=77)return "nieve";if(code>=80&&code<=82)return "chaparrones";if(code>=95)return "tormenta";return "condiciones variables";
@@ -288,8 +289,8 @@ public class MainActivity extends Activity {
     String min=startDate.atStartOfDay(zone).toOffsetDateTime().toString();String max=endDate.atStartOfDay(zone).toOffsetDateTime().toString();
     say("Consultando tu calendario.");
     calendarGateway.list("",min,max,(events,error)->{
-      if(error!=null||events==null){say(error==null?"No pude consultar Google Calendar.":error);return;}
-      if(events.isEmpty()){say("No tenés eventos en ese período.");return;}
+      if(error!=null||events==null){if(dashboard!=null)dashboard.showAgenda(error==null?"No pude consultar la agenda.":error);say(error==null?"No pude consultar Google Calendar.":error);return;}
+      if(events.isEmpty()){if(dashboard!=null)dashboard.showAgenda("No hay eventos en ese período.");lastCalendarEvents.clear();say("No tenés eventos en ese período.");return;}
       lastCalendarEvents.clear();lastCalendarEvents.addAll(events);if(dashboard!=null){StringBuilder overview=new StringBuilder();for(CalendarEvent e:events)overview.append(e.title).append(" · ").append(e.start).append("\n");dashboard.showAgenda(overview.toString());}
       StringBuilder b=new StringBuilder("Tenés ").append(events.size()).append(" eventos: ");
       for(int i=0;i<events.size();i++){CalendarEvent e=events.get(i);b.append("Número ").append(i+1).append(": ").append(e.title).append(", ").append(e.start).append(". ");}
