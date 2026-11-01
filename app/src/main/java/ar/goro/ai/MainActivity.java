@@ -266,7 +266,7 @@ public class MainActivity extends Activity {
     if(code==0)return "cielo despejado";if(code<=3)return "parcialmente nublado";if(code==45||code==48)return "niebla";if(code>=51&&code<=67)return "llovizna o lluvia";if(code>=71&&code<=77)return "nieve";if(code>=80&&code<=82)return "chaparrones";if(code>=95)return "tormenta";return "condiciones variables";
   }
   private void showCalendar(String commandText){
-    if(calendarGateway==null){say("Google Calendar todavía no está configurado.");return;}
+    if(calendarGateway==null){say("El calendario del dispositivo no está disponible.");return;}if(calendarGateway.selectedGoogleAccount()==null){say("Primero vinculá la cuenta Gmail que querés usar con GORO.");return;}
     ZoneId zone=ZoneId.systemDefault();LocalDate today=LocalDate.now(zone);LocalDate startDate;
     if(commandText.contains("semana")){startDate=today.with(java.time.DayOfWeek.MONDAY);}else if(commandText.contains("mañana")){startDate=today.plusDays(1);}else{startDate=today;}
     LocalDate endDate=commandText.contains("semana")?startDate.plusDays(7):startDate.plusDays(1);
