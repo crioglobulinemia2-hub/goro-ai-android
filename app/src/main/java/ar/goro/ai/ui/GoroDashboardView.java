@@ -166,10 +166,14 @@ public final class GoroDashboardView extends LinearLayout {
   LinearLayout weatherCard=card("CLIMA LOCAL",weatherValue);
   tools.addView(weatherCard,cardParams());
   tools.addView(button("Consultar GPS",()->actions.onWeather(),false),new LinearLayout.LayoutParams(-1,dp(46)));
+  tools.addView(button("Pronóstico · 3 días",()->actions.onForecast(),false),new LinearLayout.LayoutParams(-1,dp(46)));
   LinearLayout agendaCard=card("AGENDA DE HOY",agendaValue);
   tools.addView(agendaCard,cardParams());
   accountLabel=text(account==null?"Cuenta Google: sin vincular":"Cuenta: "+account,12,false,palette.muted);
   tools.addView(accountLabel,new LinearLayout.LayoutParams(-1,dp(42)));
+  tools.addView(button("Vincular / cambiar Gmail",()->actions.onLinkAccount(),false),new LinearLayout.LayoutParams(-1,dp(44)));
+  tools.addView(button("Autorizar Google Calendar",()->actions.onCalendarPermission(),false),new LinearLayout.LayoutParams(-1,dp(44)));
+  tools.addView(button("Desvincular cuenta",()->actions.onUnlinkAccount(),false),new LinearLayout.LayoutParams(-1,dp(44)));
   tools.addView(button("Consultar agenda",()->actions.onCommand("agenda hoy"),false),new LinearLayout.LayoutParams(-1,dp(46)));
   tools.addView(card("DISPOSITIVOS",devicesValue),cardParams());
   tools.addView(button("Inspeccionar ZNP Z02/N02",()->actions.onBleScan(),false),new LinearLayout.LayoutParams(-1,dp(46)));
