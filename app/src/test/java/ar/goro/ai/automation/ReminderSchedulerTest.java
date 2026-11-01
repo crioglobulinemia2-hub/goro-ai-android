@@ -23,5 +23,5 @@ public class ReminderSchedulerTest {
   assertEquals(1,work.size());assertEquals(WorkInfo.State.ENQUEUED,work.get(0).getState());
  }
  @Test(expected=IllegalArgumentException.class) public void rejectsTooFrequentRecurringReminder(){scheduler.recurring("test","Title","Body",10,TimeUnit.MINUTES);}
- @Test public void recurringReminderRequiresFifteenMinutes(){scheduler.recurring("weekly","Resumen","Body",15,TimeUnit.MINUTES);assertFalse(WorkManager.getInstance(context).getWorkInfosForUniqueWork("goro-periodic-weekly").get().isEmpty());}
+ @Test public void recurringReminderRequiresFifteenMinutes()throws Exception{scheduler.recurring("weekly","Resumen","Body",15,TimeUnit.MINUTES);assertFalse(WorkManager.getInstance(context).getWorkInfosForUniqueWork("goro-periodic-weekly").get().isEmpty());}
 }
