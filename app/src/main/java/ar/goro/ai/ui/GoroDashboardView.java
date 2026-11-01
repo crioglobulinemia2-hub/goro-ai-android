@@ -35,6 +35,7 @@ public final class GoroDashboardView extends LinearLayout {
   void onWeather();
   void onForecast();
   void onReminders();
+  void onBleScan();
  }
  public final TextView output;
  public final TextView state;
@@ -171,6 +172,7 @@ public final class GoroDashboardView extends LinearLayout {
   tools.addView(accountLabel,new LinearLayout.LayoutParams(-1,dp(42)));
   tools.addView(button("Consultar agenda",()->actions.onCommand("agenda hoy"),false),new LinearLayout.LayoutParams(-1,dp(46)));
   tools.addView(card("DISPOSITIVOS",devicesValue),cardParams());
+  tools.addView(button("Inspeccionar ZNP Z02/N02",()->actions.onBleScan(),false),new LinearLayout.LayoutParams(-1,dp(46)));
   TextView warning=text("Datos y conexión: solo estados verificados",12,false,palette.muted);
   tools.addView(warning);
 
