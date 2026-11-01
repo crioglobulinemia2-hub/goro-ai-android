@@ -2,6 +2,7 @@
   <uses-permission android:name="android.permission.INTERNET"/>
   <uses-permission android:name="android.permission.RECORD_AUDIO"/>
   <uses-permission android:name="com.android.alarm.permission.SET_ALARM"/>
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
   <queries><intent><action android:name="android.speech.RecognitionService"/></intent></queries>
   <application android:label="GORO AI" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:usesCleartextTraffic="false">
     <activity android:name=".MainActivity" android:exported="true">
