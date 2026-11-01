@@ -121,6 +121,11 @@ GORO AI");avatar.setTextSize(30);avatar.setGravity(Gravity.CENTER);
   }
   @Override protected void onActivityResult(int request,int result,Intent data) {
     super.onActivityResult(request,result,data);
+    if(request==GOOGLE_AUTH_REQUEST){
+      if(result==RESULT_OK&&googleOAuth!=null)googleOAuth.handleAuthorizationResult(data,(ok,error)->say(ok?"Google Calendar quedó autorizado.":"No se pudo autorizar Google Calendar: "+error));
+      else say("Autorización de Google Calendar cancelada.");
+      return;
+    }
     state.setText("Asistente de voz • Android");
     if(request==VOICE_REQUEST && result==RESULT_OK && data!=null){
       ArrayList<String> words=data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
