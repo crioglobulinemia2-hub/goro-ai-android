@@ -8,6 +8,17 @@ public final class AssistantCommandParser {
  public static final class Alarm { public final int hour,minute; Alarm(int h,int m){hour=h;minute=m;} }
  public static final class Timer { public final int seconds; Timer(int s){seconds=s;} }
  private AssistantCommandParser(){}
+ /** Display/list intents must take precedence over create-alarm/create-timer commands. */
+ public static boolean requestsAlarmList(String input){
+  if(input==null)return false;
+  String s=input.toLowerCase(new Locale("es","AR"));
+  return s.contains("mostrame las alarmas")||s.contains("mostrá las alarmas")||s.contains("ver alarmas");
+ }
+ public static boolean requestsTimerList(String input){
+  if(input==null)return false;
+  String s=input.toLowerCase(new Locale("es","AR"));
+  return s.contains("mostrame los temporizadores")||s.contains("mostrá los temporizadores")||s.contains("ver temporizadores");
+ }
  public static Alarm alarm(String input){
   if(input==null)return null;String s=input.toLowerCase(new Locale("es","AR"));
   Matcher m=Pattern.compile("(?:a las |para las |las )(\\d{1,2})(?:[:.](\\d{2}))?").matcher(s);
