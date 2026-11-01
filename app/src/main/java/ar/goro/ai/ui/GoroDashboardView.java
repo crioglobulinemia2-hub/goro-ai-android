@@ -123,12 +123,12 @@ public final class GoroDashboardView extends LinearLayout {
   sectionValue=text("Inicio · Panel personal",15,true,palette.text);
   hero.addView(sectionValue,new LinearLayout.LayoutParams(-1,dp(30)));
 
-  state=text("GORO · Disponible",15,true,palette.accentSecondary);
+  state=text("GORO · Servicios locales",15,true,palette.accentSecondary);
   LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(-1,dp(34));
   sp.setMargins(dp(12),dp(2),dp(8),0);
   mainColumn.addView(state,sp);
 
-  output=text("Decime qué necesitás. Las tarjetas se completan con datos reales.",16,false,palette.text);
+  output=text("Las funciones locales están disponibles. NVIDIA remoto y el avatar 3D todavía no están conectados.",16,false,palette.text);
   output.setPadding(dp(14),dp(12),dp(14),dp(12));
   output.setBackground(gradient(palette.surface,palette.surfaceElevated,dp(15)));
   LinearLayout.LayoutParams op=new LinearLayout.LayoutParams(-1,-2);
@@ -173,9 +173,9 @@ public final class GoroDashboardView extends LinearLayout {
   tools.addView(button("Pronóstico · 3 días",()->actions.onForecast(),false),new LinearLayout.LayoutParams(-1,dp(46)));
   LinearLayout agendaCard=card("AGENDA DE HOY",agendaValue);
   tools.addView(agendaCard,cardParams());
-  accountLabel=text(account==null?"Cuenta Google: sin vincular":"Cuenta: "+account,12,false,palette.muted);
+  accountLabel=text(account==null?"Google Calendar: sin vincular":"Calendar · "+account,12,false,palette.muted);
   tools.addView(accountLabel,new LinearLayout.LayoutParams(-1,dp(42)));
-  tools.addView(button("Vincular / cambiar Gmail",()->actions.onLinkAccount(),false),new LinearLayout.LayoutParams(-1,dp(44)));
+  tools.addView(button("Vincular cuenta Google",()->actions.onLinkAccount(),false),new LinearLayout.LayoutParams(-1,dp(44)));
   tools.addView(button("Autorizar Google Calendar",()->actions.onCalendarPermission(),false),new LinearLayout.LayoutParams(-1,dp(44)));
   tools.addView(button("Desvincular cuenta",()->actions.onUnlinkAccount(),false),new LinearLayout.LayoutParams(-1,dp(44)));
   tools.addView(button("Consultar agenda",()->actions.onCommand("agenda hoy"),false),new LinearLayout.LayoutParams(-1,dp(46)));
