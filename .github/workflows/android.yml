@@ -62,6 +62,14 @@ jobs:
             assert 'AndroidManifest.xml' in z.namelist()
           print('Manifest, permissions, APK ZIP integrity: PASS')
           PY
+      - name: Check 12-of-12 release readiness without claiming completion
+        if: always()
+        run: python3 scripts/release_gate.py --report build/goro-release-readiness.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: GoroAI-release-readiness
+          path: build/goro-release-readiness.json
       - uses: actions/upload-artifact@v4
         with:
           name: GoroAI-debug-apk
