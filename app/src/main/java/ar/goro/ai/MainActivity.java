@@ -210,6 +210,14 @@ public class MainActivity extends Activity {
       String title=reminder.group(3).trim();if(title.isEmpty()){say("Falta el contenido del recordatorio.");return;}
       try{String id=java.util.UUID.randomUUID().toString();reminderScheduler.once(id,"GORO AI: "+title,"Recordatorio programado",seconds,TimeUnit.SECONDS);say("Programé el recordatorio para dentro de "+amount+" "+unit+".");}
       catch(Exception e){say("No pude programar el recordatorio.");}
+    } else if(AssistantCommandParser.requestsAlarmList(text)) {
+      Intent show=AlarmClockIntents.showAlarms();
+      try{startActivity(show);say("Abrí la lista de alarmas del teléfono.");}
+      catch(Exception e){say("El reloj del teléfono no permite mostrar las alarmas.");}
+    } else if(AssistantCommandParser.requestsTimerList(text)) {
+      Intent show=AlarmClockIntents.showTimers();
+      try{startActivity(show);say("Abrí la lista de temporizadores del teléfono.");}
+      catch(Exception e){say("El reloj del teléfono no permite mostrar los temporizadores.");}
     } else if(text.contains("alarma") || text.contains("despert")) {
       AssistantCommandParser.Alarm parsed=AssistantCommandParser.alarm(text);
       if(parsed==null){say("Decime una hora válida, por ejemplo siete y treinta usando 07:30.");return;}
@@ -222,14 +230,6 @@ public class MainActivity extends Activity {
       Intent timer=AlarmClockIntents.setTimer(parsed);
       try {startActivity(timer);say("Abrí el reloj para configurar el temporizador de "+parsed.seconds+" segundos. Confirmá que haya comenzado.");}
       catch(Exception e){say("No pude abrir el temporizador del teléfono.");}
-    } else if(text.contains("mostrame las alarmas") || text.contains("mostrá las alarmas") || text.contains("ver alarmas")) {
-      Intent show=AlarmClockIntents.showAlarms();
-      try{startActivity(show);say("Abrí la lista de alarmas del teléfono.");}
-      catch(Exception e){say("El reloj del teléfono no permite mostrar las alarmas.");}
-    } else if(text.contains("mostrame los temporizadores") || text.contains("mostrá los temporizadores") || text.contains("ver temporizadores")) {
-      Intent show=AlarmClockIntents.showTimers();
-      try{startActivity(show);say("Abrí la lista de temporizadores del teléfono.");}
-      catch(Exception e){say("El reloj del teléfono no permite mostrar los temporizadores.");}
     } else if(text.contains("hora")) {
       say("Son las "+new java.text.SimpleDateFormat("HH:mm",Locale.getDefault()).format(new Date()));
     } else if(text.matches("\\s*-?\\d+(?:[.,]\\d+)?\\s*[+*/-]\\s*-?\\d+(?:[.,]\\d+)?\\s*")) {
