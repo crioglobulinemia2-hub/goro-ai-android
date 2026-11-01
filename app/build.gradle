@@ -1,11 +1,7 @@
 plugins { id 'com.android.application' }
 
-def googleClientId = project.findProperty('GOOGLE_OAUTH_CLIENT_ID') ?: ''
-def googleRedirectScheme = project.findProperty('GOOGLE_OAUTH_REDIRECT_SCHEME') ?: (googleClientId.endsWith('.apps.googleusercontent.com') ? 'com.googleusercontent.apps.' + googleClientId.substring(0, googleClientId.indexOf('.apps.googleusercontent.com')) : 'ar.goro.ai')
-
 android {
     namespace 'ar.goro.ai'
-    buildFeatures { buildConfig true }
     compileSdk 35
     defaultConfig {
         applicationId 'ar.goro.ai'
@@ -13,8 +9,6 @@ android {
         targetSdk 35
         versionCode 1
         versionName '0.1.0'
-        buildConfigField 'String', 'GOOGLE_OAUTH_CLIENT_ID', '"' + googleClientId + '"'
-        manifestPlaceholders = [appAuthRedirectScheme: googleRedirectScheme]
     }
 }
 
@@ -23,8 +17,6 @@ dependencies {
     testImplementation 'org.robolectric:robolectric:4.14.1'
     implementation 'androidx.work:work-runtime:2.10.1'
     implementation 'androidx.core:core:1.15.0'
-    implementation 'net.openid:appauth:0.11.1'
-    implementation 'androidx.security:security-crypto:1.1.0-alpha06'
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
     testImplementation 'com.squareup.okhttp3:mockwebserver:4.12.0'
     testImplementation 'androidx.work:work-testing:2.10.1'
