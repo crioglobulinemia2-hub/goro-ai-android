@@ -161,6 +161,7 @@ public class MainActivity extends Activity {
     if(text.equals("clima")||text.equals("clima ahora")||text.equals("clima actual")||text.equals("qué clima hace")||text.equals("que clima hace")||text.equals("tiempo")||text.equals("temperatura")||text.equals("clima de acá")||text.equals("clima de aca")){requestWeatherLocation(false);return;}
     if(text.equals("pronóstico")||text.equals("pronostico")||text.equals("pronóstico de tres días")||text.equals("pronostico de tres dias")){requestWeatherLocation(true);return;}
     if(text.equals("cancelar")||text.equals("cancelá")){pendingCalendarEvent=null;pendingCalendarDeleteId=null;say("Operación de agenda cancelada.");return;}
+    if(text.startsWith("cancelá recordatorio recurrente ")||text.startsWith("cancela recordatorio recurrente ")){String label=raw.substring(raw.toLowerCase(new Locale("es","AR")).indexOf("recurrente ")+11).trim();String key="repeat-"+Integer.toHexString(label.toLowerCase(Locale.ROOT).hashCode());reminderScheduler.cancel(key);say("Cancelé el recordatorio recurrente "+label+".");return;}
     if(text.startsWith("pronóstico en ")||text.startsWith("pronostico en ")){showForecast(raw.substring(raw.toLowerCase(new Locale("es","AR")).indexOf(" en ")+4).trim());return;}
     if(text.startsWith("clima en ")||text.startsWith("qué clima hace en ")||text.startsWith("que clima hace en ")){showWeather(raw.substring(raw.toLowerCase(new Locale("es","AR")).indexOf(" en ")+4).trim());return;}
     if(text.matches(".*(agenda|calendario|eventos).*(hoy|mañana|semana).*")||text.matches(".*(qué tengo|que tengo|mis eventos).*(hoy|mañana).*")){showCalendar(text);return;}
@@ -195,6 +196,16 @@ public class MainActivity extends Activity {
     } else if(text.contains("borrá todos los recuerdos") || text.contains("borra todos los recuerdos")) {
       try{int deleted=memoryStore.clearAll();say("Eliminé "+deleted+" recuerdos locales.");}
       catch(Exception e){say("No pude eliminar la memoria.");}
+    } else if(text.startsWith("recordame cada ") || text.startsWith("recordáme cada ") || text.startsWith("recuérdame cada ")) {
+      Matcher recurring=Pattern.compile("(?i)(?:recordame|recordáme|recuérdame) cada (\\d+) (minutos?|horas?|d[ií]as?) (?:que |para )?(.+)").matcher(raw);
+      if(!recurring.matches()){say("Decime: recordame cada 2 horas que tengo que revisar el correo.");return;}
+      long amount;try{amount=Long.parseLong(recurring.group(1));}catch(Exception e){say("Intervalo inválido.");return;}
+      String unitText=recurring.group(2).toLowerCase(Locale.ROOT);TimeUnit unit=unitText.startsWith("min")?TimeUnit.MINUTES:unitText.startsWith("hora")?TimeUnit.HOURS:TimeUnit.DAYS;
+      String title=recurring.group(3).trim();if(title.isEmpty()){say("Falta el contenido del recordatorio.");return;}
+      if(Build.VERSION.SDK_INT>=33&&checkSelfPermission("android.permission.POST_NOTIFICATIONS")!=PackageManager.PERMISSION_GRANTED){say("Primero activá las notificaciones con el botón Activar recordatorios.");return;}
+      String id="repeat-"+Integer.toHexString(title.toLowerCase(Locale.ROOT).hashCode());
+      try{reminderScheduler.recurring(id,"GORO AI: "+title,"Recordatorio recurrente",amount,unit);say("Programé el recordatorio recurrente cada "+amount+" "+unitText+".");}
+      catch(Exception e){say("No pude programar ese intervalo. El mínimo es 15 minutos.");}
     } else if(text.startsWith("recordame en ") || text.startsWith("recordáme en ") || text.startsWith("recuérdame en ")) {
       Matcher reminder=Pattern.compile("(?i)(?:recordame|recordáme|recuérdame) en (\\d+) (segundos?|minutos?|horas?) (?:que |para )?(.+)").matcher(raw);
       if(!reminder.matches()){say("Decime: recordame en 20 minutos que tengo que salir.");return;}
