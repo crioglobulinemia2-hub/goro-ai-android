@@ -30,18 +30,19 @@ public final class ContinuousVoiceSession implements RecognitionListener {
  private final ConversationTurnMachine machine=new ConversationTurnMachine();
  private SpeechRecognizer recognizer;
  private boolean active=false;
+ private boolean pausedForResponse=false;
  private boolean destroyed=false;
  private int retry=0;
  public ContinuousVoiceSession(Context context,Listener listener){this.context=context.getApplicationContext();this.listener=listener;}
  public boolean available(){return SpeechRecognizer.isRecognitionAvailable(context);}
  public void start(){
   if(destroyed||active||!available())return;
-  active=true;retry=0;
+  active=true;pausedForResponse=false;retry=0;
   if(recognizer==null){recognizer=SpeechRecognizer.createSpeechRecognizer(context);recognizer.setRecognitionListener(this);}
   begin();
  }
  private void begin(){
-  if(!active||destroyed||recognizer==null)return;
+  if(!active||pausedForResponse||destroyed||recognizer==null)return;
   Intent i=new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
   i.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
   i.putExtra(RecognizerIntent.EXTRA_LANGUAGE,"es-AR");
@@ -53,13 +54,14 @@ public final class ContinuousVoiceSession implements RecognitionListener {
  }
  public void pauseForResponse(){
   if(!active)return;
+  pausedForResponse=true;
   handler.removeCallbacksAndMessages(null);
   if(recognizer!=null){try{recognizer.cancel();}catch(RuntimeException ignored){}}
   machine.processing();listener.onState(machine.state());
  }
- public void resumeAfterResponse(){if(active&&!destroyed)scheduleRetry();}
+ public void resumeAfterResponse(){if(active&&!destroyed){pausedForResponse=false;retry=0;scheduleRetry();}}
  public void stop(){
-  active=false;handler.removeCallbacksAndMessages(null);
+  active=false;pausedForResponse=false;handler.removeCallbacksAndMessages(null);
   if(recognizer!=null){try{recognizer.cancel();}catch(RuntimeException ignored){}}
   machine.idle();listener.onState(machine.state());
  }
@@ -69,7 +71,7 @@ public final class ContinuousVoiceSession implements RecognitionListener {
   machine.interrupt();listener.onState(machine.state());listener.onUserSpeechStarted();
  }
  private void scheduleRetry(){
-  if(!active||destroyed)return;
+  if(!active||pausedForResponse||destroyed)return;
   long delay=Math.min(5000,350L*(1L<<Math.min(retry++,4)));
   handler.postDelayed(this::begin,delay);
  }
@@ -78,14 +80,15 @@ public final class ContinuousVoiceSession implements RecognitionListener {
  @Override public void onRmsChanged(float rmsdB){}
  @Override public void onBufferReceived(byte[] buffer){}
  @Override public void onEndOfSpeech(){if(active){machine.processing();listener.onState(machine.state());}}
- @Override public void onError(int error){if(active)scheduleRetry();}
+ @Override public void onError(int error){if(active&&!pausedForResponse)scheduleRetry();}
  @Override public void onResults(Bundle results){
-  if(!active)return;
+  if(!active||pausedForResponse)return;
   ArrayList<String> values=results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
   if(values!=null&&!values.isEmpty())listener.onFinalText(values.get(0));
   scheduleRetry();
  }
  @Override public void onPartialResults(Bundle partial){
+  if(!active||pausedForResponse)return;
   ArrayList<String> values=partial.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
   if(values!=null&&!values.isEmpty())listener.onPartialText(values.get(0));
  }
