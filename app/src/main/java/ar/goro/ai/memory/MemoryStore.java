@@ -32,6 +32,14 @@ public final class MemoryStore extends SQLiteOpenHelper {
   return getWritableDatabase().update("memories",v,"_id=?",new String[]{String.valueOf(id)})>0;
  }
  public boolean delete(long id){return getWritableDatabase().delete("memories","_id=?",new String[]{String.valueOf(id)})>0;}
+ public int deleteCategory(String category){return getWritableDatabase().delete("memories","category=?",new String[]{category});}
+ public List<MemoryRecord> search(String query,int limit){
+  List<MemoryRecord> out=new ArrayList<>(); if(query==null||query.trim().isEmpty())return out;
+  int safe=Math.max(1,Math.min(100,limit)); String pattern="%"+query.trim()+"%";
+  try(Cursor c=getReadableDatabase().query("memories",null,"content LIKE ? OR category LIKE ?",new String[]{pattern,pattern},null,null,"updated_at DESC",String.valueOf(safe))){
+   while(c.moveToNext())out.add(new MemoryRecord(c.getLong(c.getColumnIndexOrThrow("_id")),c.getString(c.getColumnIndexOrThrow("category")),c.getString(c.getColumnIndexOrThrow("content")),c.getLong(c.getColumnIndexOrThrow("created_at")),c.getLong(c.getColumnIndexOrThrow("updated_at"))));
+  }return out;
+ }
  public int clearAll(){return getWritableDatabase().delete("memories",null,null);}
  public int count(){try(Cursor c=getReadableDatabase().rawQuery("SELECT COUNT(*) FROM memories",null)){return c.moveToFirst()?c.getInt(0):0;}}
 }
