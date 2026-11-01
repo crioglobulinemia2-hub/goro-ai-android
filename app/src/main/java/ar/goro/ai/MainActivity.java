@@ -84,9 +84,7 @@ public class MainActivity extends Activity {
     state=new TextView(this);state.setText("Asistente de voz • Android");state.setTextColor(0xff607589);
     body.addView(state);
     TextView avatar=new TextView(this);
-    avatar.setText("◉
-
-GORO AI");avatar.setTextSize(30);avatar.setGravity(Gravity.CENTER);
+    avatar.setText("◉\n\nGORO AI");avatar.setTextSize(30);avatar.setGravity(Gravity.CENTER);
     avatar.setTextColor(0xff214E73);avatar.setBackgroundColor(0xffd1e4e2);
     LinearLayout.LayoutParams avatarParams=new LinearLayout.LayoutParams(-1,300);
     avatarParams.setMargins(0,25,0,20);body.addView(avatar,avatarParams);
