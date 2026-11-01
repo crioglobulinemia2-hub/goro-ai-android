@@ -16,12 +16,18 @@ public class MemoryStoreInstrumentedTest {
   old.edit().clear().putInt("next",2).putString("fact_0","proyecto GORO").putString("fact_1","revisar ZNP").apply();
   assertEquals(2,store.migrateLegacy(old));
   assertEquals(2,store.count());
+  store.close();
+  store=new MemoryStore(c);
+  assertEquals(2,store.count());
   assertEquals(0,store.migrateLegacy(old));
   assertEquals(1,store.search("ZNP",10).size());
   MemoryRecord first=store.recent(10).get(0);
   assertTrue(store.update(first.id,"proyecto","memoria persistente"));
   assertTrue(store.delete(first.id));
   assertEquals(1,store.count());
+  assertEquals(1,store.deleteCategory("general"));
+  assertEquals(0,store.count());
+  store.add("temas","borrar todo");
   assertEquals(1,store.clearAll());
   assertEquals(0,store.count());
   store.close();c.deleteDatabase("goro_memory.db");old.edit().clear().apply();
