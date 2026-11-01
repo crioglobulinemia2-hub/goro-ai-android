@@ -10,6 +10,7 @@ import ar.goro.ai.voice.ConversationState;
 import ar.goro.ai.memory.MemoryStore;
 import ar.goro.ai.memory.MemoryRecord;
 import ar.goro.ai.tools.AssistantCommandParser;
+import ar.goro.ai.tools.AlarmClockIntents;
 import android.content.SharedPreferences;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
@@ -146,28 +147,21 @@ public class MainActivity extends Activity {
     } else if(text.contains("alarma") || text.contains("despert")) {
       AssistantCommandParser.Alarm parsed=AssistantCommandParser.alarm(text);
       if(parsed==null){say("Decime una hora válida, por ejemplo siete y treinta usando 07:30.");return;}
-      Intent alarm=new Intent(AlarmClock.ACTION_SET_ALARM);
-      alarm.putExtra(AlarmClock.EXTRA_HOUR,parsed.hour);
-      alarm.putExtra(AlarmClock.EXTRA_MINUTES,parsed.minute);
-      alarm.putExtra(AlarmClock.EXTRA_MESSAGE,"GORO AI");
-      alarm.putExtra(AlarmClock.EXTRA_SKIP_UI,false);
+      Intent alarm=AlarmClockIntents.setAlarm(parsed);
       try {startActivity(alarm);say("Abrí el reloj para configurar la alarma de "+parsed.hour+":"+String.format(Locale.ROOT,"%02d",parsed.minute)+". Confirmá el guardado en el teléfono.");}
       catch(Exception e){say("No pude abrir la aplicación de reloj.");}
     } else if(text.contains("temporizador")||text.contains("cuenta regresiva")) {
       AssistantCommandParser.Timer parsed=AssistantCommandParser.timer(text);
       if(parsed==null){say("Decime una duración válida en segundos, minutos u horas.");return;}
-      Intent timer=new Intent(AlarmClock.ACTION_SET_TIMER);
-      timer.putExtra(AlarmClock.EXTRA_LENGTH,parsed.seconds);
-      timer.putExtra(AlarmClock.EXTRA_MESSAGE,"GORO AI");
-      timer.putExtra(AlarmClock.EXTRA_SKIP_UI,false);
+      Intent timer=AlarmClockIntents.setTimer(parsed);
       try {startActivity(timer);say("Abrí el reloj para configurar el temporizador de "+parsed.seconds+" segundos. Confirmá que haya comenzado.");}
       catch(Exception e){say("No pude abrir el temporizador del teléfono.");}
     } else if(text.contains("mostrame las alarmas") || text.contains("mostrá las alarmas") || text.contains("ver alarmas")) {
-      Intent show=new Intent(AlarmClock.ACTION_SHOW_ALARMS);
+      Intent show=AlarmClockIntents.showAlarms();
       try{startActivity(show);say("Abrí la lista de alarmas del teléfono.");}
       catch(Exception e){say("El reloj del teléfono no permite mostrar las alarmas.");}
     } else if(text.contains("mostrame los temporizadores") || text.contains("mostrá los temporizadores") || text.contains("ver temporizadores")) {
-      Intent show=new Intent(AlarmClock.ACTION_SHOW_TIMERS);
+      Intent show=AlarmClockIntents.showTimers();
       try{startActivity(show);say("Abrí la lista de temporizadores del teléfono.");}
       catch(Exception e){say("El reloj del teléfono no permite mostrar los temporizadores.");}
     } else if(text.contains("hora")) {
