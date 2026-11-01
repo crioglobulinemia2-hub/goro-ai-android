@@ -18,10 +18,12 @@ public final class AssistantCommandParser {
  }
  public static Timer timer(String input){
   if(input==null)return null;String s=input.toLowerCase(new Locale("es","AR"));
-  Matcher m=Pattern.compile("(\\d+)\\s*(segundos?|seg|minutos?|min|horas?|hs?)").matcher(s);
+  Matcher m=Pattern.compile("(\\d+)\\s*(segundos?|seg|minutos?|min|horas?|hs?|h)").matcher(s);
   if(!m.find())return null;
-  long n=Long.parseLong(m.group(1));String unit=m.group(2);
-  long seconds=n*(unit.startsWith("hora")||unit.equals("hs")?3600:unit.startsWith("min")?60:1);
+  long n;try{n=Long.parseLong(m.group(1));}catch(NumberFormatException e){return null;}String unit=m.group(2);
+  long multiplier=(unit.startsWith("hora")||unit.equals("hs")||unit.equals("h"))?3600:(unit.startsWith("min")?60:1);
+  if(n>86400L/multiplier)return null;
+  long seconds=n*multiplier;
   if(seconds<1||seconds>86400)return null;
   return new Timer((int)seconds);
  }
