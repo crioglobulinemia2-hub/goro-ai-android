@@ -58,7 +58,7 @@ public final class GoroDashboardView extends LinearLayout {
   super(activity);
   this.activity=activity;this.actions=actions;
   tablet=activity.getResources().getConfiguration().smallestScreenWidthDp>=600;
-  palette=GoroTheme.of(GoroTheme.Mode.LIGHT);
+  palette=GoroTheme.of(activity.getSharedPreferences("goro_ui",Activity.MODE_PRIVATE).getBoolean("dark",false)?GoroTheme.Mode.DARK:GoroTheme.Mode.LIGHT);
   setOrientation(VERTICAL);setBackgroundColor(palette.background);
   setPadding(dp(12),dp(12),dp(12),dp(8));
 
@@ -202,10 +202,8 @@ public final class GoroDashboardView extends LinearLayout {
  public void showDeviceStatus(String value){devicesValue.setText(value==null?"Sin datos de dispositivo.":value);}
  public void setVoiceActive(boolean active){talk.setText(active?"Detener conversación":"Micrófono · Conversación continua");}
  private void toggleTheme(){
-  ui.toggleTheme();
-  GoroTheme.Mode mode=ui.theme()==GoroUiState.ThemeMode.DARK?GoroTheme.Mode.DARK:GoroTheme.Mode.LIGHT;
-  palette=GoroTheme.of(mode);
-  // Native theme is rebuilt on next Activity recreation; no fake partial skinning.
+  boolean dark=activity.getSharedPreferences("goro_ui",Activity.MODE_PRIVATE).getBoolean("dark",false);
+  activity.getSharedPreferences("goro_ui",Activity.MODE_PRIVATE).edit().putBoolean("dark",!dark).apply();
   activity.recreate();
  }
  private LinearLayout card(String heading,TextView value){
