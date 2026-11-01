@@ -64,6 +64,11 @@ def stage_checks():
                                    ["authenticated_proxy", "nemotron_response", "rate_limit_test"])
     visual_ok, visual_msg = verified("visual_match.json",
                                    ["approved_reference_comparison", "light_dark_professional", "android_capture"])
+    concept_ok, concept_msg = verified("concept_e2e.json",
+                                     ["voice_dialogue", "calendar_crud", "gps_weather",
+                                      "memory_persistence", "reminders"])
+    haptic_ok, haptic_msg = verified("haptics_physical.json",
+                                    ["pressed_scale", "ripple_feedback", "haptic_motor"])
     ble_ok, ble_msg = verified("znp_hardware.json",
                              ["z02_observed", "n02_observed", "audio_confirmed", "touch_confirmed", "display_verified"])
     android_ok, android_msg = verified("android_physical.json",
@@ -82,6 +87,8 @@ def stage_checks():
       {"step": "04 NVIDIA", "ok": nvidia_ok, "reason": nvidia_msg},
       {"step": "09 3D", "ok": avatar_ok and android_ok, "reason": avatar_msg if not avatar_ok else android_msg},
       {"step": "10 Visual", "ok": visual_ok, "reason": visual_msg},
+      {"step": "10 Tactile", "ok": haptic_ok, "reason": haptic_msg},
+      {"step": "Concept E2E", "ok": concept_ok, "reason": concept_msg},
       {"step": "11 ZNP", "ok": ble_ok, "reason": ble_msg},
       {"step": "12 Pruebas físicas", "ok": android_ok, "reason": android_msg},
       {"step": "12 APK firmada", "ok": signed, "reason": "Firma APK verificada con apksigner." if signed else "APK release inexistente o firma aún no verificada."},
