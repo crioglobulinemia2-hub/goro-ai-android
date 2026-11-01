@@ -162,6 +162,14 @@ public class MainActivity extends Activity {
       timer.putExtra(AlarmClock.EXTRA_SKIP_UI,false);
       try {startActivity(timer);say("Abrí el reloj para configurar el temporizador de "+parsed.seconds+" segundos. Confirmá que haya comenzado.");}
       catch(Exception e){say("No pude abrir el temporizador del teléfono.");}
+    } else if(text.contains("mostrame las alarmas") || text.contains("mostrá las alarmas") || text.contains("ver alarmas")) {
+      Intent show=new Intent(AlarmClock.ACTION_SHOW_ALARMS);
+      try{startActivity(show);say("Abrí la lista de alarmas del teléfono.");}
+      catch(Exception e){say("El reloj del teléfono no permite mostrar las alarmas.");}
+    } else if(text.contains("mostrame los temporizadores") || text.contains("mostrá los temporizadores") || text.contains("ver temporizadores")) {
+      Intent show=new Intent(AlarmClock.ACTION_SHOW_TIMERS);
+      try{startActivity(show);say("Abrí la lista de temporizadores del teléfono.");}
+      catch(Exception e){say("El reloj del teléfono no permite mostrar los temporizadores.");}
     } else if(text.contains("hora")) {
       say("Son las "+new java.text.SimpleDateFormat("HH:mm",Locale.getDefault()).format(new Date()));
     } else if(text.matches("\\s*-?\\d+(?:[.,]\\d+)?\\s*[+*/-]\\s*-?\\d+(?:[.,]\\d+)?\\s*")) {
