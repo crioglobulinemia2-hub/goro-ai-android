@@ -18,6 +18,10 @@ import ar.goro.ai.auth.GoogleOAuthManager;
 import ar.goro.ai.auth.GoogleCalendarTokenProvider;
 import ar.goro.ai.BuildConfig;
 import ar.goro.ai.calendar.GoogleCalendarRestGateway;
+import ar.goro.ai.calendar.CalendarEvent;
+import ar.goro.ai.weather.WeatherService;
+import java.time.*;
+import java.time.format.DateTimeFormatter;
 import java.util.concurrent.TimeUnit;
 import android.content.SharedPreferences;
 import android.content.ActivityNotFoundException;
@@ -47,12 +51,16 @@ public class MainActivity extends Activity {
   private GoogleTokenStore googleTokenStore;
   private GoogleOAuthManager googleOAuth;
   private GoogleCalendarRestGateway calendarGateway;
+  private WeatherService weatherService;
+  private CalendarEvent pendingCalendarEvent;
+  private String pendingCalendarDeleteId;
   private static final int GOOGLE_AUTH_REQUEST=61;
   @Override public void onCreate(Bundle saved) {
     super.onCreate(saved);
     memory=getSharedPreferences("goro_memory",MODE_PRIVATE);
     memoryStore=new MemoryStore(this);
     reminderScheduler=new ReminderScheduler(this);
+    weatherService=new WeatherService();
     try{googleTokenStore=new GoogleTokenStore(this);String clientId=BuildConfig.GOOGLE_OAUTH_CLIENT_ID;googleOAuth=new GoogleOAuthManager(this,googleTokenStore,clientId);GoogleCalendarTokenProvider tokenProvider=new GoogleCalendarTokenProvider(this,googleTokenStore,clientId);calendarGateway=new GoogleCalendarRestGateway(tokenProvider::validAccessToken); }catch(Exception e){googleTokenStore=null;}
     memoryStore.migrateLegacy(memory);
     voiceSession=new ContinuousVoiceSession(this,new ContinuousVoiceSession.Listener(){
@@ -133,6 +141,58 @@ public class MainActivity extends Activity {
     if("ar.goro.ai.GOOGLE_AUTH_DONE".equals(intent.getAction()))googleOAuth.handleAuthorizationResult(intent,(ok,error)->say(ok?"Google Calendar quedó autorizado.":"No se pudo autorizar Google Calendar: "+error));
     else if("ar.goro.ai.GOOGLE_AUTH_CANCEL".equals(intent.getAction()))say("Autorización de Google Calendar cancelada.");
   }
+  private void showWeather(String place){
+    if(weatherService==null){say("El servicio meteorológico no está disponible.");return;}
+    say("Buscando el clima de "+place+".");
+    weatherService.geocode(place,(places,error)->{
+      if(error!=null||places==null||places.isEmpty()){say(error==null?"No encontré esa localidad.":error);return;}
+      WeatherService.Place selected=null;
+      for(WeatherService.Place p:places){if("Argentina".equalsIgnoreCase(p.country)){selected=p;break;}}
+      if(selected==null)selected=places.get(0);
+      WeatherService.Place chosen=selected;
+      weatherService.current(chosen.latitude,chosen.longitude,(weather,problem)->{
+        if(problem!=null||weather==null){say(problem==null?"Clima no disponible.":problem);return;}
+        say("En "+chosen.name+", "+chosen.country+": "+Math.round(weather.temperature)+" grados, viento "+Math.round(weather.wind)+" kilómetros por hora. "+weatherDescription(weather.code)+".");
+      });
+    });
+  }
+  private String weatherDescription(int code){
+    if(code==0)return "cielo despejado";if(code<=3)return "parcialmente nublado";if(code==45||code==48)return "niebla";if(code>=51&&code<=67)return "llovizna o lluvia";if(code>=71&&code<=77)return "nieve";if(code>=80&&code<=82)return "chaparrones";if(code>=95)return "tormenta";return "condiciones variables";
+  }
+  private void showCalendar(String commandText){
+    if(calendarGateway==null){say("Google Calendar todavía no está configurado.");return;}
+    ZoneId zone=ZoneId.systemDefault();LocalDate today=LocalDate.now(zone);LocalDate startDate;
+    if(commandText.contains("semana")){startDate=today.with(java.time.DayOfWeek.MONDAY);}else if(commandText.contains("mañana")){startDate=today.plusDays(1);}else{startDate=today;}
+    LocalDate endDate=commandText.contains("semana")?startDate.plusDays(7):startDate.plusDays(1);
+    String min=startDate.atStartOfDay(zone).toOffsetDateTime().toString();String max=endDate.atStartOfDay(zone).toOffsetDateTime().toString();
+    say("Consultando tu calendario.");
+    calendarGateway.list("",min,max,(events,error)->{
+      if(error!=null||events==null){say(error==null?"No pude consultar Google Calendar.":error);return;}
+      if(events.isEmpty()){say("No tenés eventos en ese período.");return;}
+      StringBuilder b=new StringBuilder("Tenés ").append(events.size()).append(" eventos: ");
+      for(CalendarEvent e:events){b.append(e.title).append(", ").append(e.start).append(". ");}
+      say(b.toString());
+    });
+  }
+  private void prepareCalendarEvent(String raw){
+    if(calendarGateway==null){say("Google Calendar todavía no está configurado.");return;}
+    Matcher m=Pattern.compile("(?i)^(?:agendá|agenda|creá evento|crea evento)\\s+(.+?)\\s+(hoy|mañana|el\\s+\\d{4}-\\d{2}-\\d{2})\\s+a las\\s+(\\d{1,2}):(\\d{2})(?:\\s+por\\s+(\\d+)\\s+minutos?)?$").matcher(raw.trim());
+    if(!m.matches()){say("Decime: agendá reunión mañana a las 15:30 por 60 minutos.");return;}
+    try{ZoneId zone=ZoneId.systemDefault();LocalDate date;
+      String day=m.group(2).toLowerCase(new Locale("es","AR"));
+      if(day.equals("hoy"))date=LocalDate.now(zone);else if(day.equals("mañana"))date=LocalDate.now(zone).plusDays(1);else date=LocalDate.parse(day.substring(3).trim());
+      int hour=Integer.parseInt(m.group(3)),minute=Integer.parseInt(m.group(4)),duration=m.group(5)==null?60:Integer.parseInt(m.group(5));
+      if(hour>23||minute>59||duration<1||duration>1440)throw new IllegalArgumentException();
+      ZonedDateTime start=ZonedDateTime.of(date,LocalTime.of(hour,minute),zone);ZonedDateTime end=start.plusMinutes(duration);
+      pendingCalendarEvent=new CalendarEvent(null,m.group(1),start.toOffsetDateTime().toString(),end.toOffsetDateTime().toString(),zone.getId(),"Creado por GORO AI");pendingCalendarDeleteId=null;
+      say("Voy a crear "+pendingCalendarEvent.title+" el "+date+" a las "+String.format(Locale.ROOT,"%02d:%02d",hour,minute)+". Decí confirmar para guardar o cancelar.");
+    }catch(Exception e){pendingCalendarEvent=null;say("La fecha, hora o duración no es válida.");}
+  }
+  private void confirmCalendarAction(){
+    if(pendingCalendarEvent!=null){CalendarEvent event=pendingCalendarEvent;pendingCalendarEvent=null;calendarGateway.create(event,(created,error)->say(error==null&&created!=null?"Evento creado en Google Calendar: "+created.title+".":error==null?"No se pudo confirmar la creación.":error));return;}
+    if(pendingCalendarDeleteId!=null){String id=pendingCalendarDeleteId;pendingCalendarDeleteId=null;calendarGateway.delete(id,(ok,error)->say(Boolean.TRUE.equals(ok)?"Evento eliminado de Google Calendar.":error==null?"No se pudo confirmar la eliminación.":error));return;}
+    say("No hay ninguna operación de calendario pendiente.");
+  }
   @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results){super.onRequestPermissionsResult(request,permissions,results);if(request==41&&results.length>0&&results[0]==PackageManager.PERMISSION_GRANTED){voiceActive=true;voiceSession.start();}}
-  @Override protected void onDestroy(){if(calendarGateway!=null)calendarGateway.close();if(googleOAuth!=null)googleOAuth.close();if(voiceSession!=null)voiceSession.destroy();if(tts!=null){tts.stop();tts.shutdown();}super.onDestroy();}
+  @Override protected void onDestroy(){if(calendarGateway!=null)calendarGateway.close();if(googleOAuth!=null)googleOAuth.close();if(weatherService!=null)weatherService.close();if(voiceSession!=null)voiceSession.destroy();if(tts!=null){tts.stop();tts.shutdown();}super.onDestroy();}
 }
