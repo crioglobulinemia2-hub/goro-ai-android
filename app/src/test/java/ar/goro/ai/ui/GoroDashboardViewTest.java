@@ -47,7 +47,7 @@ public class GoroDashboardViewTest {
   findButton(dashboard,"Enviar").performClick();
   findButton(dashboard,"Consultar GPS").performClick();
   findButton(dashboard,"Pronóstico · 3 días").performClick();
-  findButton(dashboard,"Vincular / cambiar Gmail").performClick();
+  findButton(dashboard,"Vincular cuenta Google").performClick();
   findButton(dashboard,"Autorizar Google Calendar").performClick();
   findButton(dashboard,"Desvincular cuenta").performClick();
   findButton(dashboard,"Inspeccionar ZNP Z02/N02").performClick();
