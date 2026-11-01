@@ -2,7 +2,10 @@ package ar.goro.ai.tools;
 import android.content.Intent;
 import android.provider.AlarmClock;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
 import static org.junit.Assert.*;
+@RunWith(RobolectricTestRunner.class)
 public class AlarmClockIntentsTest {
  @Test public void createsAlarmIntent(){
   Intent i=AlarmClockIntents.setAlarm(AssistantCommandParser.alarm("alarma a las 07:35"));
