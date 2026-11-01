@@ -27,7 +27,7 @@ public class MainActivity extends Activity {
     memory=getSharedPreferences("goro_memory",MODE_PRIVATE);\n    voiceSession=new ContinuousVoiceSession(this,new ContinuousVoiceSession.Listener(){\n      public void onState(ConversationState s){if(state!=null)state.setText("GORO • "+s.name());}\n      public void onFinalText(String text){if(voiceSession!=null){voiceSession.pauseForResponse();} if(command!=null)command.setText(text);runCommand(text);}\n      public void onPartialText(String text){if(command!=null)command.setText(text);}\n      public void onError(String message){if(output!=null)output.setText(message);}\n      public void onUserSpeechStarted(){if(tts!=null)tts.stop();}\n    });
     tts=new TextToSpeech(this, status -> {
       voiceReady=status==TextToSpeech.SUCCESS;
-      if(voiceReady) tts.setLanguage(new Locale("es","AR"));
+      if(voiceReady) {\n        tts.setLanguage(new Locale("es","AR"));\n        tts.setOnUtteranceProgressListener(new UtteranceProgressListener(){\n          public void onStart(String id){}\n          public void onDone(String id){runOnUiThread(()->{if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();});}\n          public void onError(String id){runOnUiThread(()->{if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();});}\n        });\n      }
     });
     LinearLayout root=new LinearLayout(this);
     root.setOrientation(LinearLayout.VERTICAL);
