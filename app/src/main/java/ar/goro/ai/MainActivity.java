@@ -94,7 +94,9 @@ public class MainActivity extends Activity {
     state=new TextView(this);state.setText("Asistente de voz • Android");state.setTextColor(0xff607589);
     body.addView(state);
     TextView avatar=new TextView(this);
-    avatar.setText("◉\n\nGORO AI");avatar.setTextSize(30);avatar.setGravity(Gravity.CENTER);
+    avatar.setText("◉
+
+GORO AI");avatar.setTextSize(30);avatar.setGravity(Gravity.CENTER);
     avatar.setTextColor(0xff214E73);avatar.setBackgroundColor(0xffd1e4e2);
     LinearLayout.LayoutParams avatarParams=new LinearLayout.LayoutParams(-1,300);
     avatarParams.setMargins(0,25,0,20);body.addView(avatar,avatarParams);
@@ -118,6 +120,7 @@ public class MainActivity extends Activity {
     Button execute=new Button(this);execute.setText("Enviar texto");body.addView(execute);
     execute.setOnClickListener(v->runCommand(command.getText().toString().trim()));
     scroll.addView(body);root.addView(scroll);setContentView(root);
+    handleGoogleAuthIntent(getIntent());
   }
   private void listen() {
     Intent intent=new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
@@ -139,6 +142,11 @@ public class MainActivity extends Activity {
     super.onNewIntent(intent);setIntent(intent);
     if(intent==null||googleOAuth==null)return;
     if("ar.goro.ai.GOOGLE_AUTH_DONE".equals(intent.getAction()))googleOAuth.handleAuthorizationResult(intent,(ok,error)->say(ok?"Google Calendar quedó autorizado.":"No se pudo autorizar Google Calendar: "+error));
+    else if("ar.goro.ai.GOOGLE_AUTH_CANCEL".equals(intent.getAction()))say("Autorización de Google Calendar cancelada.");
+  }
+  private void handleGoogleAuthIntent(Intent intent){
+    if(intent==null||googleOAuth==null)return;
+    if(googleOAuth.isAuthorizationResponse(intent))googleOAuth.handleAuthorizationResult(intent,(ok,error)->say(ok?"Google Calendar quedó autorizado.":"No se pudo autorizar Google Calendar: "+error));
     else if("ar.goro.ai.GOOGLE_AUTH_CANCEL".equals(intent.getAction()))say("Autorización de Google Calendar cancelada.");
   }
   private void say(String message) {
