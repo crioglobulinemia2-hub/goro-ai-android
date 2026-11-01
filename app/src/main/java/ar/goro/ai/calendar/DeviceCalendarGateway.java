@@ -31,6 +31,13 @@ public final class DeviceCalendarGateway implements CalendarGateway {
   try(Cursor c=context.getContentResolver().query(CalendarContract.Calendars.CONTENT_URI,new String[]{CalendarContract.Calendars._ID},where,args,CalendarContract.Calendars.IS_PRIMARY+" DESC")){if(c!=null)while(c.moveToNext())ids.add(c.getLong(0));}
   return ids;
  }
+ private Long writableCalendar(){
+  String email=selectedGoogleAccount();if(email==null)return null;
+  String where=CalendarContract.Calendars.ACCOUNT_NAME+"=? AND "+CalendarContract.Calendars.ACCOUNT_TYPE+"=? AND "+CalendarContract.Calendars.VISIBLE+"=1 AND "+CalendarContract.Calendars.SYNC_EVENTS+"=1 AND "+CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL+">=?";
+  String[] args={email,"com.google",String.valueOf(CalendarContract.Calendars.CAL_ACCESS_CONTRIBUTOR)};
+  try(Cursor c=context.getContentResolver().query(CalendarContract.Calendars.CONTENT_URI,new String[]{CalendarContract.Calendars._ID},where,args,CalendarContract.Calendars.IS_PRIMARY+" DESC")){if(c!=null&&c.moveToFirst())return c.getLong(0);}
+  return null;
+ }
  private boolean has(String p){return context.checkSelfPermission(p)==PackageManager.PERMISSION_GRANTED;}
  private long millis(String value){try{return OffsetDateTime.parse(value).toInstant().toEpochMilli();}catch(Exception e){return Instant.parse(value).toEpochMilli();}}
  @Override public void list(String query,String min,String max,Callback<List<CalendarEvent>> cb){
@@ -62,7 +69,7 @@ public final class DeviceCalendarGateway implements CalendarGateway {
  @Override public void create(CalendarEvent e,Callback<CalendarEvent> cb){
   if(!has(Manifest.permission.WRITE_CALENDAR)){cb.complete(null,"GORO necesita permiso para modificar el calendario.");return;}
   if(selectedGoogleAccount()==null){cb.complete(null,"Primero vinculá la cuenta Gmail que usará GORO.");return;}
-  io.execute(()->{try{java.util.Set<Long> writable=selectedCalendarIds(true);Long cal=writable.isEmpty()?null:writable.iterator().next();if(cal==null)throw new IllegalStateException("La cuenta Gmail vinculada no tiene un calendario visible, sincronizado y editable.");ContentValues v=new ContentValues();v.put(CalendarContract.Events.CALENDAR_ID,cal);v.put(CalendarContract.Events.TITLE,e.title);v.put(CalendarContract.Events.DTSTART,millis(e.start));v.put(CalendarContract.Events.DTEND,millis(e.end));v.put(CalendarContract.Events.EVENT_TIMEZONE,e.timezone);v.put(CalendarContract.Events.DESCRIPTION,e.description);v.put(CalendarContract.Events.HAS_ALARM,0);android.net.Uri uri=context.getContentResolver().insert(CalendarContract.Events.CONTENT_URI,v);if(uri==null)throw new IllegalStateException("El proveedor no devolvió un evento.");String id=String.valueOf(ContentUris.parseId(uri));CalendarEvent created=new CalendarEvent(id,e.title,e.start,e.end,e.timezone,e.description);main.post(()->cb.complete(created,null));}catch(Exception x){main.post(()->cb.complete(null,x.getMessage()==null?"No se pudo crear el evento.":x.getMessage()));}});
+  io.execute(()->{try{Long cal=writableCalendar();if(cal==null)throw new IllegalStateException("La cuenta Gmail vinculada no tiene un calendario visible, sincronizado y editable.");ContentValues v=new ContentValues();v.put(CalendarContract.Events.CALENDAR_ID,cal);v.put(CalendarContract.Events.TITLE,e.title);v.put(CalendarContract.Events.DTSTART,millis(e.start));v.put(CalendarContract.Events.DTEND,millis(e.end));v.put(CalendarContract.Events.EVENT_TIMEZONE,e.timezone);v.put(CalendarContract.Events.DESCRIPTION,e.description);v.put(CalendarContract.Events.HAS_ALARM,0);android.net.Uri uri=context.getContentResolver().insert(CalendarContract.Events.CONTENT_URI,v);if(uri==null)throw new IllegalStateException("El proveedor no devolvió un evento.");String id=String.valueOf(ContentUris.parseId(uri));CalendarEvent created=new CalendarEvent(id,e.title,e.start,e.end,e.timezone,e.description);main.post(()->cb.complete(created,null));}catch(Exception x){main.post(()->cb.complete(null,x.getMessage()==null?"No se pudo crear el evento.":x.getMessage()));}});
  }
  @Override public void update(CalendarEvent e,Callback<CalendarEvent> cb){
   if(!has(Manifest.permission.WRITE_CALENDAR)){cb.complete(null,"GORO necesita permiso para modificar el calendario.");return;}
