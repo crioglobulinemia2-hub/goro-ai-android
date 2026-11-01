@@ -7,17 +7,19 @@
 - El clima usa ubicación actual del dispositivo: GPS_PROVIDER con permiso preciso; NETWORK_PROVIDER como alternativa cuando solo se concede ubicación aproximada o GPS no está disponible.
 - La ubicación se solicita en primer plano al pedir el clima; no se pide permiso de ubicación en segundo plano.
 - Open-Meteo obtiene clima actual y pronóstico de tres días sin API key.
-- WorkManager entrega recordatorios no exactos y persistentes.
+- WorkManager entrega recordatorios únicos y recurrentes no exactos y persistentes.
 
 ## Implementación incorporada
 - AccountManager.newChooseAccountIntent limitado a accountType com.google.
-- Cuenta seleccionada guardada en SharedPreferences de GORO.
+- Cuenta seleccionada guardada en SharedPreferences de GORO, con control para cambiarla y desvincularla sin borrar eventos.
+- Botón separado para volver a conceder permisos de calendario si se rechazaron anteriormente.
 - CalendarContract.Calendars filtrado por ACCOUNT_NAME y ACCOUNT_TYPE.
 - Lecturas por CalendarContract.Instances para mostrar las ocurrencias de eventos dentro del rango.
 - Escrituras únicamente en el calendario principal editable de la cuenta elegida.
 - Edición y eliminación validan que el evento pertenezca a esa cuenta; series recurrentes se rechazan para evitar borrar o alterar toda la serie.
 - DeviceLocationProvider usa LocationManager.getCurrentLocation desde API 30 y requestSingleUpdate en Android 8/9; GPS primero, red como fallback.
-- Botones y comandos de voz para clima actual por GPS y pronóstico de tres días.
+- Botones y comandos de voz para clima actual por GPS y pronóstico de tres días; las órdenes “clima” y “pronóstico” usan la ubicación del dispositivo sin pedir ciudad.
+- Recordatorios recurrentes por voz cada N minutos, horas o días, con cancelación por texto del recordatorio.
 - No se requiere OAuth client ID, servidor propio ni client_secret para CalendarContract.
 
 ## Permisos
@@ -39,4 +41,4 @@
 - NVIDIA Nemotron review: https://agent.tinyfish.ai/runs/bdb3db10-45c2-4a29-86c9-51dbf90972bd
 
 ## Estado
-La vinculación de cuenta Gmail y el clima GPS ya están conectados al flujo de la aplicación. Falta que CI valide esta revisión y completar la integración visual con la interfaz 3D aprobada antes de la APK final. No se requiere instalación ni prueba manual intermedia.
+La vinculación de cuenta Gmail, clima GPS y recordatorios recurrentes están conectados al flujo de comandos de la aplicación. La integración visual 3D aprobada queda como criterio obligatorio de la etapa de interfaz y APK final; no se considera sustituida por la UI de depuración actual. CI debe validar el último commit. No se requiere instalación ni prueba manual intermedia.
