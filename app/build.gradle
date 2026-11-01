@@ -1,7 +1,11 @@
 plugins { id 'com.android.application' }
 
+def googleClientId = project.findProperty('GOOGLE_OAUTH_CLIENT_ID') ?: ''
+def googleRedirectScheme = project.findProperty('GOOGLE_OAUTH_REDIRECT_SCHEME') ?: (googleClientId.endsWith('.apps.googleusercontent.com') ? 'com.googleusercontent.apps.' + googleClientId.substring(0, googleClientId.indexOf('.apps.googleusercontent.com')) : 'ar.goro.ai')
+
 android {
     namespace 'ar.goro.ai'
+    buildFeatures { buildConfig true }
     compileSdk 35
     defaultConfig {
         applicationId 'ar.goro.ai'
@@ -9,7 +13,8 @@ android {
         targetSdk 35
         versionCode 1
         versionName '0.1.0'
-        manifestPlaceholders = [googleAuthRedirectScheme: project.findProperty('GOOGLE_OAUTH_REDIRECT_SCHEME') ?: 'com.googleusercontent.apps.REPLACE_WITH_CLIENT_ID', appAuthRedirectScheme: project.findProperty('GOOGLE_OAUTH_REDIRECT_SCHEME') ?: 'com.googleusercontent.apps.REPLACE_WITH_CLIENT_ID']
+        buildConfigField 'String', 'GOOGLE_OAUTH_CLIENT_ID', '"' + googleClientId + '"'
+        manifestPlaceholders = [appAuthRedirectScheme: googleRedirectScheme]
     }
 }
 
