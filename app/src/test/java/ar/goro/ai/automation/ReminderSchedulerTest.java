@@ -21,7 +21,6 @@ public class ReminderSchedulerTest {
   scheduler.once("test-id","Llamar","Recordatorio",30,TimeUnit.MINUTES);
   List<WorkInfo> work=WorkManager.getInstance(context).getWorkInfosForUniqueWork("goro-reminder-test-id").get();
   assertEquals(1,work.size());assertEquals(WorkInfo.State.ENQUEUED,work.get(0).getState());
-  assertEquals("Llamar",work.get(0).getTags().contains("androidx.work.impl.model.WorkSpec")?"":"Llamar");
  }
  @Test(expected=IllegalArgumentException.class) public void rejectsTooFrequentRecurringReminder(){scheduler.recurring("test","Title","Body",10,TimeUnit.MINUTES);}
  @Test public void recurringReminderRequiresFifteenMinutes(){scheduler.recurring("weekly","Resumen","Body",15,TimeUnit.MINUTES);assertFalse(WorkManager.getInstance(context).getWorkInfosForUniqueWork("goro-periodic-weekly").get().isEmpty());}
