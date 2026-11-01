@@ -45,7 +45,7 @@ public final class DeviceLocationProvider {
   if(!enabled(provider)){if(fallback!=null)requestLegacy(fallback,null,callback);else callback.complete(null,"Activá la ubicación del dispositivo para consultar el clima.");return;}
   AtomicBoolean settled=new AtomicBoolean(false);
   LocationListener listener=new LocationListener(){
-   @Override public void onLocationChanged(Location location){if(settled.compareAndSet(false,true)){main.removeCallbacksAndMessages(listener);try{manager.removeUpdates(this);}catch(Exception ignored){}callback.complete(location,null);}}
+   @Override public void onLocationChanged(Location location){if(settled.compareAndSet(false,true)){try{manager.removeUpdates(this);}catch(Exception ignored){}callback.complete(location,null);}}
    @Override public void onProviderEnabled(String p){}
    @Override public void onProviderDisabled(String p){}
    @Override public void onStatusChanged(String p,int status,android.os.Bundle extras){}
