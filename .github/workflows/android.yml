@@ -17,8 +17,28 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Build debug APK
-        run: gradle --no-daemon assembleDebug
+      - name: Unit tests and build
+        run: gradle --no-daemon clean testDebugUnitTest assembleDebug
+      - name: Validate manifest and APK
+        run: |
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+          import zipfile
+          root=ET.parse('app/src/main/AndroidManifest.xml').getroot()
+          android='{http://schemas.android.com/apk/res/android}'
+          permissions={x.attrib.get(android+'name') for x in root.findall('uses-permission')}
+          assert 'android.permission.INTERNET' in permissions
+          assert 'android.permission.BLUETOOTH_PRIVILEGED' not in permissions
+          activities=root.findall('.//activity')
+          assert len(activities)==1 and activities[0].attrib.get(android+'exported')=='true'
+          apk=Path('app/build/outputs/apk/debug/app-debug.apk')
+          assert apk.is_file() and apk.stat().st_size>0
+          with zipfile.ZipFile(apk) as z:
+            assert z.testzip() is None
+            assert 'AndroidManifest.xml' in z.namelist()
+          print('Manifest, permissions, APK ZIP integrity: PASS')
+          PY
       - uses: actions/upload-artifact@v4
         with:
           name: GoroAI-debug-apk
