@@ -11,6 +11,8 @@ import ar.goro.ai.memory.MemoryStore;
 import ar.goro.ai.memory.MemoryRecord;
 import ar.goro.ai.tools.AssistantCommandParser;
 import ar.goro.ai.tools.AlarmClockIntents;
+import ar.goro.ai.automation.ReminderScheduler;
+import java.util.concurrent.TimeUnit;
 import android.content.SharedPreferences;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
@@ -35,10 +37,12 @@ public class MainActivity extends Activity {
   private MemoryStore memoryStore;
   private ContinuousVoiceSession voiceSession;
   private boolean voiceActive=false;
+  private ReminderScheduler reminderScheduler;
   @Override public void onCreate(Bundle saved) {
     super.onCreate(saved);
     memory=getSharedPreferences("goro_memory",MODE_PRIVATE);
     memoryStore=new MemoryStore(this);
+    reminderScheduler=new ReminderScheduler(this);
     memoryStore.migrateLegacy(memory);
     voiceSession=new ContinuousVoiceSession(this,new ContinuousVoiceSession.Listener(){
       public void onState(ConversationState s){if(state!=null)state.setText("GORO • "+s.name());}
@@ -88,7 +92,7 @@ public class MainActivity extends Activity {
       if(!voiceSession.available()){say("No hay reconocimiento de voz disponible.");return;}
       voiceActive=true;talk.setText("Detener sesión");voiceSession.start();
     });
-    Button execute=new Button(this);execute.setText("Enviar texto");body.addView(execute);
+    Button reminders=new Button(this);reminders.setText("Activar recordatorios");body.addView(reminders);\n    reminders.setOnClickListener(v->{if(Build.VERSION.SDK_INT>=33&&checkSelfPermission("android.permission.POST_NOTIFICATIONS")!=PackageManager.PERMISSION_GRANTED){requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"},52);}else say("Notificaciones disponibles para los recordatorios de GORO.");});\n    Button execute=new Button(this);execute.setText("Enviar texto");body.addView(execute);
     execute.setOnClickListener(v->runCommand(command.getText().toString().trim()));
     scroll.addView(body);root.addView(scroll);setContentView(root);
   }
@@ -144,6 +148,16 @@ public class MainActivity extends Activity {
     } else if(text.contains("borrá todos los recuerdos") || text.contains("borra todos los recuerdos")) {
       try{int deleted=memoryStore.clearAll();say("Eliminé "+deleted+" recuerdos locales.");}
       catch(Exception e){say("No pude eliminar la memoria.");}
+    } else if(text.startsWith("recordame en ") || text.startsWith("recordáme en ") || text.startsWith("recuérdame en ")) {
+      Matcher reminder=Pattern.compile("(?i)(?:recordame|recordáme|recuérdame) en (\\d+) (segundos?|minutos?|horas?) (?:que |para )?(.+)").matcher(raw);
+      if(!reminder.matches()){say("Decime: recordame en 20 minutos que tengo que salir.");return;}
+      long amount;try{amount=Long.parseLong(reminder.group(1));}catch(Exception e){say("Duración inválida.");return;}
+      String unit=reminder.group(2).toLowerCase(Locale.ROOT);long seconds=amount*(unit.startsWith("hora")?3600:unit.startsWith("minuto")?60:1);
+      if(seconds<1||seconds>604800){say("El recordatorio debe ser dentro de los próximos siete días.");return;}
+      if(Build.VERSION.SDK_INT>=33&&checkSelfPermission("android.permission.POST_NOTIFICATIONS")!=PackageManager.PERMISSION_GRANTED){say("Primero activá las notificaciones con el botón Activar recordatorios.");return;}
+      String title=reminder.group(3).trim();if(title.isEmpty()){say("Falta el contenido del recordatorio.");return;}
+      try{String id=java.util.UUID.randomUUID().toString();reminderScheduler.once(id,"GORO AI: "+title,"Recordatorio programado",seconds,TimeUnit.SECONDS);say("Programé el recordatorio para dentro de "+amount+" "+unit+".");}
+      catch(Exception e){say("No pude programar el recordatorio.");}
     } else if(text.contains("alarma") || text.contains("despert")) {
       AssistantCommandParser.Alarm parsed=AssistantCommandParser.alarm(text);
       if(parsed==null){say("Decime una hora válida, por ejemplo siete y treinta usando 07:30.");return;}
