@@ -15,12 +15,12 @@ import java.util.concurrent.Executors;
 public final class GoogleCalendarRestGateway implements CalendarGateway {
  public interface Tokens {String validAccessToken() throws Exception;}
  private static final MediaType JSON=MediaType.get("application/json; charset=utf-8");
- private final OkHttpClient client=new OkHttpClient.Builder().build();private final Tokens tokens;
+ private final OkHttpClient client=new OkHttpClient.Builder().build();private final Tokens tokens;private final String baseUrl;
  private final ExecutorService io=Executors.newSingleThreadExecutor();private final Handler main=new Handler(Looper.getMainLooper());
- public GoogleCalendarRestGateway(Tokens tokens){this.tokens=tokens;}
+ public GoogleCalendarRestGateway(Tokens tokens){this(tokens,"https://www.googleapis.com/calendar/v3");}\n GoogleCalendarRestGateway(Tokens tokens,String baseUrl){if(tokens==null||baseUrl==null||!(baseUrl.startsWith("https://")||baseUrl.startsWith("http://127.0.0.1")||baseUrl.startsWith("http://localhost")))throw new IllegalArgumentException("Invalid calendar gateway configuration");this.tokens=tokens;this.baseUrl=baseUrl.endsWith("/")?baseUrl.substring(0,baseUrl.length()-1):baseUrl;}
  private JSONObject call(String method,String path,JSONObject body)throws Exception{
   String token=tokens.validAccessToken();if(token==null||token.isEmpty())throw new IllegalStateException("Google account not connected");
-  Request.Builder b=new Request.Builder().url("https://www.googleapis.com/calendar/v3"+path).header("Authorization","Bearer "+token).header("Accept","application/json");
+  Request.Builder b=new Request.Builder().url(baseUrl+path).header("Authorization","Bearer "+token).header("Accept","application/json");
   if(body!=null)b.method(method,RequestBody.create(body.toString(),JSON));else b.method(method,null);
   try(Response r=client.newCall(b.build()).execute()){
    if(r.code()==204)return new JSONObject().put("ok",true);
