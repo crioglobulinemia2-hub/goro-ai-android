@@ -17,6 +17,19 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+      - name: Static security gate
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          manifest=Path('app/src/main/AndroidManifest.xml').read_text()
+          assert 'android.permission.BLUETOOTH_PRIVILEGED' not in manifest
+          assert 'android:usesCleartextTraffic="false"' in manifest
+          for p in Path('app/src').rglob('*.java'):
+            s=p.read_text()
+            assert not re.search(r'nvapi-[A-Za-z0-9_-]{12,}',s),f'Embedded NVIDIA key in {p}'
+          print('Static security gate PASS')
+          PY
       - name: Unit tests and build
         run: gradle --no-daemon clean testDebugUnitTest assembleDebug
       - name: Validate manifest and APK
