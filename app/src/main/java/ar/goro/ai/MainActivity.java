@@ -1,6 +1,6 @@
 package ar.goro.ai;
 
-import android.app.Activity;
+import android.app.Activity;\nimport android.Manifest;\nimport android.content.pm.PackageManager;\nimport android.os.Build;\nimport android.speech.tts.UtteranceProgressListener;\nimport ar.goro.ai.voice.ContinuousVoiceSession;\nimport ar.goro.ai.voice.ConversationState;
 import android.content.SharedPreferences;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
@@ -21,10 +21,10 @@ public class MainActivity extends Activity {
   private EditText command;
   private TextToSpeech tts;
   private boolean voiceReady=false;
-  private SharedPreferences memory;
+  private SharedPreferences memory;\n  private ContinuousVoiceSession voiceSession;\n  private boolean voiceActive=false;
   @Override public void onCreate(Bundle saved) {
     super.onCreate(saved);
-    memory=getSharedPreferences("goro_memory",MODE_PRIVATE);
+    memory=getSharedPreferences("goro_memory",MODE_PRIVATE);\n    voiceSession=new ContinuousVoiceSession(this,new ContinuousVoiceSession.Listener(){\n      public void onState(ConversationState s){if(state!=null)state.setText("GORO • "+s.name());}\n      public void onFinalText(String text){if(voiceSession!=null){voiceSession.pauseForResponse();} if(command!=null)command.setText(text);runCommand(text);}\n      public void onPartialText(String text){if(command!=null)command.setText(text);}\n      public void onError(String message){if(output!=null)output.setText(message);}\n      public void onUserSpeechStarted(){if(tts!=null)tts.stop();}\n    });
     tts=new TextToSpeech(this, status -> {
       voiceReady=status==TextToSpeech.SUCCESS;
       if(voiceReady) tts.setLanguage(new Locale("es","AR"));
@@ -52,7 +52,7 @@ public class MainActivity extends Activity {
     command=new EditText(this);command.setHint("Escribí o dictá una orden");command.setSingleLine(false);
     body.addView(command);
     Button talk=new Button(this);talk.setText("Hablar con GORO");body.addView(talk);
-    talk.setOnClickListener(v->listen());
+    talk.setText("Conversación continua");\n    talk.setOnClickListener(v->{\n      if(voiceActive){voiceActive=false;voiceSession.stop();talk.setText("Conversación continua");return;}\n      if(Build.VERSION.SDK_INT>=23 && checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO},41);return;}\n      if(!voiceSession.available()){say("No hay reconocimiento de voz disponible.");return;}\n      voiceActive=true;talk.setText("Detener sesión");voiceSession.start();\n    });
     Button execute=new Button(this);execute.setText("Enviar texto");body.addView(execute);
     execute.setOnClickListener(v->runCommand(command.getText().toString().trim()));
     scroll.addView(body);root.addView(scroll);setContentView(root);
@@ -75,7 +75,7 @@ public class MainActivity extends Activity {
   }
   private void say(String message) {
     output.setText(message);
-    if(voiceReady) tts.speak(message,TextToSpeech.QUEUE_FLUSH,null,"goro_reply");
+    if(voiceReady) { if(voiceSession!=null)voiceSession.pauseForResponse(); tts.speak(message,TextToSpeech.QUEUE_FLUSH,null,"goro_reply"); }\n    else if(voiceSession!=null)voiceSession.resumeAfterResponse();
   }
   private void runCommand(String raw) {
     if(raw.isEmpty()) return;
@@ -133,5 +133,5 @@ public class MainActivity extends Activity {
       say("Todavía no tengo conexión a Nemotron. No ejecuté ninguna acción.");
     }
   }
-  @Override protected void onDestroy(){if(tts!=null){tts.stop();tts.shutdown();}super.onDestroy();}
+  @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results){super.onRequestPermissionsResult(request,permissions,results);if(request==41&&results.length>0&&results[0]==PackageManager.PERMISSION_GRANTED){voiceActive=true;voiceSession.start();}}\n  @Override protected void onDestroy(){if(voiceSession!=null)voiceSession.destroy();if(tts!=null){tts.stop();tts.shutdown();}super.onDestroy();}
 }
