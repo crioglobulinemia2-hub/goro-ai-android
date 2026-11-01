@@ -1,6 +1,7 @@
 package ar.goro.ai;
 
 import android.app.Activity;
+import android.content.SharedPreferences;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.os.Bundle;
@@ -20,8 +21,10 @@ public class MainActivity extends Activity {
   private EditText command;
   private TextToSpeech tts;
   private boolean voiceReady=false;
+  private SharedPreferences memory;
   @Override public void onCreate(Bundle saved) {
     super.onCreate(saved);
+    memory=getSharedPreferences("goro_memory",MODE_PRIVATE);
     tts=new TextToSpeech(this, status -> {
       voiceReady=status==TextToSpeech.SUCCESS;
       if(voiceReady) tts.setLanguage(new Locale("es","AR"));
@@ -77,7 +80,22 @@ public class MainActivity extends Activity {
   private void runCommand(String raw) {
     if(raw.isEmpty()) return;
     String text=raw.toLowerCase(new Locale("es","AR")).trim();
-    if(text.contains("alarma") || text.contains("despert")) {
+    if(text.startsWith("acordate que ") || text.startsWith("recordá que ")) {
+      String fact=raw.substring(raw.indexOf(" que ")+5).trim();
+      if(fact.length()<3){say("Decime qué querés que recuerde.");return;}
+      int next=memory.getInt("next",0);
+      memory.edit().putString("fact_"+next,fact).putInt("next",next+1).apply();
+      say("Guardé el recuerdo en este dispositivo.");
+    } else if(text.contains("qué recordás") || text.contains("que recordas") || text.contains("mis recuerdos")) {
+      int n=memory.getInt("next",0);
+      if(n==0){say("Todavía no tengo recuerdos guardados.");return;}
+      StringBuilder list=new StringBuilder("Recuerdo lo siguiente: ");
+      for(int i=Math.max(0,n-8);i<n;i++){String fact=memory.getString("fact_"+i,"");if(!fact.isEmpty())list.append(fact).append(". ");}
+      say(list.toString());
+    } else if(text.contains("borrá todos los recuerdos") || text.contains("borra todos los recuerdos")) {
+      memory.edit().clear().apply();
+      say("Eliminé los recuerdos locales de GORO.");
+    } else if(text.contains("alarma") || text.contains("despert")) {
       Matcher time=Pattern.compile("(?:a las |para las |las )?(\\d{1,2})(?:[:.](\\d{2}))").matcher(text);
       Matcher hour=Pattern.compile("(?:a las |para las )(\\d{1,2})(?!\\d)").matcher(text);
       int h=-1,m=0;
