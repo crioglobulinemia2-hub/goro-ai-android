@@ -6,7 +6,6 @@
   <queries><intent><action android:name="android.speech.RecognitionService"/></intent></queries>
   <application android:label="GORO AI" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:usesCleartextTraffic="false">
     <activity android:name=".MainActivity" android:exported="true">
-      <intent-filter android:label="GORO Google OAuth redirect"><action android:name="android.intent.action.VIEW"/><category android:name="android.intent.category.DEFAULT"/><category android:name="android.intent.category.BROWSABLE"/><data android:scheme="${googleAuthRedirectScheme}" android:host="oauth2redirect"/></intent-filter>
       <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
     </activity>
   </application>
