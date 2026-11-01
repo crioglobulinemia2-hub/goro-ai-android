@@ -1,6 +1,8 @@
 package ar.goro.ai;
 
 import android.app.Activity;\nimport android.Manifest;\nimport android.content.pm.PackageManager;\nimport android.os.Build;\nimport android.speech.tts.UtteranceProgressListener;\nimport ar.goro.ai.voice.ContinuousVoiceSession;\nimport ar.goro.ai.voice.ConversationState;
+import ar.goro.ai.memory.MemoryStore;
+import ar.goro.ai.memory.MemoryRecord;
 import android.content.SharedPreferences;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
@@ -21,10 +23,12 @@ public class MainActivity extends Activity {
   private EditText command;
   private TextToSpeech tts;
   private boolean voiceReady=false;
-  private SharedPreferences memory;\n  private ContinuousVoiceSession voiceSession;\n  private boolean voiceActive=false;
+  private SharedPreferences memory;
+  private MemoryStore memoryStore;\n  private ContinuousVoiceSession voiceSession;\n  private boolean voiceActive=false;
   @Override public void onCreate(Bundle saved) {
     super.onCreate(saved);
-    memory=getSharedPreferences("goro_memory",MODE_PRIVATE);\n    voiceSession=new ContinuousVoiceSession(this,new ContinuousVoiceSession.Listener(){\n      public void onState(ConversationState s){if(state!=null)state.setText("GORO • "+s.name());}\n      public void onFinalText(String text){if(voiceSession!=null){voiceSession.pauseForResponse();} if(command!=null)command.setText(text);runCommand(text);}\n      public void onPartialText(String text){if(command!=null)command.setText(text);}\n      public void onError(String message){if(output!=null)output.setText(message);}\n      public void onUserSpeechStarted(){if(tts!=null)tts.stop();}\n    });
+    memory=getSharedPreferences("goro_memory",MODE_PRIVATE);
+    memoryStore=new MemoryStore(this);\n    voiceSession=new ContinuousVoiceSession(this,new ContinuousVoiceSession.Listener(){\n      public void onState(ConversationState s){if(state!=null)state.setText("GORO • "+s.name());}\n      public void onFinalText(String text){if(voiceSession!=null){voiceSession.pauseForResponse();} if(command!=null)command.setText(text);runCommand(text);}\n      public void onPartialText(String text){if(command!=null)command.setText(text);}\n      public void onError(String message){if(output!=null)output.setText(message);}\n      public void onUserSpeechStarted(){if(tts!=null)tts.stop();}\n    });
     tts=new TextToSpeech(this, status -> {
       voiceReady=status==TextToSpeech.SUCCESS;
       if(voiceReady) {\n        tts.setLanguage(new Locale("es","AR"));\n        tts.setOnUtteranceProgressListener(new UtteranceProgressListener(){\n          public void onStart(String id){}\n          public void onDone(String id){runOnUiThread(()->{if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();});}\n          public void onError(String id){runOnUiThread(()->{if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();});}\n        });\n      }
@@ -80,21 +84,22 @@ public class MainActivity extends Activity {
   private void runCommand(String raw) {
     if(raw.isEmpty()) return;
     String text=raw.toLowerCase(new Locale("es","AR")).trim();
-    if(text.startsWith("acordate que ") || text.startsWith("recordá que ")) {
-      String fact=raw.substring(raw.indexOf(" que ")+5).trim();
+    if(text.startsWith("acordate que ") || text.startsWith("recordá que ") || text.startsWith("recorda que ")) {
+      String fact=raw.substring(raw.toLowerCase(new Locale("es","AR")).indexOf(" que ")+5).trim();
       if(fact.length()<3){say("Decime qué querés que recuerde.");return;}
-      int next=memory.getInt("next",0);
-      memory.edit().putString("fact_"+next,fact).putInt("next",next+1).apply();
-      say("Guardé el recuerdo en este dispositivo.");
+      try{memoryStore.add("general",fact);say("Guardé el recuerdo en este dispositivo.");}
+      catch(Exception e){say("No pude guardar ese recuerdo.");}
     } else if(text.contains("qué recordás") || text.contains("que recordas") || text.contains("mis recuerdos")) {
-      int n=memory.getInt("next",0);
-      if(n==0){say("Todavía no tengo recuerdos guardados.");return;}
-      StringBuilder list=new StringBuilder("Recuerdo lo siguiente: ");
-      for(int i=Math.max(0,n-8);i<n;i++){String fact=memory.getString("fact_"+i,"");if(!fact.isEmpty())list.append(fact).append(". ");}
-      say(list.toString());
+      try{
+        java.util.List<MemoryRecord> records=memoryStore.recent(8);
+        if(records.isEmpty()){say("Todavía no tengo recuerdos guardados.");return;}
+        StringBuilder list=new StringBuilder("Recuerdo lo siguiente: ");
+        for(MemoryRecord record:records)list.append(record.content).append(". ");
+        say(list.toString());
+      }catch(Exception e){say("No pude recuperar la memoria.");}
     } else if(text.contains("borrá todos los recuerdos") || text.contains("borra todos los recuerdos")) {
-      memory.edit().clear().apply();
-      say("Eliminé los recuerdos locales de GORO.");
+      try{int deleted=memoryStore.clearAll();say("Eliminé "+deleted+" recuerdos locales.");}
+      catch(Exception e){say("No pude eliminar la memoria.");}
     } else if(text.contains("alarma") || text.contains("despert")) {
       Matcher time=Pattern.compile("(?:a las |para las |las )?(\\d{1,2})(?:[:.](\\d{2}))").matcher(text);
       Matcher hour=Pattern.compile("(?:a las |para las )(\\d{1,2})(?!\\d)").matcher(text);
