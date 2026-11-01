@@ -1,49 +1,42 @@
-# Etapa 8/12 — Google Calendar, clima y automatizaciones
+# Etapa 8/12 — Cuenta Gmail vinculada, GPS, clima y automatizaciones
 
-## Revisión técnica externa
-Revisión ejecutada en NVIDIA Nemotron-3.5-super-vl-120b-a12b Playground:
-https://agent.tinyfish.ai/runs/45b928cd-70cd-4635-9e5c-a195a3e72bcd
+## Diseño funcional confirmado
+- La persona vincula desde GORO la cuenta Google/Gmail que quiere usar mediante el selector nativo de cuentas Android.
+- GORO guarda localmente el correo seleccionado y limita las operaciones CalendarContract a los calendarios de esa cuenta, no a todas las cuentas del dispositivo.
+- El usuario concede READ_CALENDAR y WRITE_CALENDAR mediante permisos Android.
+- El clima usa ubicación actual del dispositivo: GPS_PROVIDER con permiso preciso; NETWORK_PROVIDER como alternativa cuando solo se concede ubicación aproximada o GPS no está disponible.
+- La ubicación se solicita en primer plano al pedir el clima; no se pide permiso de ubicación en segundo plano.
+- Open-Meteo obtiene clima actual y pronóstico de tres días sin API key.
+- WorkManager entrega recordatorios no exactos y persistentes.
 
-Decisión de arquitectura: cliente Android público con OAuth Authorization Code + PKCE y REST directo a Google Calendar; sin servidor propio, sin client_secret embebido y sin backend proxy. Open-Meteo se usa como proveedor meteorológico sin API key. WorkManager se reserva para recordatorios no exactos.
+## Implementación incorporada
+- AccountManager.newChooseAccountIntent limitado a accountType com.google.
+- Cuenta seleccionada guardada en SharedPreferences de GORO.
+- CalendarContract.Calendars filtrado por ACCOUNT_NAME y ACCOUNT_TYPE.
+- Lecturas por CalendarContract.Instances para mostrar las ocurrencias de eventos dentro del rango.
+- Escrituras únicamente en el calendario principal editable de la cuenta elegida.
+- Edición y eliminación validan que el evento pertenezca a esa cuenta; series recurrentes se rechazan para evitar borrar o alterar toda la serie.
+- DeviceLocationProvider usa LocationManager.getCurrentLocation desde API 30 y requestSingleUpdate en Android 8/9; GPS primero, red como fallback.
+- Botones y comandos de voz para clima actual por GPS y pronóstico de tres días.
+- No se requiere OAuth client ID, servidor propio ni client_secret para CalendarContract.
 
-## Implementado
-- AppAuth 0.11.1 para autorización Google mediante navegador/Custom Tabs y PKCE S256.
-- GoogleTokenStore con EncryptedSharedPreferences para access/refresh tokens.
-- GoogleCalendarTokenProvider con refresh token grant y renovación antes de expirar.
-- GoogleCalendarRestGateway con OkHttp y endpoints Calendar API v3 directos.
-- Calendario: consulta por día/semana, creación con confirmación explícita, eliminación con confirmación explícita.
-- Zona horaria local IANA + offset RFC3339 al construir eventos.
-- WeatherService: geocoding Open-Meteo + condiciones actuales por coordenadas.
-- Recordatorios relativos y recurrentes con WorkManager y NotificationChannel.
-- Solicitud de permiso POST_NOTIFICATIONS disponible en UI.
-- MainActivity conserva say/runCommand; clima y operaciones de calendario están en el dispatcher de voz.
-- Sin client_secret ni API key hardcodeados. No hay proxy remoto.
+## Permisos
+- READ_CALENDAR y WRITE_CALENDAR: autorización runtime para leer y modificar la cuenta elegida.
+- ACCESS_FINE_LOCATION y ACCESS_COARSE_LOCATION: autorización runtime al solicitar clima local.
+- No se solicita GET_ACCOUNTS: el selector AccountManager devuelve la cuenta elegida y la hace visible para la app.
+- No se solicita ACCESS_BACKGROUND_LOCATION: el GPS solo se usa cuando la persona pide clima en primer plano.
 
-## Configuración externa necesaria para habilitar Google Calendar real
-Es registro OAuth externo que no puede inferirse ni inventarse.
-1. En Google Cloud Console, crear/seleccionar proyecto y habilitar Google Calendar API.
-2. Configurar OAuth consent screen y añadir cuenta de prueba si la app permanece en Testing.
-3. Crear OAuth Client ID tipo Android con package ar.goro.ai y SHA-1 del certificado de firma que se usará en la APK final.
-4. Pasar el client ID público al build como propiedad Gradle GOOGLE_OAUTH_CLIENT_ID; el esquema redirect se deriva del prefijo com.googleusercontent.apps.<client-prefix>.
-5. Autorizar scope mínimo https://www.googleapis.com/auth/calendar.events.
-No se necesita client_secret en Android. No se debe reutilizar un OAuth client ID de tipo Web.
+## Limitaciones operativas
+- La cuenta Google debe estar agregada al dispositivo y Calendar sincronizado. Si no tiene un calendario visible/editable o la sincronización está desactivada, GORO informa el motivo y no crea eventos en otra cuenta.
+- El proveedor de ubicación requiere que los servicios de ubicación del dispositivo estén activados; GPS es preferido y la ubicación de red es alternativa.
+- WorkManager no garantiza una hora exacta de notificación.
 
-## Límites y honestidad de integración
-- Hasta configurar client ID Android + SHA-1 en Google Console, el botón de conexión informa que Calendar requiere configuración y no se puede completar consentimiento real.
-- No se afirma conexión real con Google Calendar: no se ha concedido consentimiento OAuth a esta app.
-- Las pruebas CI no invocan cuentas reales ni Open-Meteo; verifican compilación, modelos, parser, seguridad y contratos locales.
-- WorkManager no garantiza ejecución exacta al minuto. Para alarmas exactas usar AlarmManager con permisos/políticas Android; etapa 7 delega alarmas al reloj nativo.
-- Android 13+ requiere POST_NOTIFICATIONS habilitado por la persona; GORO muestra la acción de activación.
-- Las operaciones de calendario que modifican datos requieren confirmación verbal "confirmar"; "cancelar" descarta la operación pendiente.
-
-## Fuentes
-- AppAuth AuthorizationService: https://github.com/openid/AppAuth-Android/blob/master/library/java/net/openid/appauth/AuthorizationService.java
-- AppAuth RedirectUriReceiverActivity: https://github.com/openid/AppAuth-Android/blob/master/library/java/net/openid/appauth/RedirectUriReceiverActivity.java
-- AppAuth Google setup: https://github.com/openid/AppAuth-Android/blob/master/app/README-Google.md
-- Google Calendar API events: https://developers.google.com/workspace/calendar/api/v3/reference/events
+## Evidencia técnica
+- Android AccountManager account picker: https://developer.android.com/reference/android/accounts/AccountManager
+- Android Calendar Provider: https://developer.android.com/guide/topics/providers/calendar-provider
+- Android LocationManager current location: https://developer.android.com/reference/android/location/LocationManager
 - Open-Meteo: https://open-meteo.com/en/docs
-- Android WorkManager: https://developer.android.com/develop/background-work/background-tasks/persistent/getting-started
-- Android notification permission: https://developer.android.com/develop/ui/views/notifications/notification-permission
+- NVIDIA Nemotron review: https://agent.tinyfish.ai/runs/bdb3db10-45c2-4a29-86c9-51dbf90972bd
 
-## Estado de aceptación
-Implementación de código incorporada. La conexión de Google Calendar queda bloqueada por registro externo de OAuth (client ID + SHA-1 + consentimiento), no por falta de backend ni por pruebas del usuario. CI requerido para aceptar el último commit. No se requiere instalación ni prueba manual intermedia.
+## Estado
+La vinculación de cuenta Gmail y el clima GPS ya están conectados al flujo de la aplicación. Falta que CI valide esta revisión y completar la integración visual con la interfaz 3D aprobada antes de la APK final. No se requiere instalación ni prueba manual intermedia.
