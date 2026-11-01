@@ -3,6 +3,8 @@
 import argparse
 import json
 import pathlib
+import os
+import subprocess
 import struct
 from datetime import datetime, timezone
 
@@ -25,7 +27,7 @@ def glb_report():
             return False, "Falta bloque JSON."
         gltf = json.loads(data[20:20 + json_length].decode("utf-8"))
         nodes = {n.get("name") for n in gltf.get("nodes", [])}
-        bones = {"pelvis","spine","chest","neck","head","left_shoulder","left_elbow",
+        bones = {"root","pelvis","spine","chest","neck","head","left_shoulder","left_elbow",
                  "left_wrist","left_hand","right_shoulder","right_elbow","right_wrist","right_hand"}
         if not bones.issubset(nodes):
             return False, "Rig incompleto. Faltan huesos requeridos."
@@ -67,14 +69,22 @@ def stage_checks():
     android_ok, android_msg = verified("android_physical.json",
                                      ["calendar_sync", "gps_weather", "continuous_voice", "reconnect",
                                       "frame_rate_measured", "memory_measured"])
-    signed = (ROOT / "app/build/outputs/apk/release/app-release.apk").is_file()
+    apk=ROOT / "app/build/outputs/apk/release/app-release.apk"
+    signed=False
+    if apk.is_file():
+        sdk=pathlib.Path(os.environ.get("ANDROID_HOME", "/usr/local/lib/android/sdk"))
+        candidates=sorted(sdk.glob("build-tools/*/apksigner"), reverse=True)
+        if candidates:
+            result=subprocess.run([str(candidates[0]), "verify", "--verbose", str(apk)],
+                                  capture_output=True, text=True, timeout=30)
+            signed=result.returncode==0
     return [
       {"step": "04 NVIDIA", "ok": nvidia_ok, "reason": nvidia_msg},
       {"step": "09 3D", "ok": avatar_ok and android_ok, "reason": avatar_msg if not avatar_ok else android_msg},
       {"step": "10 Visual", "ok": visual_ok, "reason": visual_msg},
       {"step": "11 ZNP", "ok": ble_ok, "reason": ble_msg},
       {"step": "12 Pruebas físicas", "ok": android_ok, "reason": android_msg},
-      {"step": "12 APK firmada", "ok": signed, "reason": "APK release firmada encontrada." if signed else "Solo APK debug; no existe entrega release firmada."},
+      {"step": "12 APK firmada", "ok": signed, "reason": "Firma APK verificada con apksigner." if signed else "APK release inexistente o firma aún no verificada."},
     ]
 
 def main():
