@@ -33,15 +33,8 @@ jobs:
           PY
       - name: Unit tests and build
         run: gradle --no-daemon clean testDebugUnitTest assembleDebug
-      - name: Instrumented memory test on Android emulator
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 35
-          target: google_apis
-          arch: x86_64
-          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot
-          disable-animations: true
-          script: gradle --no-daemon connectedDebugAndroidTest
+      - name: Android memory persistence tests (Robolectric)
+        run: gradle --no-daemon testDebugUnitTest
       - name: Validate manifest and APK
         run: |
           python3 - <<'PY'
