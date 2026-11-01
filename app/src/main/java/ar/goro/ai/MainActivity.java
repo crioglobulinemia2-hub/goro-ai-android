@@ -54,6 +54,7 @@ public class MainActivity extends Activity {
   private WeatherService weatherService;
   private CalendarEvent pendingCalendarEvent;
   private String pendingCalendarDeleteId;
+  private final java.util.List<CalendarEvent> lastCalendarEvents=new java.util.ArrayList<>();
   private static final int GOOGLE_AUTH_REQUEST=61;
   @Override public void onCreate(Bundle saved) {
     super.onCreate(saved);
@@ -159,10 +160,12 @@ GORO AI");avatar.setTextSize(30);avatar.setGravity(Gravity.CENTER);
     String text=raw.toLowerCase(new Locale("es","AR")).trim();
     if(text.equals("confirmar")||text.equals("confirmá")||text.equals("confirmar evento")){confirmCalendarAction();return;}
     if(text.equals("cancelar")||text.equals("cancelá")||text.equals("cancelar evento")){pendingCalendarEvent=null;pendingCalendarDeleteId=null;say("Operación de calendario cancelada.");return;}
+    if(text.startsWith("pronóstico en ")||text.startsWith("pronostico en ")){String place=raw.substring(raw.toLowerCase(new Locale("es","AR")).indexOf(" en ")+4).trim();showForecast(place);return;}
     if(text.startsWith("clima en ")||text.startsWith("qué clima hace en ")||text.startsWith("que clima hace en ")){String place=raw.substring(raw.toLowerCase(new Locale("es","AR")).indexOf(" en ")+4).trim();showWeather(place);return;}
     if(text.matches(".*(agenda|calendario|eventos).*(hoy|mañana|semana).*")||text.matches(".*(qué tengo|que tengo|mis eventos).*(hoy|mañana).*")){showCalendar(text);return;}
     if(text.startsWith("agendá ")||text.startsWith("agenda ")||text.startsWith("creá evento ")||text.startsWith("crea evento ")){prepareCalendarEvent(raw);return;}
-    if(text.startsWith("eliminá evento ")||text.startsWith("elimina evento ")){pendingCalendarDeleteId=raw.substring(raw.lastIndexOf(" ")+1).trim();pendingCalendarEvent=null;say("Voy a eliminar el evento "+pendingCalendarDeleteId+". Decí confirmar para ejecutar o cancelar.");return;}
+    if(text.startsWith("reprogramá evento ")||text.startsWith("reprograma evento ")){prepareCalendarUpdate(raw);return;}
+    if(text.startsWith("eliminá evento ")||text.startsWith("elimina evento ")){prepareCalendarDelete(raw);return;}
     if(text.startsWith("acordate que ") || text.startsWith("recordá que ") || text.startsWith("recorda que ")) {
       String fact=raw.substring(raw.toLowerCase(new Locale("es","AR")).indexOf(" que ")+5).trim();
       if(fact.length()<3){say("Decime qué querés que recuerde.");return;}
@@ -250,6 +253,10 @@ GORO AI");avatar.setTextSize(30);avatar.setGravity(Gravity.CENTER);
       });
     });
   }
+  private void showForecast(String place){
+    if(weatherService==null){say("El servicio meteorológico no está disponible.");return;}
+    say("Buscando el pronóstico de "+place+".");weatherService.geocode(place,(places,error)->{if(error!=null||places==null||places.isEmpty()){say(error==null?"No encontré esa localidad.":error);return;}WeatherService.Place chosen=null;for(WeatherService.Place p:places)if("Argentina".equalsIgnoreCase(p.country)){chosen=p;break;}if(chosen==null)chosen=places.get(0);WeatherService.Place selected=chosen;weatherService.forecast(selected.latitude,selected.longitude,3,(days,problem)->{if(problem!=null||days==null){say(problem==null?"Pronóstico no disponible.":problem);return;}StringBuilder b=new StringBuilder("Pronóstico para ").append(selected.name).append(": ");for(WeatherService.ForecastDay d:days)b.append(d.date).append(", mínima ").append(Math.round(d.min)).append(" y máxima ").append(Math.round(d.max)).append(" grados, probabilidad de lluvia ").append(d.precipitationChance).append(" por ciento. ");say(b.toString());});});
+  }
   private String weatherDescription(int code){
     if(code==0)return "cielo despejado";if(code<=3)return "parcialmente nublado";if(code==45||code==48)return "niebla";if(code>=51&&code<=67)return "llovizna o lluvia";if(code>=71&&code<=77)return "nieve";if(code>=80&&code<=82)return "chaparrones";if(code>=95)return "tormenta";return "condiciones variables";
   }
@@ -263,8 +270,9 @@ GORO AI");avatar.setTextSize(30);avatar.setGravity(Gravity.CENTER);
     calendarGateway.list("",min,max,(events,error)->{
       if(error!=null||events==null){say(error==null?"No pude consultar Google Calendar.":error);return;}
       if(events.isEmpty()){say("No tenés eventos en ese período.");return;}
+      lastCalendarEvents.clear();lastCalendarEvents.addAll(events);
       StringBuilder b=new StringBuilder("Tenés ").append(events.size()).append(" eventos: ");
-      for(CalendarEvent e:events){b.append(e.title).append(", ").append(e.start).append(". ");}
+      for(int i=0;i<events.size();i++){CalendarEvent e=events.get(i);b.append("Número ").append(i+1).append(": ").append(e.title).append(", ").append(e.start).append(". ");}
       say(b.toString());
     });
   }
@@ -282,8 +290,21 @@ GORO AI");avatar.setTextSize(30);avatar.setGravity(Gravity.CENTER);
       say("Voy a crear "+pendingCalendarEvent.title+" el "+date+" a las "+String.format(Locale.ROOT,"%02d:%02d",hour,minute)+". Decí confirmar para guardar o cancelar.");
     }catch(Exception e){pendingCalendarEvent=null;say("La fecha, hora o duración no es válida.");}
   }
+  private void prepareCalendarDelete(String raw){
+    if(calendarGateway==null){say("Google Calendar todavía no está configurado.");return;}
+    String target=raw.substring(raw.indexOf("evento")+6).trim();CalendarEvent match=null;
+    try{int index=Integer.parseInt(target)-1;if(index>=0&&index<lastCalendarEvents.size())match=lastCalendarEvents.get(index);}catch(NumberFormatException ignored){for(CalendarEvent e:lastCalendarEvents)if(e.title.equalsIgnoreCase(target)){if(match!=null){say("Hay varios eventos con ese nombre. Consultá la agenda y elegí un número.");return;}match=e;}}
+    if(match==null){say("No encuentro ese evento. Consultá primero tu agenda de hoy o de la semana.");return;}
+    pendingCalendarDeleteId=match.id;pendingCalendarEvent=null;say("Voy a eliminar "+match.title+". Decí confirmar para ejecutar o cancelar.");
+  }
+  private void prepareCalendarUpdate(String raw){
+    if(calendarGateway==null){say("Google Calendar todavía no está configurado.");return;}
+    Matcher m=Pattern.compile("(?i)^reprograma? evento (\\d+) (hoy|mañana|el\\s+\\d{4}-\\d{2}-\\d{2}) a las (\\d{1,2}):(\\d{2})(?: por (\\d+) minutos?)?$").matcher(raw.trim());
+    if(!m.matches()){say("Decime: reprogramá evento 2 mañana a las 15:30 por 45 minutos.");return;}
+    try{int index=Integer.parseInt(m.group(1))-1;if(index<0||index>=lastCalendarEvents.size())throw new IllegalArgumentException();CalendarEvent old=lastCalendarEvents.get(index);ZoneId zone=ZoneId.systemDefault();String day=m.group(2).toLowerCase(new Locale("es","AR"));LocalDate date=day.equals("hoy")?LocalDate.now(zone):day.equals("mañana")?LocalDate.now(zone).plusDays(1):LocalDate.parse(day.substring(3).trim());int hour=Integer.parseInt(m.group(3)),minute=Integer.parseInt(m.group(4)),duration=m.group(5)==null?60:Integer.parseInt(m.group(5));if(hour>23||minute>59||duration<1||duration>1440)throw new IllegalArgumentException();ZonedDateTime start=ZonedDateTime.of(date,LocalTime.of(hour,minute),zone);pendingCalendarEvent=new CalendarEvent(old.id,old.title,start.toOffsetDateTime().toString(),start.plusMinutes(duration).toOffsetDateTime().toString(),zone.getId(),old.description);pendingCalendarDeleteId=null;say("Voy a reprogramar "+old.title+" para "+date+" a las "+String.format(Locale.ROOT,"%02d:%02d",hour,minute)+". Decí confirmar o cancelar.");}catch(Exception e){say("Número de evento, fecha u horario inválido. Consultá primero la agenda.");}
+  }
   private void confirmCalendarAction(){
-    if(pendingCalendarEvent!=null){CalendarEvent event=pendingCalendarEvent;pendingCalendarEvent=null;calendarGateway.create(event,(created,error)->say(error==null&&created!=null?"Evento creado en Google Calendar: "+created.title+".":error==null?"No se pudo confirmar la creación.":error));return;}
+    if(pendingCalendarEvent!=null){CalendarEvent event=pendingCalendarEvent;pendingCalendarEvent=null;if(event.id!=null&&!event.id.isEmpty()){calendarGateway.update(event,(updated,error)->say(error==null&&updated!=null?"Evento reprogramado: "+updated.title+".":error==null?"No se pudo confirmar la actualización.":error));}else{calendarGateway.create(event,(created,error)->say(error==null&&created!=null?"Evento creado en Google Calendar: "+created.title+".":error==null?"No se pudo confirmar la creación.":error));}return;}
     if(pendingCalendarDeleteId!=null){String id=pendingCalendarDeleteId;pendingCalendarDeleteId=null;calendarGateway.delete(id,(ok,error)->say(Boolean.TRUE.equals(ok)?"Evento eliminado de Google Calendar.":error==null?"No se pudo confirmar la eliminación.":error));return;}
     say("No hay ninguna operación de calendario pendiente.");
   }
