@@ -32,7 +32,8 @@ public final class GoogleOAuthManager {
   AuthorizationRequest request=new AuthorizationRequest.Builder(config,clientId,ResponseTypeValues.CODE,Uri.parse(redirectUri(clientId))).setScope(SCOPE).setCodeVerifier(verifier,CodeVerifierUtil.deriveCodeVerifierChallenge(verifier),CodeVerifierUtil.getCodeVerifierChallengeMethod()).setAdditionalParameters(parameters).build();
   service.performAuthorizationRequest(request,completed,cancelled);
  }
- public boolean isAuthorizationResponse(Intent data){return data!=null&&(AuthorizationResponse.fromIntent(data)!=null||AuthorizationException.fromIntent(data)!=null);}\n public void handleAuthorizationResult(Intent data,Callback callback){
+ public boolean isAuthorizationResponse(Intent data){return data!=null&&(AuthorizationResponse.fromIntent(data)!=null||AuthorizationException.fromIntent(data)!=null);}
+ public void handleAuthorizationResult(Intent data,Callback callback){
   AuthorizationResponse response=data==null?null:AuthorizationResponse.fromIntent(data);
   AuthorizationException error=data==null?null:AuthorizationException.fromIntent(data);
   if(response==null){callback.complete(false,error==null?"Google authorization cancelled.":error.error);return;}
