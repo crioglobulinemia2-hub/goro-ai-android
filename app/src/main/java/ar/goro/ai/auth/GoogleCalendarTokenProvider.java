@@ -19,9 +19,9 @@ public final class GoogleCalendarTokenProvider {
   AuthorizationServiceConfiguration config=new AuthorizationServiceConfiguration(Uri.parse("https://accounts.google.com/o/oauth2/v2/auth"),Uri.parse("https://oauth2.googleapis.com/token"));
   TokenRequest request=new TokenRequest.Builder(config,clientId).setGrantType(GrantTypeValues.REFRESH_TOKEN).setRefreshToken(refresh).build();
   CountDownLatch latch=new CountDownLatch(1);AtomicReference<TokenResponse> result=new AtomicReference<>();AtomicReference<Exception> failure=new AtomicReference<>();
-  service.performTokenRequest(request,(response,error)->{if(response!=null)result.set(response);else failure.set(new IllegalStateException(error==null?"Refresh failed":error.error));latch.countDown();});
+  service.performTokenRequest(request,(response,error)->{if(response!=null)result.set(response);else {if(error!=null&&"invalid_grant".equals(error.error))store.clear();failure.set(new IllegalStateException(error==null?"Refresh failed":error.error));}latch.countDown();});
   if(!latch.await(25,TimeUnit.SECONDS))throw new IllegalStateException("Google token refresh timed out");
-  if(failure.get()!=null){store.clear();throw failure.get();}
+  if(failure.get()!=null)throw failure.get();
   TokenResponse response=result.get();String nextRefresh=response.refreshToken==null?refresh:response.refreshToken;
   long expiry=response.accessTokenExpirationTime==null?System.currentTimeMillis()+3600000:response.accessTokenExpirationTime;
   store.save(response.accessToken,nextRefresh,expiry);return response.accessToken;
