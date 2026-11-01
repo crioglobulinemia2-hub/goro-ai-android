@@ -5,6 +5,7 @@ import net.openid.appauth.AuthorizationService;
 import net.openid.appauth.AuthorizationServiceConfiguration;
 import net.openid.appauth.TokenRequest;
 import net.openid.appauth.TokenResponse;
+import net.openid.appauth.GrantTypeValues;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -16,7 +17,7 @@ public final class GoogleCalendarTokenProvider {
   String access=store.access();if(access!=null&&System.currentTimeMillis()+60000<store.expiresAt())return access;
   String refresh=store.refresh();if(refresh==null||refresh.isEmpty())throw new IllegalStateException("Google account requires authorization");
   AuthorizationServiceConfiguration config=new AuthorizationServiceConfiguration(Uri.parse("https://accounts.google.com/o/oauth2/v2/auth"),Uri.parse("https://oauth2.googleapis.com/token"));
-  TokenRequest request=new TokenRequest.Builder(config,clientId).setRefreshToken(refresh).build();
+  TokenRequest request=new TokenRequest.Builder(config,clientId).setGrantType(GrantTypeValues.REFRESH_TOKEN).setRefreshToken(refresh).build();
   CountDownLatch latch=new CountDownLatch(1);AtomicReference<TokenResponse> result=new AtomicReference<>();AtomicReference<Exception> failure=new AtomicReference<>();
   service.performTokenRequest(request,(response,error)->{if(response!=null)result.set(response);else failure.set(new IllegalStateException(error==null?"Refresh failed":error.error));latch.countDown();});
   if(!latch.await(25,TimeUnit.SECONDS))throw new IllegalStateException("Google token refresh timed out");
