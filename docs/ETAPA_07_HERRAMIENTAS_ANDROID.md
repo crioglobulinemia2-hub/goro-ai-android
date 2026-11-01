@@ -8,26 +8,29 @@
 - Órdenes por voz para abrir las listas nativas de alarmas y temporizadores.
 - Alarmas y temporizadores enviados al reloj Android mediante intents estándar.
 - Calculadora aritmética básica con protección de división por cero.
+- Mensajes de voz que no afirman que la alarma fue guardada cuando solo se abrió la interfaz del reloj.
 
-## Hallazgos de documentación y comunidad aplicados
-1. Android AlarmClock API exige `com.android.alarm.permission.SET_ALARM` para `ACTION_SET_TIMER`; permiso incorporado al manifest.
-   Fuente: https://developer.android.com/reference/android/provider/AlarmClock
-2. Un error habitual de `ACTION_SET_ALARM` / `ACTION_SET_TIMER` es que el sistema no encuentre una app receptora cuando falta SET_ALARM.
-   Reporte: https://stackoverflow.com/questions/63649575/alarmclock-intent-says-no-apps-can-perform-this-action
-3. Se usa `Context.startActivity()` para que el usuario pueda elegir el reloj instalado, conforme a la recomendación oficial.
-4. Se añadió manejo de ausencia de aplicación receptora y se evita decir que quedó guardado si solo se abrió la interfaz.
+## Investigación aplicada
+- Permiso SET_ALARM incorporado para ACTION_SET_TIMER.
+- AlarmClock intents encapsulados en AlarmClockIntents para construcción y verificación determinista.
+- Pruebas Android Intent ejecutadas con Robolectric, no con stubs Android incompletos.
+- Reporte comunitario sobre el problema de intents de reloj sin permiso: https://stackoverflow.com/questions/63649575/alarmclock-intent-says-no-apps-can-perform-this-action
+- Referencia oficial: https://developer.android.com/reference/android/provider/AlarmClock
 
-## Pruebas automáticas
-- Parser de alarmas: hora/minutos, límites y entradas inválidas.
-- Parser de temporizadores: segundos/minutos/horas, h/hs, límites y overflow.
-- Compilación y validación de manifiesto en GitHub Actions.
+## Evidencia automatizada
+GitHub Actions **41354060055 — SUCCESS**.
+- Static security gate: success.
+- Unit tests and build: success.
+- Android memory persistence tests (Robolectric): success.
+- Manifest and APK integrity validation: success.
+- Artifact GoroAI-debug-apk generado (30,579 bytes).
 
-## Límite explícito
-La API pública abre la aplicación de reloj; la app externa no recibe una confirmación universal de que el usuario guardó o de que la alarma sonará. Por eso GORO informa que abrió la interfaz y pide confirmar el guardado. La prueba de disparo físico y comportamiento con pantalla bloqueada requiere un teléfono real y la aplicación de reloj concreta.
+La suite incluye pruebas de parser, rangos, overflow, acciones AlarmClock y construcción de intents de alarma/temporizador/listados.
 
-## Referencias
-- Android AlarmClock: https://developer.android.com/reference/android/provider/AlarmClock
-- Android alarms guide: https://developer.android.com/develop/background-work/services/alarms
-- Stack Overflow — missing SET_ALARM permission: https://stackoverflow.com/questions/63649575/alarmclock-intent-says-no-apps-can-perform-this-action
+## Límites conocidos
+Android delega el guardado y disparo al proveedor de reloj del dispositivo. La API externa no ofrece confirmación universal de que el usuario guardó una alarma ni de que el proveedor la disparará. GORO informa que abrió el reloj, sin declarar falsamente que la alarma ya está activa.
+No se ejecutó una prueba física en teléfono, conforme a la regla del proyecto de no solicitar instalaciones ni pruebas intermedias. La verificación de proveedor de reloj real queda para la validación integral final sin intervención del usuario.
 
-**Estado:** implementación y regresión automática pendientes de resultado del run 41353665109. La verificación física queda documentada como requisito de aceptación en dispositivo.
+## Estado
+**ETAPA 7/12 APROBADA para implementación, compilación, pruebas automatizadas y validación del APK.**
+Evidencia: https://github.com/crioglobulinemia2-hub/goro-ai-android/actions/runs/41354060055
