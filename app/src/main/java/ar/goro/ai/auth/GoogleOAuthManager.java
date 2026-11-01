@@ -30,7 +30,7 @@ public final class GoogleOAuthManager {
   String verifier=CodeVerifierUtil.generateRandomCodeVerifier();
   java.util.Map<String,String> parameters=new java.util.HashMap<>();parameters.put("access_type","offline");parameters.put("prompt","consent");
   AuthorizationRequest request=new AuthorizationRequest.Builder(config,clientId,ResponseTypeValues.CODE,Uri.parse(redirectUri(clientId))).setScope("openid email "+SCOPE).setCodeVerifier(verifier,CodeVerifierUtil.deriveCodeVerifierChallenge(verifier),CodeVerifierUtil.getCodeVerifierChallengeMethod()).setAdditionalParameters(parameters).build();
-  service.performAuthorizationRequest(activity,request,completed,cancelled);
+  service.performAuthorizationRequest(request,completed,cancelled);
  }
  public void handleAuthorizationResult(Intent data,Callback callback){
   AuthorizationResponse response=data==null?null:AuthorizationResponse.fromIntent(data);
