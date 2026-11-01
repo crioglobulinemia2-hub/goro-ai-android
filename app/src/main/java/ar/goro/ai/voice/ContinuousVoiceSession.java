@@ -51,7 +51,7 @@ public final class ContinuousVoiceSession implements RecognitionListener {
   try{machine.listening();listener.onState(machine.state());recognizer.startListening(i);}
   catch(RuntimeException e){scheduleRetry();}
  }
- public void stop(){
+ public void pauseForResponse(){\n  if(!active)return;\n  handler.removeCallbacksAndMessages(null);\n  if(recognizer!=null){try{recognizer.cancel();}catch(RuntimeException ignored){}}\n  machine.processing();listener.onState(machine.state());\n }\n public void resumeAfterResponse(){if(active&&!destroyed)scheduleRetry();}\n public void stop(){
   active=false;handler.removeCallbacksAndMessages(null);
   if(recognizer!=null){try{recognizer.cancel();}catch(RuntimeException ignored){}}
   machine.idle();listener.onState(machine.state());
