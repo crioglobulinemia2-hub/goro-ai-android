@@ -17,5 +17,8 @@ dependencies {
     testImplementation 'org.robolectric:robolectric:4.14.1'
     implementation 'androidx.work:work-runtime:2.10.1'
     implementation 'androidx.core:core:1.15.0'
+    implementation 'com.google.android.filament:filament-android:1.79.0'
+    implementation 'com.google.android.filament:gltfio-android:1.79.0'
+    implementation 'com.google.android.filament:filament-utils-android:1.79.0'
     testImplementation 'androidx.work:work-testing:2.10.1'
 }
