@@ -1,34 +1,49 @@
 # Etapa 8/12 — Google Calendar, clima y automatizaciones
 
+## Revisión técnica externa
+Revisión ejecutada en NVIDIA Nemotron-3.5-super-vl-120b-a12b Playground:
+https://agent.tinyfish.ai/runs/45b928cd-70cd-4635-9e5c-a195a3e72bcd
+
+Decisión de arquitectura: cliente Android público con OAuth Authorization Code + PKCE y REST directo a Google Calendar; sin servidor propio, sin client_secret embebido y sin backend proxy. Open-Meteo se usa como proveedor meteorológico sin API key. WorkManager se reserva para recordatorios no exactos.
+
 ## Implementado
-- Modelo de eventos con zona horaria.
-- Contrato CalendarGateway para consultar, crear, modificar y eliminar eventos.
-- Adaptador HTTPS SecureCalendarProxy. No incluye claves ni refresh tokens en la APK.
-- Servicio meteorológico Open-Meteo por HTTPS, sin clave API, con validación de coordenadas y respuesta actual (temperatura, viento, código y hora).
-- Pruebas unitarias del modelo de eventos y validación de zona horaria.
+- AppAuth 0.11.1 para autorización Google mediante navegador/Custom Tabs y PKCE S256.
+- GoogleTokenStore con EncryptedSharedPreferences para access/refresh tokens.
+- GoogleCalendarTokenProvider con refresh token grant y renovación antes de expirar.
+- GoogleCalendarRestGateway con OkHttp y endpoints Calendar API v3 directos.
+- Calendario: consulta por día/semana, creación con confirmación explícita, eliminación con confirmación explícita.
+- Zona horaria local IANA + offset RFC3339 al construir eventos.
+- WeatherService: geocoding Open-Meteo + condiciones actuales por coordenadas.
+- Recordatorios relativos y recurrentes con WorkManager y NotificationChannel.
+- Solicitud de permiso POST_NOTIFICATIONS disponible en UI.
+- MainActivity conserva say/runCommand; clima y operaciones de calendario están en el dispatcher de voz.
+- Sin client_secret ni API key hardcodeados. No hay proxy remoto.
 
-## Fuentes y decisión
-- Google recomienda Credential Manager para iniciar sesión Android y prohíbe usar WebView embebido para OAuth: https://developers.google.com/identity/siwg/best-practices
-- Google Calendar API events list/insert/update/delete: https://developers.google.com/workspace/calendar/api/v3/reference/events
-- Open-Meteo ofrece endpoint HTTPS sin API key para pronóstico, con uso gratuito no comercial y atribución CC BY 4.0: https://open-meteo.com/en/docs
-- El proxy debe validar identidad, OAuth scope calendar.events y ownership de eventos; no aceptar user IDs arbitrarios del cliente.
+## Configuración externa necesaria para habilitar Google Calendar real
+Es registro OAuth externo que no puede inferirse ni inventarse.
+1. En Google Cloud Console, crear/seleccionar proyecto y habilitar Google Calendar API.
+2. Configurar OAuth consent screen y añadir cuenta de prueba si la app permanece en Testing.
+3. Crear OAuth Client ID tipo Android con package ar.goro.ai y SHA-1 del certificado de firma que se usará en la APK final.
+4. Pasar el client ID público al build como propiedad Gradle GOOGLE_OAUTH_CLIENT_ID; el esquema redirect se deriva del prefijo com.googleusercontent.apps.<client-prefix>.
+5. Autorizar scope mínimo https://www.googleapis.com/auth/calendar.events.
+No se necesita client_secret en Android. No se debe reutilizar un OAuth client ID de tipo Web.
 
-## Contrato requerido para el proxy
-- GET /calendar/events?timeMin=&timeMax=&q= -> {items:[Google Calendar event objects]}
-- POST /calendar/events -> Google Calendar event object
-- PATCH /calendar/events/{id} -> Google Calendar event object
-- DELETE /calendar/events/{id} -> 204
-- OAuth tokens/refresh tokens se guardan exclusivamente en el servidor.
+## Límites y honestidad de integración
+- Hasta configurar client ID Android + SHA-1 en Google Console, el botón de conexión informa que Calendar requiere configuración y no se puede completar consentimiento real.
+- No se afirma conexión real con Google Calendar: no se ha concedido consentimiento OAuth a esta app.
+- Las pruebas CI no invocan cuentas reales ni Open-Meteo; verifican compilación, modelos, parser, seguridad y contratos locales.
+- WorkManager no garantiza ejecución exacta al minuto. Para alarmas exactas usar AlarmManager con permisos/políticas Android; etapa 7 delega alarmas al reloj nativo.
+- Android 13+ requiere POST_NOTIFICATIONS habilitado por la persona; GORO muestra la acción de activación.
+- Las operaciones de calendario que modifican datos requieren confirmación verbal "confirmar"; "cancelar" descarta la operación pendiente.
 
-## Automatizaciones
-Las acciones de calendario requieren confirmación explícita antes de crear, modificar o borrar. Las tareas locales recurrentes deben persistir con WorkManager y mostrar notificación; implementación de scheduler aún pendiente.
+## Fuentes
+- AppAuth AuthorizationService: https://github.com/openid/AppAuth-Android/blob/master/library/java/net/openid/appauth/AuthorizationService.java
+- AppAuth RedirectUriReceiverActivity: https://github.com/openid/AppAuth-Android/blob/master/library/java/net/openid/appauth/RedirectUriReceiverActivity.java
+- AppAuth Google setup: https://github.com/openid/AppAuth-Android/blob/master/app/README-Google.md
+- Google Calendar API events: https://developers.google.com/workspace/calendar/api/v3/reference/events
+- Open-Meteo: https://open-meteo.com/en/docs
+- Android WorkManager: https://developer.android.com/develop/background-work/background-tasks/persistent/getting-started
+- Android notification permission: https://developer.android.com/develop/ui/views/notifications/notification-permission
 
-## Pendiente de aceptación
-- [ ] Implementar proxy OAuth real y desplegarlo.
-- [ ] Integrar Google Credential Manager y consentimiento del usuario.
-- [ ] Conectar calendario a la sesión Nemotron y dispatcher.
-- [ ] Implementar WorkManager para recordatorios/automatizaciones.
-- [ ] Pruebas de integración contra un calendario de prueba y mock server.
-- [ ] Compilar y ejecutar regresión CI.
-
-**Estado: etapa 8 en desarrollo, no aprobada.**
+## Estado de aceptación
+Implementación de código incorporada. La conexión de Google Calendar queda bloqueada por registro externo de OAuth (client ID + SHA-1 + consentimiento), no por falta de backend ni por pruebas del usuario. CI requerido para aceptar el último commit. No se requiere instalación ni prueba manual intermedia.
