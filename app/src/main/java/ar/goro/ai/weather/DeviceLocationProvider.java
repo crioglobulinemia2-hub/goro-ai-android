@@ -22,8 +22,8 @@ public final class DeviceLocationProvider {
  public boolean hasPermission(){return ContextCompat.checkSelfPermission(context,Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED||ContextCompat.checkSelfPermission(context,Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED;}
  @SuppressLint("MissingPermission")
  public void current(Callback callback){
-  boolean fine=context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED;
-  if(!fine&&context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)!=PackageManager.PERMISSION_GRANTED){callback.complete(null,"GORO necesita permiso de ubicación para consultar el clima local.");return;}
+  boolean fine=ContextCompat.checkSelfPermission(context,Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED;
+  if(!fine&&ContextCompat.checkSelfPermission(context,Manifest.permission.ACCESS_COARSE_LOCATION)!=PackageManager.PERMISSION_GRANTED){callback.complete(null,"GORO necesita permiso de ubicación para consultar el clima local.");return;}
   String first=fine?LocationManager.GPS_PROVIDER:LocationManager.NETWORK_PROVIDER;
   String fallback=LocationManager.NETWORK_PROVIDER.equals(first)?null:LocationManager.NETWORK_PROVIDER;
   if(manager==null){callback.complete(null,"El dispositivo no ofrece un servicio de ubicación.");return;}
