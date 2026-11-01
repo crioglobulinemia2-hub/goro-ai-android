@@ -31,8 +31,8 @@
 - [x] Inventario de configuración y código existente.
 - [x] Compilación limpia en GitHub Actions.
 - [x] Riesgos y funciones ausentes documentados.
-- [ ] Pruebas unitarias automatizadas y verificadas.
-- [ ] Validación de manifest/permisos con pruebas.
-- [ ] Informe de regresión reproducible.
+- [x] Pruebas unitarias automatizadas y verificadas (MathEngineTest; GitHub Actions 41349971714).
+- [x] Validación automatizada de manifest y permisos mínimos (run 41349971714).
+- [x] Regresión reproducible: clean testDebugUnitTest assembleDebug, validación de APK ZIP y artifact (run 41349971714).
 
-**Estado: auditoría documentada, etapa 1 NO aprobada hasta cerrar controles restantes.**
+**Estado: ETAPA 1 APROBADA para auditoría de código y compilación.** GitHub Actions 41349971714 terminó success. Esto no valida comportamiento en dispositivo ni integra NVIDIA, robot 3D o ZNP; esas verificaciones pertenecen a etapas posteriores.
