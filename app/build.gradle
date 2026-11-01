@@ -9,7 +9,7 @@ android {
         targetSdk 35
         versionCode 1
         versionName '0.1.0'
-        manifestPlaceholders = [googleAuthRedirectScheme: project.findProperty('GOOGLE_OAUTH_REDIRECT_SCHEME') ?: 'com.googleusercontent.apps.REPLACE_WITH_CLIENT_ID']
+        manifestPlaceholders = [googleAuthRedirectScheme: project.findProperty('GOOGLE_OAUTH_REDIRECT_SCHEME') ?: 'com.googleusercontent.apps.REPLACE_WITH_CLIENT_ID', appAuthRedirectScheme: project.findProperty('GOOGLE_OAUTH_REDIRECT_SCHEME') ?: 'com.googleusercontent.apps.REPLACE_WITH_CLIENT_ID']
     }
 }
 
