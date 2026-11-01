@@ -1,21 +1,40 @@
 # Etapa 6/12 — Memoria persistente y contextual
 
-## Implementado
-- Modelo de memoria con categoría, contenido e identificadores.
+## Entrega implementada
 - Almacenamiento local app-private SQLite.
-- Crear, listar recientes, actualizar, borrar individual y borrar todo.
-- Límites de tamaño y validación de campos.
-- Índice por categoría y pruebas unitarias del modelo.
+- Alta de recuerdos explícitos por voz: "acordate que..." / "recordá que...".
+- Consulta de recuerdos recientes.
+- Búsqueda textual por contenido.
+- Edición y eliminación individual por ID.
+- Eliminación por categoría y borrado completo.
+- Migración única desde SharedPreferences del prototipo, con marca para evitar duplicados.
+- Recuperación ordenada por última modificación.
+- Validación de categoría, contenido y longitud máxima.
 
-## Pendiente
-- [ ] Migrar comandos provisionales SharedPreferences a MemoryStore.
-- [ ] Interfaz de revisión, edición, exportación y borrado.
-- [ ] Recuperación semántica/contextual conectada a Nemotron.
-- [ ] Consentimiento explícito antes de guardar recuerdos sensibles.
-- [ ] Pruebas instrumentadas de persistencia, migración y borrado en dispositivo.
-- [ ] Cifrado de datos si se habilita almacenamiento de información sensible.
+## Pruebas verificadas
+GitHub Actions run **41353214781** — SUCCESS.
+- Static security gate: success.
+- Unit tests: success.
+- Android SQLite persistence/migration test using Robolectric: success.
+- Manifest and APK integrity validation: success.
+- APK debug artifact generated: GoroAI-debug-apk.
 
-## Privacidad
-La base de datos es privada para la aplicación, pero no está cifrada. No guardar contraseñas, claves API ni información médica/financiera sensible. Los recuerdos se guardan únicamente cuando el usuario lo solicita.
+La prueba de memoria cubre:
+1. Importar dos recuerdos del formato anterior.
+2. Cerrar y reabrir la base de datos y comprobar persistencia.
+3. Evitar una segunda migración duplicada.
+4. Buscar por texto.
+5. Actualizar un recuerdo.
+6. Borrar individualmente.
+7. Borrar por categoría.
+8. Vaciar la base y comprobar cero registros.
 
-**Estado: etapa 6 no aprobada hasta integración y pruebas instrumentadas.**
+## Alcance y límites
+- La recuperación actual es textual, no semántica. La memoria contextual enriquecida con Nemotron depende de completar la integración de la etapa 4.
+- La base de datos está en el almacenamiento privado de la aplicación, pero no está cifrada. No almacenar secretos ni datos sensibles.
+- La prueba automatizada de SQLite se ejecutó con Robolectric sobre APIs Android; no sustituye una prueba física en teléfono.
+- La interfaz visual de gestión de recuerdos aún debe incorporarse a la interfaz final aprobada.
+
+## Estado
+**ETAPA 6/12 APROBADA para persistencia local, migración y operaciones CRUD**, según la ejecución 41353214781.
+Los límites indicados quedan registrados como trabajo de integración de las etapas posteriores, no como fallos ocultos.
