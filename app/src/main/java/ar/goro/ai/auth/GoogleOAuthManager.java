@@ -14,7 +14,11 @@ import net.openid.appauth.CodeVerifierUtil;
 import java.util.concurrent.TimeUnit;
 /** Public-client OAuth authorization-code + PKCE for Google Calendar. */
 public final class GoogleOAuthManager {
- public static final String REDIRECT_URI="ar.goro.ai:/oauth2redirect";
+ public static String redirectUri(String clientId){
+  if(clientId==null||!clientId.endsWith(".apps.googleusercontent.com"))throw new IllegalArgumentException("Invalid Google OAuth client ID");
+  String reverse="com.googleusercontent.apps."+clientId.substring(0,clientId.indexOf(".apps.googleusercontent.com"));
+  return reverse+":/oauth2redirect";
+ }
  public static final String SCOPE="https://www.googleapis.com/auth/calendar.events";
  public interface Callback{void complete(boolean success,String error);}
  private final AuthorizationService service;private final GoogleTokenStore store;private final String clientId;
@@ -24,7 +28,7 @@ public final class GoogleOAuthManager {
   AuthorizationServiceConfiguration config=new AuthorizationServiceConfiguration(Uri.parse("https://accounts.google.com/o/oauth2/v2/auth"),Uri.parse("https://oauth2.googleapis.com/token"));
   String verifier=CodeVerifierUtil.generateRandomCodeVerifier();
   java.util.Map<String,String> parameters=new java.util.HashMap<>();parameters.put("access_type","offline");parameters.put("prompt","consent");
-  AuthorizationRequest request=new AuthorizationRequest.Builder(config,clientId,ResponseTypeValues.CODE,Uri.parse(REDIRECT_URI)).setScope("openid email "+SCOPE).setCodeVerifier(verifier,CodeVerifierUtil.deriveCodeVerifierChallenge(verifier),CodeVerifierUtil.getCodeVerifierChallengeMethod()).setAdditionalParameters(parameters).build();
+  AuthorizationRequest request=new AuthorizationRequest.Builder(config,clientId,ResponseTypeValues.CODE,Uri.parse(redirectUri(clientId))).setScope("openid email "+SCOPE).setCodeVerifier(verifier,CodeVerifierUtil.deriveCodeVerifierChallenge(verifier),CodeVerifierUtil.getCodeVerifierChallengeMethod()).setAdditionalParameters(parameters).build();
   return service.getAuthorizationRequestIntent(request);
  }
  public void handleAuthorizationResult(Intent data,Callback callback){
