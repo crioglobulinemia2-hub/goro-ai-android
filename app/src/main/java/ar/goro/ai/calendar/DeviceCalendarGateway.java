@@ -64,7 +64,7 @@ public final class DeviceCalendarGateway implements CalendarGateway {
      }
     }
     main.post(()->cb.complete(out,null));
-   }catch(Exception e){main.post(()->cb.complete(null,"No pude leer Google Calendar sincronizado."));}
+   }catch(Exception e){String message=e.getMessage()==null?"No pude leer Google Calendar sincronizado.":e.getMessage();main.post(()->cb.complete(null,message));}
   });
  }
  @Override public void create(CalendarEvent e,Callback<CalendarEvent> cb){
