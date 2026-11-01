@@ -9,6 +9,7 @@ import ar.goro.ai.voice.ContinuousVoiceSession;
 import ar.goro.ai.voice.ConversationState;
 import ar.goro.ai.memory.MemoryStore;
 import ar.goro.ai.memory.MemoryRecord;
+import ar.goro.ai.tools.AssistantCommandParser;
 import android.content.SharedPreferences;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
@@ -143,29 +144,24 @@ public class MainActivity extends Activity {
       try{int deleted=memoryStore.clearAll();say("Eliminé "+deleted+" recuerdos locales.");}
       catch(Exception e){say("No pude eliminar la memoria.");}
     } else if(text.contains("alarma") || text.contains("despert")) {
-      Matcher time=Pattern.compile("(?:a las |para las |las )?(\\d{1,2})(?:[:.](\\d{2}))").matcher(text);
-      Matcher hour=Pattern.compile("(?:a las |para las )(\\d{1,2})(?!\\d)").matcher(text);
-      int h=-1,m=0;
-      if(time.find()){h=Integer.parseInt(time.group(1));m=Integer.parseInt(time.group(2));}
-      else if(hour.find())h=Integer.parseInt(hour.group(1));
-      if(h<0||h>23||m>59){say("Decime la hora de la alarma. Por ejemplo, a las siete y treinta.");return;}
+      AssistantCommandParser.Alarm parsed=AssistantCommandParser.alarm(text);
+      if(parsed==null){say("Decime una hora válida, por ejemplo siete y treinta usando 07:30.");return;}
       Intent alarm=new Intent(AlarmClock.ACTION_SET_ALARM);
-      alarm.putExtra(AlarmClock.EXTRA_HOUR,h);alarm.putExtra(AlarmClock.EXTRA_MINUTES,m);
+      alarm.putExtra(AlarmClock.EXTRA_HOUR,parsed.hour);
+      alarm.putExtra(AlarmClock.EXTRA_MINUTES,parsed.minute);
       alarm.putExtra(AlarmClock.EXTRA_MESSAGE,"GORO AI");
-      try {startActivity(alarm);say("Envié la alarma de "+h+" y "+String.format(Locale.ROOT,"%02d",m)+" al reloj del teléfono. Verificá su confirmación.");}
-      catch(Exception e){say("No pude abrir el reloj para crear la alarma.");}
+      alarm.putExtra(AlarmClock.EXTRA_SKIP_UI,false);
+      try {startActivity(alarm);say("Abrí el reloj para configurar la alarma de "+parsed.hour+":"+String.format(Locale.ROOT,"%02d",parsed.minute)+". Confirmá el guardado en el teléfono.");}
+      catch(Exception e){say("No pude abrir la aplicación de reloj.");}
     } else if(text.contains("temporizador")||text.contains("cuenta regresiva")) {
-      Matcher duration=Pattern.compile("(\\d+)\\s*(segundos?|minutos?|horas?)").matcher(text);
-      if(!duration.find()){say("Decime cuánto debe durar el temporizador.");return;}
-      long n=Long.parseLong(duration.group(1));
-      String unit=duration.group(2);
-      long seconds=n*(unit.startsWith("hora")?3600:unit.startsWith("minuto")?60:1);
-      if(seconds<=0||seconds>86400){say("Elegí una duración de hasta veinticuatro horas.");return;}
+      AssistantCommandParser.Timer parsed=AssistantCommandParser.timer(text);
+      if(parsed==null){say("Decime una duración válida en segundos, minutos u horas.");return;}
       Intent timer=new Intent(AlarmClock.ACTION_SET_TIMER);
-      timer.putExtra(AlarmClock.EXTRA_LENGTH,(int)seconds);
+      timer.putExtra(AlarmClock.EXTRA_LENGTH,parsed.seconds);
       timer.putExtra(AlarmClock.EXTRA_MESSAGE,"GORO AI");
-      try {startActivity(timer);say("Envié el temporizador al reloj. Comprobá que haya comenzado.");}
-      catch(Exception e){say("No pude abrir el temporizador.");}
+      timer.putExtra(AlarmClock.EXTRA_SKIP_UI,false);
+      try {startActivity(timer);say("Abrí el reloj para configurar el temporizador de "+parsed.seconds+" segundos. Confirmá que haya comenzado.");}
+      catch(Exception e){say("No pude abrir el temporizador del teléfono.");}
     } else if(text.contains("hora")) {
       say("Son las "+new java.text.SimpleDateFormat("HH:mm",Locale.getDefault()).format(new Date()));
     } else if(text.matches("\\s*-?\\d+(?:[.,]\\d+)?\\s*[+*/-]\\s*-?\\d+(?:[.,]\\d+)?\\s*")) {
