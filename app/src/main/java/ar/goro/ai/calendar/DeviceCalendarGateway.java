@@ -49,6 +49,7 @@ public final class DeviceCalendarGateway implements CalendarGateway {
     long begin=millis(min),end=millis(max);
     if(begin>=end)throw new IllegalArgumentException("Rango de agenda inválido.");
     java.util.Set<Long> googleCalendarIds=selectedCalendarIds(false);
+    if(googleCalendarIds.isEmpty())throw new IllegalStateException("La cuenta Gmail vinculada no tiene calendarios visibles y sincronizados en este dispositivo.");
     String[] cols={CalendarContract.Instances.EVENT_ID,CalendarContract.Instances.TITLE,CalendarContract.Instances.BEGIN,CalendarContract.Instances.END,CalendarContract.Instances.EVENT_TIMEZONE,CalendarContract.Instances.DESCRIPTION,CalendarContract.Instances.CALENDAR_ID};
     try(Cursor c=CalendarContract.Instances.query(context.getContentResolver(),cols,begin,end)){
      if(c!=null)while(c.moveToNext()){
