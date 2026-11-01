@@ -39,6 +39,8 @@ public class MainActivity extends Activity {
   private static final int VOICE_REQUEST=27;
   private TextView output, state;
   private ar.goro.ai.ui.GoroDashboardView dashboard;
+  private ZnpBleDiscovery znpBleDiscovery;
+  private static final int ZNP_BLE_PERMISSION_REQUEST=65;
   private EditText command;
   private TextToSpeech tts;
   private boolean voiceReady=false;
@@ -66,6 +68,7 @@ public class MainActivity extends Activity {
     weatherService=new WeatherService();
     locationProvider=new DeviceLocationProvider(this);
     calendarGateway=new DeviceCalendarGateway(this);
+    znpBleDiscovery=new ZnpBleDiscovery(this,message->{if(dashboard!=null){dashboard.showDeviceStatus(message);}});
     memoryStore.migrateLegacy(memory);
     voiceSession=new ContinuousVoiceSession(this,new ContinuousVoiceSession.Listener(){
       public void onState(ConversationState s){if(state!=null)state.setText("GORO • "+s.name());}
@@ -108,6 +111,7 @@ public class MainActivity extends Activity {
       }
       public void onWeather(){requestWeatherLocation(false);}
       public void onForecast(){requestWeatherLocation(true);}
+      public void onBleScan(){startZnpBleInspection();}
       public void onReminders(){
         if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)
           requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},52);
@@ -240,6 +244,12 @@ public class MainActivity extends Activity {
       say("Todavía no tengo conexión a Nemotron. No ejecuté ninguna acción.");
     }
   }
+  private void startZnpBleInspection(){
+    if(znpBleDiscovery==null)return;
+    String[] missing=znpBleDiscovery.neededPermissions();
+    if(missing.length>0){requestPermissions(missing,ZNP_BLE_PERMISSION_REQUEST);return;}
+    znpBleDiscovery.begin();
+  }
   private void chooseGoogleAccount(){
     try{Intent picker=AccountManager.newChooseAccountIntent(null,null,new String[]{"com.google"},null,null,null,null);startActivityForResult(picker,GOOGLE_ACCOUNT_REQUEST);}
     catch(Exception e){say("Android no pudo abrir el selector de cuentas Google.");}
@@ -318,6 +328,6 @@ public class MainActivity extends Activity {
     if(pendingCalendarDeleteId!=null){String id=pendingCalendarDeleteId;pendingCalendarDeleteId=null;calendarGateway.delete(id,(ok,error)->say(Boolean.TRUE.equals(ok)?"Evento eliminado de Google Calendar.":error==null?"No se pudo confirmar la eliminación.":error));return;}
     say("No hay ninguna operación de calendario pendiente.");
   }
-  @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results){super.onRequestPermissionsResult(request,permissions,results);if(results.length==0)return;if(request==41&&results[0]==PackageManager.PERMISSION_GRANTED){voiceActive=true;if(dashboard!=null)dashboard.setVoiceActive(true);voiceSession.start();}else if(request==CALENDAR_PERMISSION_REQUEST){boolean granted=checkSelfPermission(Manifest.permission.READ_CALENDAR)==PackageManager.PERMISSION_GRANTED&&checkSelfPermission(Manifest.permission.WRITE_CALENDAR)==PackageManager.PERMISSION_GRANTED;say(granted?"Google Calendar vinculado a "+calendarGateway.selectedGoogleAccount()+".":"El calendario necesita permisos de lectura y escritura; no se modificó ningún evento.");}else if(request==LOCATION_PERMISSION_REQUEST){if(locationProvider.hasPermission()){if(pendingWeatherForecast)showForecastHere();else showWeatherHere();}else say("No se concedió permiso de ubicación. No consulté una ubicación aproximada ni inventé tu clima.");}else if(request==52){say(results[0]==PackageManager.PERMISSION_GRANTED?"Notificaciones habilitadas. Ya puedo entregarte recordatorios.":"Las notificaciones están deshabilitadas; GORO no puede mostrar recordatorios hasta que las habilites en Android.");}}
-  @Override protected void onDestroy(){if(calendarGateway!=null)calendarGateway.close();if(weatherService!=null)weatherService.close();if(voiceSession!=null)voiceSession.destroy();if(tts!=null){tts.stop();tts.shutdown();}super.onDestroy();}
+  @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results){super.onRequestPermissionsResult(request,permissions,results);if(results.length==0)return;if(request==ZNP_BLE_PERMISSION_REQUEST){if(znpBleDiscovery.neededPermissions().length==0)znpBleDiscovery.begin();else if(dashboard!=null)dashboard.showDeviceStatus("Permiso Bluetooth denegado: inspección cancelada.");}else if(request==41&&results[0]==PackageManager.PERMISSION_GRANTED){voiceActive=true;if(dashboard!=null)dashboard.setVoiceActive(true);voiceSession.start();}else if(request==CALENDAR_PERMISSION_REQUEST){boolean granted=checkSelfPermission(Manifest.permission.READ_CALENDAR)==PackageManager.PERMISSION_GRANTED&&checkSelfPermission(Manifest.permission.WRITE_CALENDAR)==PackageManager.PERMISSION_GRANTED;say(granted?"Google Calendar vinculado a "+calendarGateway.selectedGoogleAccount()+".":"El calendario necesita permisos de lectura y escritura; no se modificó ningún evento.");}else if(request==LOCATION_PERMISSION_REQUEST){if(locationProvider.hasPermission()){if(pendingWeatherForecast)showForecastHere();else showWeatherHere();}else say("No se concedió permiso de ubicación. No consulté una ubicación aproximada ni inventé tu clima.");}else if(request==52){say(results[0]==PackageManager.PERMISSION_GRANTED?"Notificaciones habilitadas. Ya puedo entregarte recordatorios.":"Las notificaciones están deshabilitadas; GORO no puede mostrar recordatorios hasta que las habilites en Android.");}}
+  @Override protected void onDestroy(){if(znpBleDiscovery!=null)znpBleDiscovery.close();if(calendarGateway!=null)calendarGateway.close();if(weatherService!=null)weatherService.close();if(voiceSession!=null)voiceSession.destroy();if(tts!=null){tts.stop();tts.shutdown();}super.onDestroy();}
 }
