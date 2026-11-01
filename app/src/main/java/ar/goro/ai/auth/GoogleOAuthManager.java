@@ -1,6 +1,7 @@
 package ar.goro.ai.auth;
 import android.app.Activity;
 import android.content.Intent;
+import android.app.PendingIntent;
 import android.net.Uri;
 import net.openid.appauth.AuthorizationRequest;
 import net.openid.appauth.AuthorizationService;
@@ -23,13 +24,13 @@ public final class GoogleOAuthManager {
  public interface Callback{void complete(boolean success,String error);}
  private final AuthorizationService service;private final GoogleTokenStore store;private final String clientId;
  public GoogleOAuthManager(Activity activity,GoogleTokenStore store,String clientId){this.service=new AuthorizationService(activity);this.store=store;this.clientId=clientId;}
- public Intent authorizationIntent(){
+ public void performAuthorizationRequest(Activity activity,PendingIntent completed,PendingIntent cancelled){
   if(clientId==null||clientId.trim().isEmpty())throw new IllegalStateException("Google OAuth Android client ID is not configured");
   AuthorizationServiceConfiguration config=new AuthorizationServiceConfiguration(Uri.parse("https://accounts.google.com/o/oauth2/v2/auth"),Uri.parse("https://oauth2.googleapis.com/token"));
   String verifier=CodeVerifierUtil.generateRandomCodeVerifier();
   java.util.Map<String,String> parameters=new java.util.HashMap<>();parameters.put("access_type","offline");parameters.put("prompt","consent");
   AuthorizationRequest request=new AuthorizationRequest.Builder(config,clientId,ResponseTypeValues.CODE,Uri.parse(redirectUri(clientId))).setScope("openid email "+SCOPE).setCodeVerifier(verifier,CodeVerifierUtil.deriveCodeVerifierChallenge(verifier),CodeVerifierUtil.getCodeVerifierChallengeMethod()).setAdditionalParameters(parameters).build();
-  return service.getAuthorizationRequestIntent(request);
+  service.performAuthorizationRequest(activity,request,completed,cancelled);
  }
  public void handleAuthorizationResult(Intent data,Callback callback){
   AuthorizationResponse response=data==null?null:AuthorizationResponse.fromIntent(data);
