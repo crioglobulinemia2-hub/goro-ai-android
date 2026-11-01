@@ -17,6 +17,6 @@ public class DeviceLocationProviderTest {
   final String[] error={null};
   provider.current((location,message)->error[0]=message);
   assertNotNull(error[0]);
-  assertNull(error[0].isEmpty()?null:error[0]);
+  assertTrue(error[0].contains("permiso"));
  }
 }
