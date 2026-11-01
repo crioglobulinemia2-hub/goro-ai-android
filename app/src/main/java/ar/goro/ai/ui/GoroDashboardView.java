@@ -1,11 +1,15 @@
 package ar.goro.ai.ui;
 
 import android.app.Activity;
+import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.RippleDrawable;
 import android.view.Gravity;
+import android.view.HapticFeedbackConstants;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -232,12 +236,40 @@ public final class GoroDashboardView extends LinearLayout {
  private Button button(String label,Runnable click,boolean primary){
   Button b=new Button(activity);
   b.setText(label);b.setAllCaps(false);b.setTextSize(12);
+  b.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
   b.setTextColor(primary?Color.WHITE:palette.text);
-  b.setBackground(gradient(primary?palette.accentSecondary:palette.surface,
-        primary?palette.accent:palette.surfaceElevated,dp(15)));
+  b.setGravity(Gravity.CENTER);
+  b.setMinHeight(dp(44));
+  b.setPadding(dp(12),dp(8),dp(12),dp(8));
+  b.setFocusable(true);
+  b.setClickable(true);
+  b.setContentDescription(label);
+  int first=primary?palette.accentSecondary:palette.surface;
+  int second=primary?palette.accent:palette.surfaceElevated;
+  GradientDrawable content=gradient(first,second,dp(15));
+  GradientDrawable mask=new GradientDrawable();
+  mask.setColor(Color.WHITE);mask.setCornerRadius(dp(15));
+  int rippleColor=Color.argb(82,Color.red(palette.accentSecondary),
+      Color.green(palette.accentSecondary),Color.blue(palette.accentSecondary));
+  b.setBackground(new RippleDrawable(ColorStateList.valueOf(rippleColor),content,mask));
+  b.setElevation(dp(2));
+  b.setOnTouchListener((view,event)->{
+   if(event.getActionMasked()==MotionEvent.ACTION_DOWN){
+    view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
+    view.animate().cancel();
+    view.setScaleX(0.965f);view.setScaleY(0.965f);
+    view.setTranslationZ(dp(2));
+   }else if(event.getActionMasked()==MotionEvent.ACTION_UP
+       ||event.getActionMasked()==MotionEvent.ACTION_CANCEL){
+    view.animate().scaleX(1f).scaleY(1f).translationZ(0f).setDuration(125).start();
+   }
+   return false;
+  });
   b.setOnClickListener(v->click.run());
   return b;
  }
+ public int navigationItemCount(){return navigation.getChildCount();}
+
  private TextView text(String label,int size,boolean strong,int color){
   TextView view=new TextView(activity);
   view.setText(label);view.setTextSize(size);view.setTextColor(color);
