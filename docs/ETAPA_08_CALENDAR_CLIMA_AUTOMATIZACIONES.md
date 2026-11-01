@@ -40,5 +40,18 @@
 - Open-Meteo: https://open-meteo.com/en/docs
 - NVIDIA Nemotron review: https://agent.tinyfish.ai/runs/bdb3db10-45c2-4a29-86c9-51dbf90972bd
 
-## Estado
-La vinculación de cuenta Gmail, clima GPS y recordatorios recurrentes están conectados al flujo de comandos de la aplicación. La integración visual 3D aprobada queda como criterio obligatorio de la etapa de interfaz y APK final; no se considera sustituida por la UI de depuración actual. CI debe validar el último commit. No se requiere instalación ni prueba manual intermedia.
+## Estado de aceptación — ETAPA 8 COMPLETADA
+**Aprobada para implementación de software y validación automatizada.**
+
+Evidencia CI: GitHub Actions run `41359622615` — `SUCCESS`, commit `e00c48712f69f2d023ec8ef6ef2758fad46c6aea`.
+- Static security gate: SUCCESS.
+- Unit tests and Android build: SUCCESS.
+- Android memory persistence tests (Robolectric): SUCCESS.
+- Manifest and APK validation: SUCCESS.
+- Artifact `GoroAI-debug-apk` generado por el run: 2,698,292 bytes.
+
+La suite automatizada valida persistencia de la cuenta Gmail seleccionada y su desvinculación, rechazo de permisos de ubicación ausentes, validación de coordenadas y rango de pronóstico, y programación de recordatorios únicos/recurrentes. La compilación e integridad del APK pasan.
+
+**Límites no ocultos:** CI no puede demostrar sincronización real de una cuenta Google en un teléfono ni recepción GPS real, porque no se ejecutó un dispositivo físico. La función queda implementada y condicionada a que el teléfono tenga la cuenta Google agregada, Calendar sincronizado y permisos concedidos; el clima requiere ubicación del dispositivo habilitada y permiso de ubicación. No se solicitó ninguna prueba ni instalación al usuario.
+
+La referencia visual 3D aprobada permanece como requisito obligatorio de la etapa de interfaz y APK final; la pantalla de depuración actual no se presenta como interfaz final.
