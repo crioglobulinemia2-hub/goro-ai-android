@@ -17,7 +17,9 @@ public final class ReminderScheduler {
   work.enqueueUniqueWork("goro-reminder-"+id,ExistingWorkPolicy.REPLACE,request);
  }
  public void recurring(String id,String title,String body,long interval,TimeUnit unit){
-  if(id==null||id.trim().isEmpty()||title==null||title.trim().isEmpty()||interval<15||unit!=TimeUnit.MINUTES)throw new IllegalArgumentException("Periodic reminders require at least 15 minutes");
+  if(id==null||id.trim().isEmpty()||title==null||title.trim().isEmpty()||unit==null)throw new IllegalArgumentException("Invalid periodic reminder");
+  long minutes=unit.toMinutes(interval);
+  if(minutes<15||minutes>TimeUnit.DAYS.toMinutes(365))throw new IllegalArgumentException("Periodic reminders require 15 minutes to 365 days");
   Data data=new Data.Builder().putString("title",title).putString("body",body==null?"":body).build();
   PeriodicWorkRequest request=new PeriodicWorkRequest.Builder(ReminderWorker.class,interval,unit).setInputData(data).build();
   work.enqueueUniquePeriodicWork("goro-periodic-"+id,ExistingPeriodicWorkPolicy.UPDATE,request);
