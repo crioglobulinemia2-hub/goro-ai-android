@@ -10,6 +10,7 @@ import net.openid.appauth.AuthorizationResponse;
 import net.openid.appauth.TokenRequest;
 import net.openid.appauth.TokenResponse;
 import net.openid.appauth.ResponseTypeValues;
+import net.openid.appauth.CodeVerifierUtil;
 import java.util.concurrent.TimeUnit;
 /** Public-client OAuth authorization-code + PKCE for Google Calendar. */
 public final class GoogleOAuthManager {
@@ -21,7 +22,9 @@ public final class GoogleOAuthManager {
  public Intent authorizationIntent(){
   if(clientId==null||clientId.trim().isEmpty())throw new IllegalStateException("Google OAuth Android client ID is not configured");
   AuthorizationServiceConfiguration config=new AuthorizationServiceConfiguration(Uri.parse("https://accounts.google.com/o/oauth2/v2/auth"),Uri.parse("https://oauth2.googleapis.com/token"));
-  AuthorizationRequest request=new AuthorizationRequest.Builder(config,clientId,ResponseTypeValues.CODE,Uri.parse(REDIRECT_URI)).setScope("openid email "+SCOPE).setCodeVerifier(null,null,null).setAdditionalParameters(java.util.Collections.singletonMap("access_type","offline")).build();
+  String verifier=CodeVerifierUtil.generateRandomCodeVerifier();
+  java.util.Map<String,String> parameters=new java.util.HashMap<>();parameters.put("access_type","offline");parameters.put("prompt","consent");
+  AuthorizationRequest request=new AuthorizationRequest.Builder(config,clientId,ResponseTypeValues.CODE,Uri.parse(REDIRECT_URI)).setScope("openid email "+SCOPE).setCodeVerifier(verifier,CodeVerifierUtil.deriveCodeVerifierChallenge(verifier),CodeVerifierUtil.getCodeVerifierChallengeMethod()).setAdditionalParameters(parameters).build();
   return service.getAuthorizationRequestIntent(request);
  }
  public void handleAuthorizationResult(Intent data,Callback callback){
