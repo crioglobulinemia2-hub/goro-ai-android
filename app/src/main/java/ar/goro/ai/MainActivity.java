@@ -1,6 +1,12 @@
 package ar.goro.ai;
 
-import android.app.Activity;\nimport android.Manifest;\nimport android.content.pm.PackageManager;\nimport android.os.Build;\nimport android.speech.tts.UtteranceProgressListener;\nimport ar.goro.ai.voice.ContinuousVoiceSession;\nimport ar.goro.ai.voice.ConversationState;
+import android.app.Activity;
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.os.Build;
+import android.speech.tts.UtteranceProgressListener;
+import ar.goro.ai.voice.ContinuousVoiceSession;
+import ar.goro.ai.voice.ConversationState;
 import ar.goro.ai.memory.MemoryStore;
 import ar.goro.ai.memory.MemoryRecord;
 import android.content.SharedPreferences;
@@ -24,14 +30,30 @@ public class MainActivity extends Activity {
   private TextToSpeech tts;
   private boolean voiceReady=false;
   private SharedPreferences memory;
-  private MemoryStore memoryStore;\n  private ContinuousVoiceSession voiceSession;\n  private boolean voiceActive=false;
+  private MemoryStore memoryStore;
+  private ContinuousVoiceSession voiceSession;
+  private boolean voiceActive=false;
   @Override public void onCreate(Bundle saved) {
     super.onCreate(saved);
     memory=getSharedPreferences("goro_memory",MODE_PRIVATE);
-    memoryStore=new MemoryStore(this);\n    voiceSession=new ContinuousVoiceSession(this,new ContinuousVoiceSession.Listener(){\n      public void onState(ConversationState s){if(state!=null)state.setText("GORO • "+s.name());}\n      public void onFinalText(String text){if(voiceSession!=null){voiceSession.pauseForResponse();} if(command!=null)command.setText(text);runCommand(text);}\n      public void onPartialText(String text){if(command!=null)command.setText(text);}\n      public void onError(String message){if(output!=null)output.setText(message);}\n      public void onUserSpeechStarted(){if(tts!=null)tts.stop();}\n    });
+    memoryStore=new MemoryStore(this);
+    voiceSession=new ContinuousVoiceSession(this,new ContinuousVoiceSession.Listener(){
+      public void onState(ConversationState s){if(state!=null)state.setText("GORO • "+s.name());}
+      public void onFinalText(String text){if(voiceSession!=null){voiceSession.pauseForResponse();} if(command!=null)command.setText(text);runCommand(text);}
+      public void onPartialText(String text){if(command!=null)command.setText(text);}
+      public void onError(String message){if(output!=null)output.setText(message);}
+      public void onUserSpeechStarted(){if(tts!=null)tts.stop();}
+    });
     tts=new TextToSpeech(this, status -> {
       voiceReady=status==TextToSpeech.SUCCESS;
-      if(voiceReady) {\n        tts.setLanguage(new Locale("es","AR"));\n        tts.setOnUtteranceProgressListener(new UtteranceProgressListener(){\n          public void onStart(String id){}\n          public void onDone(String id){runOnUiThread(()->{if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();});}\n          public void onError(String id){runOnUiThread(()->{if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();});}\n        });\n      }
+      if(voiceReady) {
+        tts.setLanguage(new Locale("es","AR"));
+        tts.setOnUtteranceProgressListener(new UtteranceProgressListener(){
+          public void onStart(String id){}
+          public void onDone(String id){runOnUiThread(()->{if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();});}
+          public void onError(String id){runOnUiThread(()->{if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();});}
+        });
+      }
     });
     LinearLayout root=new LinearLayout(this);
     root.setOrientation(LinearLayout.VERTICAL);
@@ -46,7 +68,9 @@ public class MainActivity extends Activity {
     state=new TextView(this);state.setText("Asistente de voz • Android");state.setTextColor(0xff607589);
     body.addView(state);
     TextView avatar=new TextView(this);
-    avatar.setText("◉\n\nGORO AI");avatar.setTextSize(30);avatar.setGravity(Gravity.CENTER);
+    avatar.setText("◉
+
+GORO AI");avatar.setTextSize(30);avatar.setGravity(Gravity.CENTER);
     avatar.setTextColor(0xff214E73);avatar.setBackgroundColor(0xffd1e4e2);
     LinearLayout.LayoutParams avatarParams=new LinearLayout.LayoutParams(-1,300);
     avatarParams.setMargins(0,25,0,20);body.addView(avatar,avatarParams);
@@ -56,7 +80,13 @@ public class MainActivity extends Activity {
     command=new EditText(this);command.setHint("Escribí o dictá una orden");command.setSingleLine(false);
     body.addView(command);
     Button talk=new Button(this);talk.setText("Hablar con GORO");body.addView(talk);
-    talk.setText("Conversación continua");\n    talk.setOnClickListener(v->{\n      if(voiceActive){voiceActive=false;voiceSession.stop();talk.setText("Conversación continua");return;}\n      if(Build.VERSION.SDK_INT>=23 && checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO},41);return;}\n      if(!voiceSession.available()){say("No hay reconocimiento de voz disponible.");return;}\n      voiceActive=true;talk.setText("Detener sesión");voiceSession.start();\n    });
+    talk.setText("Conversación continua");
+    talk.setOnClickListener(v->{
+      if(voiceActive){voiceActive=false;voiceSession.stop();talk.setText("Conversación continua");return;}
+      if(Build.VERSION.SDK_INT>=23 && checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO},41);return;}
+      if(!voiceSession.available()){say("No hay reconocimiento de voz disponible.");return;}
+      voiceActive=true;talk.setText("Detener sesión");voiceSession.start();
+    });
     Button execute=new Button(this);execute.setText("Enviar texto");body.addView(execute);
     execute.setOnClickListener(v->runCommand(command.getText().toString().trim()));
     scroll.addView(body);root.addView(scroll);setContentView(root);
@@ -79,7 +109,8 @@ public class MainActivity extends Activity {
   }
   private void say(String message) {
     output.setText(message);
-    if(voiceReady) { if(voiceSession!=null)voiceSession.pauseForResponse(); tts.speak(message,TextToSpeech.QUEUE_FLUSH,null,"goro_reply"); }\n    else if(voiceSession!=null)voiceSession.resumeAfterResponse();
+    if(voiceReady) { if(voiceSession!=null)voiceSession.pauseForResponse(); tts.speak(message,TextToSpeech.QUEUE_FLUSH,null,"goro_reply"); }
+    else if(voiceSession!=null)voiceSession.resumeAfterResponse();
   }
   private void runCommand(String raw) {
     if(raw.isEmpty()) return;
@@ -138,5 +169,6 @@ public class MainActivity extends Activity {
       say("Todavía no tengo conexión a Nemotron. No ejecuté ninguna acción.");
     }
   }
-  @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results){super.onRequestPermissionsResult(request,permissions,results);if(request==41&&results.length>0&&results[0]==PackageManager.PERMISSION_GRANTED){voiceActive=true;voiceSession.start();}}\n  @Override protected void onDestroy(){if(voiceSession!=null)voiceSession.destroy();if(tts!=null){tts.stop();tts.shutdown();}super.onDestroy();}
+  @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results){super.onRequestPermissionsResult(request,permissions,results);if(request==41&&results.length>0&&results[0]==PackageManager.PERMISSION_GRANTED){voiceActive=true;voiceSession.start();}}
+  @Override protected void onDestroy(){if(voiceSession!=null)voiceSession.destroy();if(tts!=null){tts.stop();tts.shutdown();}super.onDestroy();}
 }
