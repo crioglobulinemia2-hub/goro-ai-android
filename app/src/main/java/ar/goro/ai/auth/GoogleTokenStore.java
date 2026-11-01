@@ -11,7 +11,9 @@ public final class GoogleTokenStore {
   prefs=EncryptedSharedPreferences.create(context.getApplicationContext(),"goro_google_oauth",key,EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM);
  }
  public synchronized void save(String access,String refresh,long expiresAt){
-  prefs.edit().putString("access_token",access).putString("refresh_token",refresh).putLong("expires_at",expiresAt).apply();
+  SharedPreferences.Editor e=prefs.edit().putString("access_token",access).putLong("expires_at",expiresAt);
+  if(refresh!=null&&!refresh.isEmpty())e.putString("refresh_token",refresh);
+  e.apply();
  }
  public synchronized String access(){return prefs.getString("access_token",null);}
  public synchronized String refresh(){return prefs.getString("refresh_token",null);}
