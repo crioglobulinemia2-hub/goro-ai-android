@@ -17,7 +17,8 @@ public final class GoogleCalendarRestGateway implements CalendarGateway {
  private static final MediaType JSON=MediaType.get("application/json; charset=utf-8");
  private final OkHttpClient client=new OkHttpClient.Builder().build();private final Tokens tokens;private final String baseUrl;
  private final ExecutorService io=Executors.newSingleThreadExecutor();private final Handler main=new Handler(Looper.getMainLooper());
- public GoogleCalendarRestGateway(Tokens tokens){this(tokens,"https://www.googleapis.com/calendar/v3");}\n GoogleCalendarRestGateway(Tokens tokens,String baseUrl){if(tokens==null||baseUrl==null||!(baseUrl.startsWith("https://")||baseUrl.startsWith("http://127.0.0.1")||baseUrl.startsWith("http://localhost")))throw new IllegalArgumentException("Invalid calendar gateway configuration");this.tokens=tokens;this.baseUrl=baseUrl.endsWith("/")?baseUrl.substring(0,baseUrl.length()-1):baseUrl;}
+ public GoogleCalendarRestGateway(Tokens tokens){this(tokens,"https://www.googleapis.com/calendar/v3");}
+ GoogleCalendarRestGateway(Tokens tokens,String baseUrl){if(tokens==null||baseUrl==null||!(baseUrl.startsWith("https://")||baseUrl.startsWith("http://127.0.0.1")||baseUrl.startsWith("http://localhost")))throw new IllegalArgumentException("Invalid calendar gateway configuration");this.tokens=tokens;this.baseUrl=baseUrl.endsWith("/")?baseUrl.substring(0,baseUrl.length()-1):baseUrl;}
  private JSONObject call(String method,String path,JSONObject body)throws Exception{
   String token=tokens.validAccessToken();if(token==null||token.isEmpty())throw new IllegalStateException("Google account not connected");
   Request.Builder b=new Request.Builder().url(baseUrl+path).header("Authorization","Bearer "+token).header("Accept","application/json");
