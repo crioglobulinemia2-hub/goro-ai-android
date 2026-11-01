@@ -38,6 +38,7 @@ import java.util.regex.*;
 public class MainActivity extends Activity {
   private static final int VOICE_REQUEST=27;
   private TextView output, state;
+  private ar.goro.ai.ui.GoroDashboardView dashboard;
   private EditText command;
   private TextToSpeech tts;
   private boolean voiceReady=false;
@@ -84,50 +85,39 @@ public class MainActivity extends Activity {
         });
       }
     });
-    LinearLayout root=new LinearLayout(this);
-    root.setOrientation(LinearLayout.VERTICAL);
-    root.setPadding(30,38,30,25);
-    root.setBackgroundColor(Color.rgb(234,237,234));
-    ScrollView scroll=new ScrollView(this);
-    LinearLayout body=new LinearLayout(this);
-    body.setOrientation(LinearLayout.VERTICAL);
-    TextView title=new TextView(this);
-    title.setText("GORO"); title.setTextSize(42);title.setTypeface(null,Typeface.BOLD);
-    title.setTextColor(0xff263446); body.addView(title);
-    state=new TextView(this);state.setText("Asistente de voz • Android");state.setTextColor(0xff607589);
-    body.addView(state);
-    TextView avatar=new TextView(this);
-    avatar.setText("◉\n\nGORO AI");avatar.setTextSize(30);avatar.setGravity(Gravity.CENTER);
-    avatar.setTextColor(0xff214E73);avatar.setBackgroundColor(0xffd1e4e2);
-    LinearLayout.LayoutParams avatarParams=new LinearLayout.LayoutParams(-1,300);
-    avatarParams.setMargins(0,25,0,20);body.addView(avatar,avatarParams);
-    output=new TextView(this);output.setText("Podés pedirme la hora, una alarma, un temporizador o una cuenta.");
-    output.setTextSize(19);output.setTextColor(0xff253342);output.setPadding(10,20,10,20);
-    body.addView(output);
-    command=new EditText(this);command.setHint("Escribí o dictá una orden");command.setSingleLine(false);
-    body.addView(command);
-    Button talk=new Button(this);talk.setText("Hablar con GORO");body.addView(talk);
-    talk.setText("Conversación continua");
-    talk.setOnClickListener(v->{
-      if(voiceActive){voiceActive=false;voiceSession.stop();talk.setText("Conversación continua");return;}
-      if(Build.VERSION.SDK_INT>=23 && checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO},41);return;}
-      if(!voiceSession.available()){say("No hay reconocimiento de voz disponible.");return;}
-      voiceActive=true;talk.setText("Detener sesión");voiceSession.start();
-    });
-    calendarAccountLabel=new TextView(this);String linkedAccount=calendarGateway.selectedGoogleAccount();calendarAccountLabel.setText(linkedAccount==null?"Google Calendar: cuenta sin vincular":"Google Calendar: "+linkedAccount);calendarAccountLabel.setTextColor(0xff263446);body.addView(calendarAccountLabel);
-    Button calendarConnect=new Button(this);calendarConnect.setText("Vincular / cambiar cuenta Gmail");body.addView(calendarConnect);
-    calendarConnect.setOnClickListener(v->chooseGoogleAccount());
-    Button calendarAccess=new Button(this);calendarAccess.setText("Autorizar acceso a Google Calendar");body.addView(calendarAccess);
-    calendarAccess.setOnClickListener(v->{if(calendarGateway.selectedGoogleAccount()==null)chooseGoogleAccount();else requestCalendarPermissions();});
-    Button calendarUnlink=new Button(this);calendarUnlink.setText("Desvincular Gmail");body.addView(calendarUnlink);
-    calendarUnlink.setOnClickListener(v->{calendarGateway.unlinkGoogleAccount();calendarAccountLabel.setText("Google Calendar: cuenta sin vincular");lastCalendarEvents.clear();pendingCalendarEvent=null;pendingCalendarDeleteId=null;say("Desvinculé la cuenta de Google Calendar de GORO. No se borraron eventos de Google.");});
-    Button weatherNow=new Button(this);weatherNow.setText("Clima actual · GPS");body.addView(weatherNow);weatherNow.setOnClickListener(v->requestWeatherLocation(false));
-    Button weatherForecast=new Button(this);weatherForecast.setText("Pronóstico · 3 días");body.addView(weatherForecast);weatherForecast.setOnClickListener(v->requestWeatherLocation(true));
-    Button reminders=new Button(this);reminders.setText("Activar recordatorios");body.addView(reminders);
-    reminders.setOnClickListener(v->{if(Build.VERSION.SDK_INT>=33&&checkSelfPermission("android.permission.POST_NOTIFICATIONS")!=PackageManager.PERMISSION_GRANTED){requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"},52);}else say("Notificaciones disponibles para los recordatorios de GORO.");});
-    Button execute=new Button(this);execute.setText("Enviar texto");body.addView(execute);
-    execute.setOnClickListener(v->runCommand(command.getText().toString().trim()));
-    scroll.addView(body);root.addView(scroll);setContentView(root);
+    dashboard=new ar.goro.ai.ui.GoroDashboardView(this,new ar.goro.ai.ui.GoroDashboardView.Actions(){
+      public void onCommand(String text){runCommand(text);}
+      public void onVoiceSession(){
+        if(voiceActive){voiceActive=false;voiceSession.stop();dashboard.setVoiceActive(false);return;}
+        if(checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){
+          requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO},41);return;
+        }
+        if(!voiceSession.available()){say("No hay reconocimiento de voz disponible.");return;}
+        voiceActive=true;dashboard.setVoiceActive(true);voiceSession.start();
+      }
+      public void onLinkAccount(){chooseGoogleAccount();}
+      public void onCalendarPermission(){
+        if(calendarGateway.selectedGoogleAccount()==null)chooseGoogleAccount();
+        else requestCalendarPermissions();
+      }
+      public void onUnlinkAccount(){
+        calendarGateway.unlinkGoogleAccount();
+        calendarAccountLabel.setText("Cuenta Google: sin vincular");
+        lastCalendarEvents.clear();pendingCalendarEvent=null;pendingCalendarDeleteId=null;
+        say("Cuenta desvinculada. No se eliminaron eventos.");
+      }
+      public void onWeather(){requestWeatherLocation(false);}
+      public void onForecast(){requestWeatherLocation(true);}
+      public void onReminders(){
+        if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)
+          requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},52);
+      }
+    },calendarGateway.selectedGoogleAccount());
+    output=dashboard.output;
+    state=dashboard.state;
+    command=dashboard.command;
+    calendarAccountLabel=dashboard.accountLabel;
+    setContentView(dashboard);
   }
   private void listen() {
     Intent intent=new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
@@ -256,7 +246,7 @@ public class MainActivity extends Activity {
   }
   private void requestCalendarPermissions(){if(checkSelfPermission(Manifest.permission.READ_CALENDAR)!=PackageManager.PERMISSION_GRANTED||checkSelfPermission(Manifest.permission.WRITE_CALENDAR)!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{Manifest.permission.READ_CALENDAR,Manifest.permission.WRITE_CALENDAR},CALENDAR_PERMISSION_REQUEST);else say("Google Calendar vinculado a "+calendarGateway.selectedGoogleAccount()+".");}
   private void requestWeatherLocation(boolean forecast){pendingWeatherForecast=forecast;if(locationProvider.hasPermission()){if(forecast)showForecastHere();else showWeatherHere();return;}requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION},LOCATION_PERMISSION_REQUEST);}
-  private void showWeatherHere(){say("Obteniendo tu ubicación GPS para consultar el clima.");locationProvider.current((location,error)->{if(error!=null||location==null){say(error==null?"No pude determinar tu ubicación.":error);return;}weatherService.current(location.getLatitude(),location.getLongitude(),(weather,problem)->{if(problem!=null||weather==null){say(problem==null?"Clima no disponible.":problem);return;}say("En tu ubicación actual: "+Math.round(weather.temperature)+" "+weather.temperatureUnit+", viento "+Math.round(weather.wind)+" "+weather.windUnit+". "+weatherDescription(weather.code)+".");});});}
+  private void showWeatherHere(){say("Obteniendo tu ubicación GPS para consultar el clima.");locationProvider.current((location,error)->{if(error!=null||location==null){say(error==null?"No pude determinar tu ubicación.":error);return;}weatherService.current(location.getLatitude(),location.getLongitude(),(weather,problem)->{if(problem!=null||weather==null){say(problem==null?"Clima no disponible.":problem);return;}String report="En tu ubicación actual: "+Math.round(weather.temperature)+" "+weather.temperatureUnit+", viento "+Math.round(weather.wind)+" "+weather.windUnit+". "+weatherDescription(weather.code)+".";if(dashboard!=null)dashboard.showWeather(report);say(report);});});}
   private void showForecastHere(){say("Obteniendo tu ubicación GPS para preparar el pronóstico.");locationProvider.current((location,error)->{if(error!=null||location==null){say(error==null?"No pude determinar tu ubicación.":error);return;}weatherService.forecast(location.getLatitude(),location.getLongitude(),3,(days,problem)->{if(problem!=null||days==null){say(problem==null?"Pronóstico no disponible.":problem);return;}StringBuilder b=new StringBuilder("Pronóstico de tres días para tu ubicación: ");for(WeatherService.ForecastDay d:days)b.append(d.date).append(", mínima ").append(Math.round(d.min)).append(" y máxima ").append(Math.round(d.max)).append(" grados, probabilidad de lluvia ").append(d.precipitationChance).append(" por ciento. ");say(b.toString());});});}
   private void showWeather(String place){
     if(weatherService==null){say("El servicio meteorológico no está disponible.");return;}
@@ -290,7 +280,7 @@ public class MainActivity extends Activity {
     calendarGateway.list("",min,max,(events,error)->{
       if(error!=null||events==null){say(error==null?"No pude consultar Google Calendar.":error);return;}
       if(events.isEmpty()){say("No tenés eventos en ese período.");return;}
-      lastCalendarEvents.clear();lastCalendarEvents.addAll(events);
+      lastCalendarEvents.clear();lastCalendarEvents.addAll(events);if(dashboard!=null){StringBuilder overview=new StringBuilder();for(CalendarEvent e:events)overview.append(e.title).append(" · ").append(e.start).append("\n");dashboard.showAgenda(overview.toString());}
       StringBuilder b=new StringBuilder("Tenés ").append(events.size()).append(" eventos: ");
       for(int i=0;i<events.size();i++){CalendarEvent e=events.get(i);b.append("Número ").append(i+1).append(": ").append(e.title).append(", ").append(e.start).append(". ");}
       say(b.toString());
@@ -328,6 +318,6 @@ public class MainActivity extends Activity {
     if(pendingCalendarDeleteId!=null){String id=pendingCalendarDeleteId;pendingCalendarDeleteId=null;calendarGateway.delete(id,(ok,error)->say(Boolean.TRUE.equals(ok)?"Evento eliminado de Google Calendar.":error==null?"No se pudo confirmar la eliminación.":error));return;}
     say("No hay ninguna operación de calendario pendiente.");
   }
-  @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results){super.onRequestPermissionsResult(request,permissions,results);if(results.length==0)return;if(request==41&&results[0]==PackageManager.PERMISSION_GRANTED){voiceActive=true;voiceSession.start();}else if(request==CALENDAR_PERMISSION_REQUEST){boolean granted=checkSelfPermission(Manifest.permission.READ_CALENDAR)==PackageManager.PERMISSION_GRANTED&&checkSelfPermission(Manifest.permission.WRITE_CALENDAR)==PackageManager.PERMISSION_GRANTED;say(granted?"Google Calendar vinculado a "+calendarGateway.selectedGoogleAccount()+".":"El calendario necesita permisos de lectura y escritura; no se modificó ningún evento.");}else if(request==LOCATION_PERMISSION_REQUEST){if(locationProvider.hasPermission()){if(pendingWeatherForecast)showForecastHere();else showWeatherHere();}else say("No se concedió permiso de ubicación. No consulté una ubicación aproximada ni inventé tu clima.");}else if(request==52){say(results[0]==PackageManager.PERMISSION_GRANTED?"Notificaciones habilitadas. Ya puedo entregarte recordatorios.":"Las notificaciones están deshabilitadas; GORO no puede mostrar recordatorios hasta que las habilites en Android.");}}
+  @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results){super.onRequestPermissionsResult(request,permissions,results);if(results.length==0)return;if(request==41&&results[0]==PackageManager.PERMISSION_GRANTED){voiceActive=true;if(dashboard!=null)dashboard.setVoiceActive(true);voiceSession.start();}else if(request==CALENDAR_PERMISSION_REQUEST){boolean granted=checkSelfPermission(Manifest.permission.READ_CALENDAR)==PackageManager.PERMISSION_GRANTED&&checkSelfPermission(Manifest.permission.WRITE_CALENDAR)==PackageManager.PERMISSION_GRANTED;say(granted?"Google Calendar vinculado a "+calendarGateway.selectedGoogleAccount()+".":"El calendario necesita permisos de lectura y escritura; no se modificó ningún evento.");}else if(request==LOCATION_PERMISSION_REQUEST){if(locationProvider.hasPermission()){if(pendingWeatherForecast)showForecastHere();else showWeatherHere();}else say("No se concedió permiso de ubicación. No consulté una ubicación aproximada ni inventé tu clima.");}else if(request==52){say(results[0]==PackageManager.PERMISSION_GRANTED?"Notificaciones habilitadas. Ya puedo entregarte recordatorios.":"Las notificaciones están deshabilitadas; GORO no puede mostrar recordatorios hasta que las habilites en Android.");}}
   @Override protected void onDestroy(){if(calendarGateway!=null)calendarGateway.close();if(weatherService!=null)weatherService.close();if(voiceSession!=null)voiceSession.destroy();if(tts!=null){tts.stop();tts.shutdown();}super.onDestroy();}
 }
