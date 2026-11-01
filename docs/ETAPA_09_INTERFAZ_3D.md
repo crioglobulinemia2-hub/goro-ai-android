@@ -15,6 +15,10 @@ Recomendación: Filament como motor PBR, GLB/glTF como formato, rig esquelético
 - Design tokens modo claro cálido y modo oscuro grafito/cobre/cyan.
 - Navegación tipada de ocho secciones.
 - Estados de avatar IDLE, LISTENING, THINKING, SPEAKING, CONFIRMING y ALERT.
+- Dependencias oficiales Filament 1.79.0: filament-android, gltfio-android y filament-utils-android.
+- Contrato de rig GLB con huesos y morph targets obligatorios.
+- Estimador inicial de visemas castellano A/E/I/O/U/MBP.
+- Planificador procedural con seis gestos y bloqueo de repetición consecutiva; pendiente de conectarlo al rig real.
 - Contrato de aceptación del GLB: skeleton completo, morph targets faciales, materiales PBR y clips/rig.
 - Se mantiene la UI existente mientras se sustituye por la nueva composición; no se presenta el TextView actual como robot.
 
