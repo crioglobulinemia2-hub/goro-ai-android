@@ -2,6 +2,7 @@ package ar.goro.ai.weather;
 import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import androidx.core.content.ContextCompat;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -18,7 +19,7 @@ public final class DeviceLocationProvider {
  private final Context context;private final LocationManager manager;private final Handler main=new Handler(Looper.getMainLooper());
  private final Executor mainExecutor=command->main.post(command);
  public DeviceLocationProvider(Context c){context=c.getApplicationContext();manager=(LocationManager)context.getSystemService(Context.LOCATION_SERVICE);}
- public boolean hasPermission(){return context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED||context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED;}
+ public boolean hasPermission(){return ContextCompat.checkSelfPermission(context,Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED||ContextCompat.checkSelfPermission(context,Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED;}
  @SuppressLint("MissingPermission")
  public void current(Callback callback){
   boolean fine=context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED;
