@@ -2,7 +2,7 @@ plugins { id 'com.android.application' }
 
 android {
     namespace 'ar.goro.ai'
-    compileSdk 37
+    compileSdk 36
     defaultConfig {
         applicationId 'ar.goro.ai'
         minSdk 26
@@ -17,8 +17,8 @@ dependencies {
     testImplementation 'org.robolectric:robolectric:4.14.1'
     implementation 'androidx.work:work-runtime:2.10.1'
     implementation 'androidx.core:core:1.15.0'
-    implementation 'com.google.android.filament:filament-android:1.77.3'
-    implementation 'com.google.android.filament:gltfio-android:1.77.3'
-    implementation 'com.google.android.filament:filament-utils-android:1.77.3'
+    implementation 'com.google.android.filament:filament-android:1.70.0'
+    implementation 'com.google.android.filament:gltfio-android:1.70.0'
+    implementation 'com.google.android.filament:filament-utils-android:1.70.0'
     testImplementation 'androidx.work:work-testing:2.10.1'
 }
