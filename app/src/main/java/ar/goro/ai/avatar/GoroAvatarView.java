@@ -72,6 +72,8 @@ public final class GoroAvatarView extends FrameLayout {
    viewer.loadModelGlb(ByteBuffer.wrap(bytes));
    // GLB front is +Z; use ModelViewer default framing so the camera faces the complete faceplate.
    viewer.transformToUnitCube();
+   // GORO mesh faces +Z. Place the camera in front and aim at the GLB centre (-4 Z).
+   viewer.getCamera().lookAt(0.0,0.0,0.0, 0.0,0.0,-4.0, 0.0,1.0,0.0);
    animationStartNanos=0;
    status("GLB de GORO cargado en Filament; reproducción esquelética activa si el archivo contiene animaciones.");
   }catch(Throwable error){
