@@ -183,31 +183,28 @@ public class MainActivity extends Activity {
   }
   private void say(String message) {
     output.setText(message);
-    if(speechGateway!=null){
-      if(state!=null)state.setText("GORO · Generando voz masculina NVIDIA");
-      if(voiceSession!=null)voiceSession.pauseForResponse();
-      if(goroAudioPlayer!=null)goroAudioPlayer.stop();
-      speechGateway.synthesize(message,(wav,error)->{
-        if(error!=null||wav==null){
-          if(state!=null)state.setText("GORO · Voz NVIDIA no disponible");
-          if(output!=null)output.setText(message+"\\n\\nNo se reprodujo audio: NVIDIA Magpie no respondió correctamente. No se utilizó una voz local de reemplazo. "+(error==null?"":error));
-          if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();
-          return;
-        }
-        goroAudioPlayer.play(wav,new GoroAudioPlayer.Listener(){
-          public void onStarted(){if(state!=null)state.setText("GORO · Hablando · Diego");}
-          public void onCompleted(){if(state!=null)state.setText(voiceActive?"GORO · Escuchando":"GORO · Listo");if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();}
-          public void onError(String problem){if(state!=null)state.setText("GORO · Error de reproducción");if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();}
-        });
-      });
-    }else if(maleVoiceReady){
-      if(state!=null)state.setText("GORO · Voz masculina local");
-      if(voiceSession!=null)voiceSession.pauseForResponse();
-      tts.speak(message,TextToSpeech.QUEUE_FLUSH,null,"goro_reply");
-    }else{
-      if(state!=null)state.setText("GORO · Configurá la clave NVIDIA para voz masculina");
+    if(speechGateway==null){
+      if(state!=null)state.setText("GORO · Voz NVIDIA no configurada");
+      if(output!=null)output.setText(message+"\\n\\nLa salida de voz requiere NVIDIA Magpie. No se utilizó TTS local.");
       if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();
+      return;
     }
+    if(state!=null)state.setText("GORO · Generando voz NVIDIA Magpie · Diego");
+    if(voiceSession!=null)voiceSession.pauseForResponse();
+    if(goroAudioPlayer!=null)goroAudioPlayer.stop();
+    speechGateway.synthesize(message,(wav,error)->{
+      if(error!=null||wav==null){
+        if(state!=null)state.setText("GORO · Voz NVIDIA no disponible");
+        if(output!=null)output.setText(message+"\\n\\nNo se reprodujo audio: NVIDIA Magpie no respondió correctamente. No se utilizó una voz local de reemplazo. "+(error==null?"":error));
+        if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();
+        return;
+      }
+      goroAudioPlayer.play(wav,new GoroAudioPlayer.Listener(){
+        public void onStarted(){if(state!=null)state.setText("GORO · Hablando · NVIDIA Diego");}
+        public void onCompleted(){if(state!=null)state.setText(voiceActive?"GORO · Escuchando":"GORO · Listo");if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();}
+        public void onError(String problem){if(state!=null)state.setText("GORO · Error de reproducción NVIDIA");if(output!=null)output.setText(message+"\\n\\nError de audio: "+problem);if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();}
+      });
+    });
   }
   private void runCommand(String raw) {
     if(raw.isEmpty()) return;
