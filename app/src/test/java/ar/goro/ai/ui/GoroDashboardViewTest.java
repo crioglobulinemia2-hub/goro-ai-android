@@ -19,6 +19,7 @@ public class GoroDashboardViewTest {
   public void onCommand(String value){commands++;}
   public void onVoiceSession(){voice++;}
   public void onLinkAccount(){link++;}
+  public void onReadGmail(){}
   public void onCalendarPermission(){calendar++;}
   public void onUnlinkAccount(){unlink++;}
   public void onWeather(){weather++;}
