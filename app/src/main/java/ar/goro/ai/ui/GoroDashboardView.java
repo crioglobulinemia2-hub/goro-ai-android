@@ -68,7 +68,8 @@ public final class GoroDashboardView extends LinearLayout {
  private GoroTheme palette;
  private String pendingAvatarStatus;
 
- public GoroDashboardView(Activity activity, Actions actions, String account) {
+ public GoroDashboardView(Activity activity, Actions actions, String account) { this(activity,actions,account,true); }
+ public GoroDashboardView(Activity activity, Actions actions, String account, boolean enableAvatar) {
   super(activity);
   this.activity=activity;this.actions=actions;
   tablet=activity.getResources().getConfiguration().smallestScreenWidthDp>=600;
@@ -124,8 +125,9 @@ public final class GoroDashboardView extends LinearLayout {
   TextView title=text("GORO  ·  ASISTENTE PERSONAL",tablet?18:16,true,palette.text);
   hero.addView(title,new LinearLayout.LayoutParams(-1,dp(36)));
   avatarStage=new FrameLayout(activity);
-  avatarStage.addView(new GoroAvatarView(activity,this::onAvatarStatus),
-      new FrameLayout.LayoutParams(-1,-1));
+  if(enableAvatar){avatarStage.addView(new GoroAvatarView(activity,this::onAvatarStatus),
+      new FrameLayout.LayoutParams(-1,-1));}
+  else{TextView testStage=text("Avatar renderer disabled in JVM test",13,false,palette.muted);testStage.setGravity(Gravity.CENTER);avatarStage.addView(testStage,new FrameLayout.LayoutParams(-1,-1));}
   hero.addView(avatarStage,new LinearLayout.LayoutParams(-1,0,1f));
   sectionValue=text("Inicio · Panel personal",15,true,palette.text);
   hero.addView(sectionValue,new LinearLayout.LayoutParams(-1,dp(30)));
