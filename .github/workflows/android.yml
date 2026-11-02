@@ -57,6 +57,22 @@ jobs:
             assert not re.search(r'nvapi-[A-Za-z0-9_-]{12,}',s),f'Embedded NVIDIA key in {p}'
           print('Static security gate PASS')
           PY
+      - name: Generate and verify GORO articulated humanoid GLB
+        run: |
+          python3 scripts/generate_goro_glb.py
+          python3 - <<'PY'
+          import json,struct
+          from pathlib import Path
+          f=Path('app/src/main/assets/goro/goro_rigged.glb')
+          b=f.read_bytes()
+          assert b[:4]==b'glTF'
+          assert struct.unpack_from('<II',b,4)==(2,len(b))
+          l=struct.unpack_from('<I',b,12)[0]
+          doc=json.loads(b[20:20+l])
+          assert len(doc['skins'])>=1 and len(doc['animations'])>=6
+          assert len(doc['meshes'][1]['extras']['targetNames'])==10
+          print('GORO rig geometry and animation contract PASS',len(b))
+          PY
       - name: Validate GORO ZNP animation asset
         run: python3 scripts/validate_znp_animation.py
       - name: Unit tests and build
@@ -129,6 +145,8 @@ jobs:
           test "$(git hash-object app/libs/jldecryption_v0.4-release.aar)" = "fd933770e05afe815240922641a76fe62be7778b"
           test "$(git hash-object app/libs/GifConvert_V1.3.0_42-release.aar)" = "2d586af21f244f5337f29a0f656eac2186b40f6f"
           test "$(git hash-object app/libs/BmpConvert_V1.6.0_10605-release.aar)" = "00f1fafab6e4fc1357f09b20275b7d5c7fd7d2c8"
+      - name: Generate GORO articulated model for emulator
+        run: python3 scripts/generate_goro_glb.py
       - name: Android emulator launch and navigation tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
