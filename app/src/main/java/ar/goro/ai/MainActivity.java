@@ -8,6 +8,8 @@ import android.content.pm.PackageManager;
 import android.os.Build;
 import android.speech.tts.UtteranceProgressListener;
 import ar.goro.ai.voice.ContinuousVoiceSession;
+import ar.goro.ai.voice.GoroVoiceSelector;
+import android.speech.tts.Voice;
 import ar.goro.ai.voice.ConversationState;
 import ar.goro.ai.memory.MemoryStore;
 import ar.goro.ai.memory.MemoryRecord;
@@ -44,6 +46,8 @@ public class MainActivity extends Activity {
   private EditText command;
   private TextToSpeech tts;
   private boolean voiceReady=false;
+  private boolean maleVoiceReady=false;
+  private String selectedGoroVoice="";
   private SharedPreferences memory;
   private MemoryStore memoryStore;
   private ContinuousVoiceSession voiceSession;
@@ -79,8 +83,12 @@ public class MainActivity extends Activity {
     });
     tts=new TextToSpeech(this, status -> {
       voiceReady=status==TextToSpeech.SUCCESS;
+      maleVoiceReady=false;selectedGoroVoice="";
       if(voiceReady) {
         tts.setLanguage(new Locale("es","AR"));
+        Voice male=GoroVoiceSelector.select(tts.getVoices());
+        if(male!=null){tts.setVoice(male);tts.setSpeechRate(0.96f);tts.setPitch(0.92f);maleVoiceReady=true;selectedGoroVoice=male.getName();}
+        runOnUiThread(()->{if(dashboard!=null)dashboard.showVoiceStatus(maleVoiceReady?"Voz masculina · "+selectedGoroVoice:"Sin voz masculina española instalada");});
         tts.setOnUtteranceProgressListener(new UtteranceProgressListener(){
           public void onStart(String id){runOnUiThread(()->{if(state!=null)state.setText("GORO · Hablando");});}
           public void onDone(String id){runOnUiThread(()->{if(state!=null)state.setText(voiceActive?"GORO · Escuchando":"GORO · Listo");if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();});}
@@ -146,8 +154,8 @@ public class MainActivity extends Activity {
   private void say(String message) {
     output.setText(message);
     if(state!=null)state.setText(voiceReady?"GORO · Respondiendo":"GORO · Listo");
-    if(voiceReady) { if(voiceSession!=null)voiceSession.pauseForResponse(); tts.speak(message,TextToSpeech.QUEUE_FLUSH,null,"goro_reply"); }
-    else if(voiceSession!=null)voiceSession.resumeAfterResponse();
+    if(maleVoiceReady) { if(voiceSession!=null)voiceSession.pauseForResponse(); tts.speak(message,TextToSpeech.QUEUE_FLUSH,null,"goro_reply"); }
+    else {if(state!=null)state.setText("GORO · Falta voz masculina española");if(voiceSession!=null)voiceSession.resumeAfterResponse();}
   }
   private void runCommand(String raw) {
     if(raw.isEmpty()) return;
