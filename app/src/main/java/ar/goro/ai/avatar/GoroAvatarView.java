@@ -2,14 +2,19 @@ package ar.goro.ai.avatar;
 
 import android.content.Context;
 import android.graphics.Color;
+import android.os.SystemClock;
 import android.view.Choreographer;
 import android.view.MotionEvent;
 import android.view.SurfaceView;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 import com.google.android.filament.Engine;
+import com.google.android.filament.RenderableManager;
+import com.google.android.filament.LightManager;
+import com.google.android.filament.EntityManager;
 import com.google.android.filament.View;
 import com.google.android.filament.android.UiHelper;
+import com.google.android.filament.gltfio.FilamentAsset;
 import com.google.android.filament.utils.ModelViewer;
 import com.google.android.filament.utils.Float3;
 import com.google.android.filament.utils.Utils;
@@ -17,16 +22,28 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 
-/** Filament glTF viewer for the authored GORO rig. */
+/** Live Filament humanoid: skeletal states + ten speech/eye morph targets. */
 public final class GoroAvatarView extends FrameLayout {
- static { if(!"robolectric".equals(android.os.Build.FINGERPRINT) && System.getProperty("robolectric.version")==null) Utils.INSTANCE.init(); }
+ static {
+  if(!"robolectric".equals(android.os.Build.FINGERPRINT)
+      && System.getProperty("robolectric.version")==null)Utils.INSTANCE.init();
+ }
  public interface StatusListener {void onStatus(String status);}
+ public enum Mood {IDLE,LISTENING,THINKING,SPEAKING,CONFIRMING,ALERT}
  private static final String ASSET_PATH="goro/goro_rigged.glb";
  private final StatusListener statusListener;
  private SurfaceView surface;
  private ModelViewer viewer;
- private boolean framePosted;
- private long animationStartNanos;
+ private Engine engine;
+ private int sunEntity=0;
+ private int faceEntity=0;
+ private boolean framePosted=false;
+ private Mood mood=Mood.IDLE;
+ private long moodStartedNanos=0;
+ private String speechText="";
+ private long speechStartedUptime=0;
+ private long speechDurationMs=0;
+ private final VisemeEstimator visemes=new VisemeEstimator();
  private final Choreographer.FrameCallback frameCallback=new Choreographer.FrameCallback(){
   @Override public void doFrame(long frameTimeNanos){
    framePosted=false;
@@ -34,17 +51,20 @@ public final class GoroAvatarView extends FrameLayout {
    if(current==null||!isAttachedToWindow())return;
    com.google.android.filament.gltfio.Animator animator=current.getAnimator();
    if(animator!=null&&animator.getAnimationCount()>0){
-    if(animationStartNanos==0)animationStartNanos=frameTimeNanos;
-    float elapsed=(frameTimeNanos-animationStartNanos)/1_000_000_000f;
-    animator.applyAnimation(0,elapsed);
+    if(moodStartedNanos==0)moodStartedNanos=frameTimeNanos;
+    int clip=Math.min(mood.ordinal(),animator.getAnimationCount()-1);
+    float elapsed=((frameTimeNanos-moodStartedNanos)/1_000_000_000f)%1.80f;
+    animator.applyAnimation(clip,elapsed);
     animator.updateBoneMatrices();
    }
+   applyExpression(frameTimeNanos);
    current.render(frameTimeNanos);
    postFrame();
   }
  };
  public GoroAvatarView(Context context,StatusListener listener){
-  super(context);statusListener=listener;
+  super(context);
+  this.statusListener=listener;
   setBackgroundColor(Color.TRANSPARENT);
   loadIfPresent();
  }
@@ -53,10 +73,11 @@ public final class GoroAvatarView extends FrameLayout {
   try{bytes=readAsset();}
   catch(Exception missing){
    TextView label=new TextView(getContext());
-   label.setText("GORO 3D · MODELO ARTICULADO PENDIENTE");
-   label.setTextColor(Color.WHITE);label.setTextSize(15);label.setGravity(android.view.Gravity.CENTER);
+   label.setText("GORO 3D · MODELO NO INCLUIDO EN ESTE BUILD");
+   label.setTextColor(0xff294456);label.setTextSize(14);
+   label.setGravity(android.view.Gravity.CENTER);
    addView(label,new FrameLayout.LayoutParams(-1,-1));
-   status("Filament preparado; falta el GLB riggeado original de GORO.");
+   status("No se encontró el robot 3D de GORO.");
    return;
   }
   surface=new SurfaceView(getContext());
@@ -69,23 +90,81 @@ public final class GoroAvatarView extends FrameLayout {
    return false;
   });
   try{
-   viewer=new ModelViewer(surface,Engine.create(),new UiHelper(UiHelper.ContextErrorPolicy.DONT_CHECK),null);
+   engine=Engine.create();
+   viewer=new ModelViewer(surface,engine,new UiHelper(UiHelper.ContextErrorPolicy.DONT_CHECK),null);
    viewer.getView().setAntiAliasing(View.AntiAliasing.FXAA);
    viewer.loadModelGlb(ByteBuffer.wrap(bytes));
-   // GLB front is +Z; use ModelViewer default framing so the camera faces the complete faceplate.
    viewer.transformToUnitCube(new Float3(0f,0f,0f));
-   // GLB faceplate points +Z: camera must stay outside the head, in front of the model.
-   viewer.getCamera().lookAt(0.0,0.0,4.0, 0.0,0.0,0.0, 0.0,1.0,0.0);
-   animationStartNanos=0;
-   status("GLB de GORO cargado en Filament; reproducción esquelética activa si el archivo contiene animaciones.");
+   viewer.getCamera().lookAt(0.0,0.0,4.2,0.0,0.0,0.0,0.0,1.0,0.0);
+   FilamentAsset asset=viewer.getAsset();
+   if(asset!=null)faceEntity=asset.getFirstEntityByName("GORO_Face_Morphs");
+   sunEntity=EntityManager.get().create();
+   new LightManager.Builder(LightManager.Type.DIRECTIONAL)
+       .color(1f,.96f,.90f)
+       .intensity(76000f)
+       .direction(-.45f,-.8f,-.45f)
+       .build(engine,sunEntity);
+   viewer.getScene().addEntity(sunEntity);
+   moodStartedNanos=0;
+   status("GORO 3D · Esqueleto y expresiones cargados.");
   }catch(Throwable error){
    viewer=null;
    TextView label=new TextView(getContext());
-   label.setText("GORO 3D · ERROR DE CARGA DEL MODELO");
-   label.setTextColor(Color.WHITE);label.setTextSize(15);label.setGravity(android.view.Gravity.CENTER);
+   label.setText("GORO 3D · ERROR DEL MODELO");
+   label.setTextColor(Color.WHITE);label.setTextSize(14);
+   label.setGravity(android.view.Gravity.CENTER);
    addView(label,new FrameLayout.LayoutParams(-1,-1));
-   status("No se pudo cargar el GLB de GORO: "+error.getClass().getSimpleName());
+   status("Error al renderizar GORO: "+error.getClass().getSimpleName());
   }
+ }
+ public void setMood(Mood next){
+  if(next==null)return;
+  if(mood!=next){mood=next;moodStartedNanos=0;}
+  if(next!=Mood.SPEAKING)speechText="";
+ }
+ public void startSpeaking(String text,byte[] wav){
+  speechText=text==null?"":text.trim();
+  speechStartedUptime=SystemClock.uptimeMillis();
+  int bytesPerSecond=0;
+  if(wav!=null&&wav.length>=32){
+   bytesPerSecond=(wav[28]&255)|((wav[29]&255)<<8)|((wav[30]&255)<<16)|((wav[31]&255)<<24);
+  }
+  speechDurationMs=(bytesPerSecond>0&&wav!=null)?Math.max(200,1000L*(wav.length-44)/bytesPerSecond):
+    Math.max(500,speechText.length()*74L);
+  setMood(Mood.SPEAKING);
+ }
+ private void applyExpression(long frameTimeNanos){
+  if(viewer==null||engine==null||faceEntity==0)return;
+  RenderableManager renderables=engine.getRenderableManager();
+  int instance=renderables.getInstance(faceEntity);
+  if(instance==0)return;
+  float[] weights=new float[10];
+  // Blink events are time-based, never a static screen sprite.
+  float phase=(SystemClock.uptimeMillis()%4300)/4300f;
+  float blink=Math.max(0f,1f-Math.abs(phase-.70f)/.025f);
+  weights[6]=blink;weights[7]=blink;
+  if(mood==Mood.LISTENING){weights[8]=.24f;}
+  else if(mood==Mood.CONFIRMING){weights[9]=.95f;weights[8]=.28f;}
+  else if(mood==Mood.THINKING){weights[8]=.54f;}
+  else if(mood==Mood.SPEAKING){
+   long delta=Math.max(0,SystemClock.uptimeMillis()-speechStartedUptime);
+   float progress=Math.min(1f,delta/(float)Math.max(1,speechDurationMs));
+   if(!speechText.isEmpty()){
+    int index=Math.min(speechText.length()-1,(int)(progress*speechText.length()));
+    VisemeEstimator.Viseme shape=visemes.estimate(speechText.charAt(index));
+    switch(shape){
+     case A:weights[0]=.90f;break;
+     case E:weights[1]=.86f;break;
+     case I:weights[2]=.85f;break;
+     case O:weights[3]=.95f;break;
+     case U:weights[4]=.80f;break;
+     case MBP:weights[5]=1f;break;
+     default:break;
+    }
+   }
+  }
+  try{renderables.setMorphWeights(instance,weights,0);}
+  catch(RuntimeException unsupported){status("El dispositivo no admite morph targets de GORO.");}
  }
  private byte[] readAsset()throws Exception{
   try(InputStream in=getContext().getAssets().open(ASSET_PATH);
@@ -107,8 +186,10 @@ public final class GoroAvatarView extends FrameLayout {
  @Override protected void onAttachedToWindow(){super.onAttachedToWindow();postFrame();}
  @Override protected void onDetachedFromWindow(){
   Choreographer.getInstance().removeFrameCallback(frameCallback);framePosted=false;
-  // ModelViewer v1.70 owns SurfaceView teardown and destroys its Filament engine on detach.
-  viewer=null;animationStartNanos=0;
+  if(viewer!=null&&sunEntity!=0){
+   try{viewer.getScene().removeEntity(sunEntity);engine.destroyEntity(sunEntity);}catch(Exception ignored){}
+  }
+  sunEntity=0;faceEntity=0;viewer=null;moodStartedNanos=0;
   super.onDetachedFromWindow();
  }
 }
