@@ -112,6 +112,19 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.3.1'
+      - name: Fetch pinned JieLi RCSP 4.2.0 SDK for emulator tests
+        run: |
+          set -euo pipefail
+          mkdir -p app/libs
+          BASE="https://raw.githubusercontent.com/Jieli-Tech/Android-JL_Bluetooth/6293873b641ffd8d461773873ecedef1a9d9038d/code/PiHome_V1.13.0_SDK_V4.2.0/btsmart/libs"
+          curl --fail --location --retry 3 "$BASE/jl_bluetooth_rcsp_V4.2.0_40250-release.aar" -o app/libs/jl_bluetooth_rcsp_V4.2.0_40250-release.aar
+          curl --fail --location --retry 3 "$BASE/jldecryption_v0.4-release.aar" -o app/libs/jldecryption_v0.4-release.aar
+          curl --fail --location --retry 3 "$BASE/GifConvert_V1.3.0_42-release.aar" -o app/libs/GifConvert_V1.3.0_42-release.aar
+          curl --fail --location --retry 3 "$BASE/BmpConvert_V1.6.0_10605-release.aar" -o app/libs/BmpConvert_V1.6.0_10605-release.aar
+          test "$(git hash-object app/libs/jl_bluetooth_rcsp_V4.2.0_40250-release.aar)" = "96be927894a69eb4af1fcc7dc1191a337360f86e"
+          test "$(git hash-object app/libs/jldecryption_v0.4-release.aar)" = "fd933770e05afe815240922641a76fe62be7778b"
+          test "$(git hash-object app/libs/GifConvert_V1.3.0_42-release.aar)" = "2d586af21f244f5337f29a0f656eac2186b40f6f"
+          test "$(git hash-object app/libs/BmpConvert_V1.6.0_10605-release.aar)" = "00f1fafab6e4fc1357f09b20275b7d5c7fd7d2c8"
       - name: Android emulator launch and navigation tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
