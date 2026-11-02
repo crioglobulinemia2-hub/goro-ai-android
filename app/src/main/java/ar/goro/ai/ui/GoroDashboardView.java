@@ -47,6 +47,8 @@ public final class GoroDashboardView extends LinearLayout {
   void onZn02LightOn();
   void onZn02LightOff();
   void onZn02ReadLight();
+  void onZn02AudioOn();
+  void onZn02AudioOff();
   void onInstallGoroAnimation();
  }
  public final TextView output;
@@ -204,6 +206,8 @@ public final class GoroDashboardView extends LinearLayout {
   tools.addView(button("Encender luz del ZN02",()->actions.onZn02LightOn(),false),new LinearLayout.LayoutParams(-1,dp(44)));
   tools.addView(button("Apagar luz del ZN02",()->actions.onZn02LightOff(),false),new LinearLayout.LayoutParams(-1,dp(44)));
   tools.addView(button("Consultar estado del ZN02",()->actions.onZn02ReadLight(),false),new LinearLayout.LayoutParams(-1,dp(44)));
+  tools.addView(button("Activar audio ZN02",()->actions.onZn02AudioOn(),false),new LinearLayout.LayoutParams(-1,dp(44)));
+  tools.addView(button("Audio al teléfono",()->actions.onZn02AudioOff(),false),new LinearLayout.LayoutParams(-1,dp(44)));
   tools.addView(button("Enviar animación GORO al visor ZN02",()->actions.onInstallGoroAnimation(),true),new LinearLayout.LayoutParams(-1,dp(48)));
   TextView warning=text("Datos y conexión: solo estados verificados",12,false,palette.muted);
   tools.addView(warning);
