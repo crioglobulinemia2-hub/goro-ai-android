@@ -81,7 +81,9 @@ public final class ZnpBleDiscovery {
    @Override public void onScanResult(int callbackType,ScanResult result){
     if(!active||found||result==null)return;
     String name=result.getScanRecord()==null?null:result.getScanRecord().getDeviceName();
-    ZnpDeviceProfile profile=ZnpDeviceProfile.detect(name);
+    boolean rcspAdvertised=false;
+    if(result.getScanRecord()!=null&&result.getScanRecord().getServiceUuids()!=null){for(android.os.ParcelUuid id:result.getScanRecord().getServiceUuids())if(RCSP_SERVICE.equals(id.getUuid())){rcspAdvertised=true;break;}}
+    ZnpDeviceProfile profile=ZnpDeviceProfile.detect(name,rcspAdvertised);
     if(profile.model==ZnpDeviceProfile.Model.UNKNOWN)return;
     found=true;
     advertisedModel=profile.model.name();
