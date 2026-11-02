@@ -27,6 +27,10 @@ public class GoroDashboardViewTest {
   public void onBleScan(){ble++;}
   public void onConfigureNvidia(){}
   public void onTestNvidia(){}
+  public void onConnectZnp(){}
+  public void onZnpLightOn(){}
+  public void onZnpLightOff(){}
+  public void onZnpReadLight(){}
  }
  private Button findButton(View root,String label){
   if(root instanceof Button && label.contentEquals(((Button)root).getText()))return (Button)root;
