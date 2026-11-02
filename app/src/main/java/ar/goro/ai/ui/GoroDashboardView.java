@@ -47,6 +47,7 @@ public final class GoroDashboardView extends LinearLayout {
   void onZnpLightOn();
   void onZnpLightOff();
   void onZnpReadLight();
+  void onInstallGoroAnimation();
  }
  public final TextView output;
  public final TextView state;
@@ -199,6 +200,7 @@ public final class GoroDashboardView extends LinearLayout {
   tools.addView(button("Encender luz del estuche",()->actions.onZnpLightOn(),false),new LinearLayout.LayoutParams(-1,dp(44)));
   tools.addView(button("Apagar luz del estuche",()->actions.onZnpLightOff(),false),new LinearLayout.LayoutParams(-1,dp(44)));
   tools.addView(button("Consultar estado de luz",()->actions.onZnpReadLight(),false),new LinearLayout.LayoutParams(-1,dp(44)));
+  tools.addView(button("Instalar animación facial GORO",()->actions.onInstallGoroAnimation(),true),new LinearLayout.LayoutParams(-1,dp(48)));
   TextView warning=text("Datos y conexión: solo estados verificados",12,false,palette.muted);
   tools.addView(warning);
 
