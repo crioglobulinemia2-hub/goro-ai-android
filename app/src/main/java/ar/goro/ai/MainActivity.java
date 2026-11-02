@@ -26,6 +26,7 @@ import ar.goro.ai.core.NemotronGateway;
 import ar.goro.ai.core.NvidiaCredentialStore;
 import ar.goro.ai.core.NemotronSpeechGateway;
 import ar.goro.ai.voice.GoroAudioPlayer;
+import ar.goro.ai.voice.GoroZn02AudioRouter;
 import ar.goro.ai.avatar.GoroAvatarView;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
@@ -74,6 +75,7 @@ public class MainActivity extends Activity {
   private NemotronGateway nemotronGateway;
   private NemotronSpeechGateway speechGateway;
   private GoroAudioPlayer goroAudioPlayer;
+  private GoroZn02AudioRouter zn02AudioRouter;
   private TextView calendarAccountLabel;
   private boolean pendingWeatherForecast=false;
   private CalendarEvent pendingCalendarEvent;
@@ -90,6 +92,7 @@ public class MainActivity extends Activity {
     weatherService=new WeatherService();
     locationProvider=new DeviceLocationProvider(this);
     goroAudioPlayer=new GoroAudioPlayer(this);
+    zn02AudioRouter=new GoroZn02AudioRouter(this);
     nvidiaCredentialStore=new NvidiaCredentialStore(this);
     try{String savedNvidiaKey=nvidiaCredentialStore.read();if(savedNvidiaKey!=null){nemotronGateway=new NemotronGateway(savedNvidiaKey);speechGateway=new NemotronSpeechGateway(savedNvidiaKey);}}catch(Exception credentialError){nvidiaCredentialStore.clear();}
     calendarGateway=new DeviceCalendarGateway(this);
@@ -155,6 +158,8 @@ public class MainActivity extends Activity {
       public void onZn02LightOn(){if(zn02Controller!=null)zn02Controller.setFlashlight(true);}
       public void onZn02LightOff(){if(zn02Controller!=null)zn02Controller.setFlashlight(false);}
       public void onZn02ReadLight(){if(zn02Controller!=null)zn02Controller.readFlashlight();}
+      public void onZn02AudioOn(){if(dashboard!=null&&zn02AudioRouter!=null)dashboard.showDeviceStatus(zn02AudioRouter.activate());}
+      public void onZn02AudioOff(){if(dashboard!=null&&zn02AudioRouter!=null)dashboard.showDeviceStatus(zn02AudioRouter.deactivate());}
       public void onInstallGoroAnimation(){installGoroAnimationOnZn02();}
       public void onReminders(){
         if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)
@@ -499,6 +504,7 @@ public class MainActivity extends Activity {
     if(nemotronGateway!=null)nemotronGateway.close();
     if(speechGateway!=null)speechGateway.close();
     if(goroAudioPlayer!=null)goroAudioPlayer.stop();
+    if(zn02AudioRouter!=null)zn02AudioRouter.close();
     if(zn02Controller!=null)zn02Controller.close();
     if(calendarGateway!=null)calendarGateway.close();
     if(gmailGateway!=null)gmailGateway.close();
