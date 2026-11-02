@@ -55,6 +55,7 @@ public final class GoroDashboardView extends LinearLayout {
  public final EditText command;
  public final Button talk;
  public final FrameLayout avatarStage;
+ private final GoroAvatarView avatar;
  private final TextView agendaValue;
  private final TextView weatherValue;
  private final TextView devicesValue;
@@ -127,8 +128,8 @@ public final class GoroDashboardView extends LinearLayout {
   TextView title=text("GORO  ·  ASISTENTE PERSONAL",tablet?18:16,true,palette.text);
   hero.addView(title,new LinearLayout.LayoutParams(-1,dp(36)));
   avatarStage=new FrameLayout(activity);
-  if(enableAvatar){avatarStage.addView(new GoroAvatarView(activity,this::onAvatarStatus),
-      new FrameLayout.LayoutParams(-1,-1));}
+  avatar=enableAvatar?new GoroAvatarView(activity,this::onAvatarStatus):null;
+  if(avatar!=null)avatarStage.addView(avatar,new FrameLayout.LayoutParams(-1,-1));
   else{TextView testStage=text("Avatar renderer disabled in JVM test",13,false,palette.muted);testStage.setGravity(Gravity.CENTER);avatarStage.addView(testStage,new FrameLayout.LayoutParams(-1,-1));}
   hero.addView(avatarStage,new LinearLayout.LayoutParams(-1,0,1f));
   sectionValue=text("Inicio · Panel personal",15,true,palette.text);
@@ -236,6 +237,8 @@ public final class GoroDashboardView extends LinearLayout {
  public void setVoiceActive(boolean active){talk.setText(active?"Detener conversación":"Micrófono · Conversación continua");}
  public void showVoiceStatus(String value){state.setText(value==null?"Voz no disponible":value);}
  private void onAvatarStatus(String value){pendingAvatarStatus=value;if(state!=null)state.setText(value);}
+ public void showAvatarMood(GoroAvatarView.Mood mood){if(avatar!=null)avatar.setMood(mood);}
+ public void avatarSpeak(String spoken,byte[] audio){if(avatar!=null)avatar.startSpeaking(spoken,audio);}
  public void showGmailStatus(String value){gmailValue.setText(value==null?"Gmail no disponible":value);}
  public void showNvidiaStatus(String value){nvidiaValue.setText(value==null?"NVIDIA NIM: sin estado":value);}
  private static GoroTheme.Mode readTheme(Activity a){
