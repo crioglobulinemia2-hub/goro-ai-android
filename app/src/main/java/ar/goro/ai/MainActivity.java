@@ -158,7 +158,7 @@ public class MainActivity extends Activity {
     command=dashboard.command;
     calendarAccountLabel=dashboard.accountLabel;
     dashboard.showNvidiaStatus(nemotronGateway==null?"NVIDIA NIM: requiere API key":"NVIDIA NIM: clave guardada · sin prueba de conexión");
-    dashboard.showVoiceStatus(speechGateway!=null?"NVIDIA Magpie · voz masculina Diego · sin prueba de audio":"Voz masculina local: "+(maleVoiceReady?selectedGoroVoice:"no disponible"));
+    dashboard.showVoiceStatus(speechGateway!=null?"NVIDIA Magpie · voz Diego · pendiente de prueba":"NVIDIA Magpie: falta API key · salida de voz deshabilitada");
     setContentView(dashboard);
   }
   private void listen() {
