@@ -88,7 +88,7 @@ public class MainActivity extends Activity {
     try{String savedNvidiaKey=nvidiaCredentialStore.read();if(savedNvidiaKey!=null){nemotronGateway=new NemotronGateway(savedNvidiaKey);speechGateway=new NemotronSpeechGateway(savedNvidiaKey);}}catch(Exception credentialError){nvidiaCredentialStore.clear();}
     calendarGateway=new DeviceCalendarGateway(this);
     znpBleDiscovery=new ZnpBleDiscovery(this,message->{if(dashboard!=null){dashboard.showDeviceStatus(message);}});
-    jieliChargingCaseBridge=new JieliChargingCaseBridge(message->{if(dashboard!=null)dashboard.showDeviceStatus(message);});
+    jieliChargingCaseBridge=new JieliChargingCaseBridge(this,message->{if(dashboard!=null)dashboard.showDeviceStatus(message);});
     memoryStore.migrateLegacy(memory);
     voiceSession=new ContinuousVoiceSession(this,new ContinuousVoiceSession.Listener(){
       public void onState(ConversationState s){if(state!=null)state.setText("GORO • "+s.name());}
