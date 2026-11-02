@@ -18,6 +18,7 @@ dependencies {
     implementation 'com.google.code.gson:gson:2.13.1'
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.robolectric:robolectric:4.14.1'
+    implementation 'com.google.android.gms:play-services-auth:21.6.0'
     implementation 'androidx.work:work-runtime:2.10.1'
     implementation 'androidx.core:core:1.15.0'
     implementation 'com.google.android.filament:filament-android:1.70.0'
