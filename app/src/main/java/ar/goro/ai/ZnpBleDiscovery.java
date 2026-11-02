@@ -8,6 +8,8 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothGattService;
+import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.le.BluetoothLeScanner;
@@ -25,7 +27,7 @@ import java.util.UUID;
 
 /**
  * User-initiated read-only BLE scan and GATT service inventory for ZNP Z02/N02.
- * No writes, proprietary commands, firmware operations, pairing or MAC logging.
+ * Only standard CCCD subscription is written; no RCSP commands, authentication, firmware operations or MAC logging.
  * Discovery does NOT establish screen, touch, microphone or audio support.
  */
 public final class ZnpBleDiscovery {
@@ -39,6 +41,9 @@ public final class ZnpBleDiscovery {
  private boolean active;
  private boolean found;
  private String advertisedModel="desconocido";
+ private static final UUID RCSP_SERVICE=UUID.fromString("0000ae00-0000-1000-8000-00805f9b34fb");
+ private static final UUID RCSP_NOTIFY=UUID.fromString("0000ae02-0000-1000-8000-00805f9b34fb");
+ private static final UUID CCCD=UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
  private final Runnable timeout=()->{
    if(active){
      stopScan();
@@ -112,9 +117,30 @@ public final class ZnpBleDiscovery {
      StringBuilder info=new StringBuilder("Modelo anunciado: ").append(advertisedModel);
      info.append("\nServicios GATT: ").append(ids.size());
      for(int i=0;i<ids.size();i++)info.append("\n").append(labels.get(i)).append(": ").append(ids.get(i));
-     info.append("\nVisor, audio, control táctil y RCSP: NO VERIFICADOS.");
+     info.append("\nVisor, audio y touch: NO VERIFICADOS.");
+     BluetoothGattService rcsp=session.getService(RCSP_SERVICE);
+     BluetoothGattCharacteristic notify=rcsp==null?null:rcsp.getCharacteristic(RCSP_NOTIFY);
+     if(notify==null){info.append("\nRCSP AE00/AE02: no encontrado.");emit(info.toString());closeGatt();return;}
+     info.append("\nRCSP AE00/AE02: encontrado.");
      emit(info.toString());
-     closeGatt();
+     try{
+      if(!session.setCharacteristicNotification(notify,true)){emit("No se pudo activar la suscripción local RCSP.");closeGatt();return;}
+      BluetoothGattDescriptor descriptor=notify.getDescriptor(CCCD);
+      if(descriptor==null){emit("AE02 no expone CCCD; no se puede suscribir.");closeGatt();return;}
+      if(Build.VERSION.SDK_INT>=33){
+       int result=session.writeDescriptor(descriptor,BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+       if(result!=BluetoothGatt.GATT_SUCCESS){emit("No se pudo escribir CCCD: "+result);closeGatt();}
+      }else{
+       descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+       if(!session.writeDescriptor(descriptor)){emit("No se pudo solicitar CCCD.");closeGatt();}
+      }
+     }catch(SecurityException e){emit("Android denegó la suscripción de notificaciones.");closeGatt();}
+    }
+    @Override public void onDescriptorWrite(BluetoothGatt session,BluetoothGattDescriptor descriptor,int status){
+     if(CCCD.equals(descriptor.getUuid()))emit(status==BluetoothGatt.GATT_SUCCESS?"Z02 conectado · notificaciones RCSP AE02 activas. Autenticación pendiente; no se enviaron comandos.":"Falló la suscripción RCSP AE02: "+status);
+    }
+    @Override public void onCharacteristicChanged(BluetoothGatt session,BluetoothGattCharacteristic characteristic,byte[] value){
+     if(RCSP_NOTIFY.equals(characteristic.getUuid()))emit("Z02 · notificación RCSP recibida ("+(value==null?0:value.length)+" bytes). Sin interpretar ni ejecutar acciones.");
     }
    },BluetoothDevice.TRANSPORT_LE);
   }catch(SecurityException e){emit("Android impidió la inspección GATT.");closeGatt();}
