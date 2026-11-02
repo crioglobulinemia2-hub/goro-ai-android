@@ -25,6 +25,8 @@ public class GoroDashboardViewTest {
   public void onForecast(){forecast++;}
   public void onReminders(){reminders++;}
   public void onBleScan(){ble++;}
+  public void onConfigureNvidia(){}
+  public void onTestNvidia(){}
  }
  private Button findButton(View root,String label){
   if(root instanceof Button && label.contentEquals(((Button)root).getText()))return (Button)root;
