@@ -189,8 +189,9 @@ public class MainActivity extends Activity {
       if(goroAudioPlayer!=null)goroAudioPlayer.stop();
       speechGateway.synthesize(message,(wav,error)->{
         if(error!=null||wav==null){
-          if(maleVoiceReady){if(state!=null)state.setText("GORO · Voz local masculina");tts.speak(message,TextToSpeech.QUEUE_FLUSH,null,"goro_reply");}
-          else{if(state!=null)state.setText("GORO · Error de voz NVIDIA");if(output!=null)output.setText(message+"\\n\\nVoz NVIDIA no disponible: "+error);if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();}
+          if(state!=null)state.setText("GORO · Voz NVIDIA no disponible");
+          if(output!=null)output.setText(message+"\\n\\nNo se reprodujo audio: NVIDIA Magpie no respondió correctamente. No se utilizó una voz local de reemplazo. "+(error==null?"":error));
+          if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();
           return;
         }
         goroAudioPlayer.play(wav,new GoroAudioPlayer.Listener(){
