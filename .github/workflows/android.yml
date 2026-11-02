@@ -18,6 +18,17 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.3.1'
+      - name: Fetch pinned JieLi RCSP 4.2.0 SDK
+        run: |
+          set -euo pipefail
+          mkdir -p app/libs
+          BASE="https://raw.githubusercontent.com/Jieli-Tech/Android-JL_Bluetooth/6293873b641ffd8d461773873ecedef1a9d9038d/code/PiHome_V1.13.0_SDK_V4.2.0/btsmart/libs"
+          curl --fail --location --retry 3 "$BASE/jl_bluetooth_rcsp_V4.2.0_40250-release.aar" -o app/libs/jl_bluetooth_rcsp_V4.2.0_40250-release.aar
+          curl --fail --location --retry 3 "$BASE/jldecryption_v0.4-release.aar" -o app/libs/jldecryption_v0.4-release.aar
+          test "$(stat -c%s app/libs/jl_bluetooth_rcsp_V4.2.0_40250-release.aar)" = "1284165"
+          test "$(stat -c%s app/libs/jldecryption_v0.4-release.aar)" = "42233"
+          test "$(git hash-object app/libs/jl_bluetooth_rcsp_V4.2.0_40250-release.aar)" = "96be927894a69eb4af1fcc7dc1191a337360f86e"
+          test "$(git hash-object app/libs/jldecryption_v0.4-release.aar)" = "fd933770e05afe815240922641a76fe62be7778b"
       - name: Install Android 36 SDK and build tools
         run: |
           SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
