@@ -43,6 +43,10 @@ public final class GoroDashboardView extends LinearLayout {
   void onBleScan();
   void onConfigureNvidia();
   void onTestNvidia();
+  void onConnectZnp();
+  void onZnpLightOn();
+  void onZnpLightOff();
+  void onZnpReadLight();
  }
  public final TextView output;
  public final TextView state;
@@ -188,7 +192,11 @@ public final class GoroDashboardView extends LinearLayout {
   tools.addView(button("Configurar clave NVIDIA",()->actions.onConfigureNvidia(),false),new LinearLayout.LayoutParams(-1,dp(44)));
   tools.addView(button("Probar conexión Nemotron",()->actions.onTestNvidia(),false),new LinearLayout.LayoutParams(-1,dp(44)));
   tools.addView(card("DISPOSITIVOS",devicesValue),cardParams());
-  tools.addView(button("Inspeccionar ZNP Z02/N02",()->actions.onBleScan(),false),new LinearLayout.LayoutParams(-1,dp(46)));
+  tools.addView(button("Inspeccionar BLE Z02/N02",()->actions.onBleScan(),false),new LinearLayout.LayoutParams(-1,dp(44)));
+  tools.addView(button("Conectar ZNP por RCSP JieLi",()->actions.onConnectZnp(),true),new LinearLayout.LayoutParams(-1,dp(48)));
+  tools.addView(button("Encender luz del estuche",()->actions.onZnpLightOn(),false),new LinearLayout.LayoutParams(-1,dp(44)));
+  tools.addView(button("Apagar luz del estuche",()->actions.onZnpLightOff(),false),new LinearLayout.LayoutParams(-1,dp(44)));
+  tools.addView(button("Consultar estado de luz",()->actions.onZnpReadLight(),false),new LinearLayout.LayoutParams(-1,dp(44)));
   TextView warning=text("Datos y conexión: solo estados verificados",12,false,palette.muted);
   tools.addView(warning);
 
