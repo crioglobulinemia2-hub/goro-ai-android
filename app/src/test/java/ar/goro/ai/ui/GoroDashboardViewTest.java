@@ -31,6 +31,8 @@ public class GoroDashboardViewTest {
   public void onZn02LightOn(){lightOn++;}
   public void onZn02LightOff(){lightOff++;}
   public void onZn02ReadLight(){lightRead++;}
+  public void onZn02AudioOn(){}
+  public void onZn02AudioOff(){}
   public void onInstallGoroAnimation(){animation++;}
  }
  private Button findButton(View root,String label){
