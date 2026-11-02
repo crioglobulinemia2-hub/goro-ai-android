@@ -18,7 +18,7 @@ import java.util.concurrent.Executors;
 /** Direct NVIDIA NIM chat-completions client. API token is supplied at runtime, never embedded. */
 public final class NemotronGateway implements ModelGateway {
  public static final String ENDPOINT="https://integrate.api.nvidia.com/v1/chat/completions";
- public static final String MODEL="nvidia/nemotron-3.5-super-vl-120b-a12b";
+ public static final String MODEL="nvidia/nemotron-3.5-lightning-30b-a3b";
  private static final String SYSTEM_PROMPT=
    "Sos GORO, asistente personal del usuario. Hablás en español rioplatense natural, claro y directo. "+
    "Tu identidad vocal es masculina, pero el audio lo produce el motor TTS local. "+
