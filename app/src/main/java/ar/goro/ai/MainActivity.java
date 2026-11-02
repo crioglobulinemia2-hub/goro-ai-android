@@ -1,6 +1,7 @@
 package ar.goro.ai;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.accounts.AccountManager;
 import android.location.Location;
 import android.Manifest;
@@ -20,6 +21,8 @@ import ar.goro.ai.calendar.DeviceCalendarGateway;
 import ar.goro.ai.calendar.CalendarEvent;
 import ar.goro.ai.weather.WeatherService;
 import ar.goro.ai.weather.DeviceLocationProvider;
+import ar.goro.ai.core.NemotronGateway;
+import ar.goro.ai.core.NvidiaCredentialStore;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.concurrent.TimeUnit;
@@ -34,6 +37,7 @@ import android.graphics.Color;
 import android.graphics.Typeface;
 import android.view.Gravity;
 import android.widget.*;
+import android.text.InputType;
 import java.util.*;
 import java.util.regex.*;
 
@@ -56,6 +60,8 @@ public class MainActivity extends Activity {
   private DeviceCalendarGateway calendarGateway;
   private WeatherService weatherService;
   private DeviceLocationProvider locationProvider;
+  private NvidiaCredentialStore nvidiaCredentialStore;
+  private NemotronGateway nemotronGateway;
   private TextView calendarAccountLabel;
   private boolean pendingWeatherForecast=false;
   private CalendarEvent pendingCalendarEvent;
@@ -71,6 +77,8 @@ public class MainActivity extends Activity {
     reminderScheduler=new ReminderScheduler(this);
     weatherService=new WeatherService();
     locationProvider=new DeviceLocationProvider(this);
+    nvidiaCredentialStore=new NvidiaCredentialStore(this);
+    try{String savedNvidiaKey=nvidiaCredentialStore.read();if(savedNvidiaKey!=null)nemotronGateway=new NemotronGateway(savedNvidiaKey);}catch(Exception credentialError){nvidiaCredentialStore.clear();}
     calendarGateway=new DeviceCalendarGateway(this);
     znpBleDiscovery=new ZnpBleDiscovery(this,message->{if(dashboard!=null){dashboard.showDeviceStatus(message);}});
     memoryStore.migrateLegacy(memory);
@@ -120,6 +128,8 @@ public class MainActivity extends Activity {
       public void onWeather(){requestWeatherLocation(false);}
       public void onForecast(){requestWeatherLocation(true);}
       public void onBleScan(){startZnpBleInspection();}
+      public void onConfigureNvidia(){configureNvidia();}
+      public void onTestNvidia(){testNemotron();}
       public void onReminders(){
         if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)
           requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},52);
@@ -129,6 +139,7 @@ public class MainActivity extends Activity {
     state=dashboard.state;
     command=dashboard.command;
     calendarAccountLabel=dashboard.accountLabel;
+    dashboard.showNvidiaStatus(nemotronGateway==null?"NVIDIA NIM: requiere API key":"NVIDIA NIM: clave guardada · sin prueba de conexión");
     setContentView(dashboard);
   }
   private void listen() {
@@ -250,8 +261,46 @@ public class MainActivity extends Activity {
         say("El resultado es "+value);
       }catch(Exception e){say("No pude resolver esa operación.");}
     } else {
-      say("Todavía no tengo conexión a Nemotron. No ejecuté ninguna acción.");
+      if(nemotronGateway==null){say("Nemotron necesita una API key de NVIDIA NIM. Abrí Ajustes y configurá la clave para habilitar la conversación.");return;}
+      requestNemotron(raw);
     }
+  }
+  private void configureNvidia(){
+    EditText input=new EditText(this);
+    input.setSingleLine(true);
+    input.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_PASSWORD);
+    input.setHint("nvapi-…");
+    input.setPadding(36,24,36,24);
+    new AlertDialog.Builder(this).setTitle("Conectar NVIDIA Nemotron")
+      .setMessage("La clave se cifra con Android Keystore y se guarda solo en este dispositivo. No se incluye en la APK ni en GitHub.")
+      .setView(input)
+      .setNegativeButton("Cancelar",null)
+      .setPositiveButton("Guardar y probar",(dialog,which)->{
+       String key=input.getText().toString().trim();
+       try{
+        nvidiaCredentialStore.save(key);
+        if(nemotronGateway!=null)nemotronGateway.close();
+        nemotronGateway=new NemotronGateway(key);
+        if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: clave cifrada · verificando…");
+        testNemotron();
+       }catch(Exception e){if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: clave no guardada");say("No pude guardar la clave NVIDIA. Verificá que sea una API key nvapi válida.");}
+      }).show();
+  }
+  private void testNemotron(){
+    if(nemotronGateway==null){if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: falta API key");say("Primero configurá la API key de NVIDIA NIM.");return;}
+    if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: probando endpoint…");
+    nemotronGateway.request("goro-main","Respondé exactamente: GORO conectado.",(reply,error)->{
+      if(error!=null){if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: error · "+error);say("No pude autenticar con NVIDIA NIM. "+error);}
+      else{if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: conectado · "+NemotronGateway.MODEL);say(reply);}
+    });
+  }
+  private void requestNemotron(String text){
+    if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: procesando…");
+    output.setText("GORO está consultando Nemotron…");
+    nemotronGateway.request("goro-main",text,(reply,error)->{
+      if(error!=null){if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: error · "+error);say("La consulta a Nemotron falló. "+error);}
+      else{if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: conectado");say(reply);}
+    });
   }
   private void startZnpBleInspection(){
     if(znpBleDiscovery==null)return;
@@ -338,5 +387,5 @@ public class MainActivity extends Activity {
     say("No hay ninguna operación de calendario pendiente.");
   }
   @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results){super.onRequestPermissionsResult(request,permissions,results);if(results.length==0)return;if(request==ZNP_BLE_PERMISSION_REQUEST){if(znpBleDiscovery.neededPermissions().length==0)znpBleDiscovery.begin();else if(dashboard!=null)dashboard.showDeviceStatus("Permiso Bluetooth denegado: inspección cancelada.");}else if(request==41&&results[0]==PackageManager.PERMISSION_GRANTED){voiceActive=true;if(dashboard!=null)dashboard.setVoiceActive(true);voiceSession.start();}else if(request==CALENDAR_PERMISSION_REQUEST){boolean granted=checkSelfPermission(Manifest.permission.READ_CALENDAR)==PackageManager.PERMISSION_GRANTED&&checkSelfPermission(Manifest.permission.WRITE_CALENDAR)==PackageManager.PERMISSION_GRANTED;say(granted?"Google Calendar vinculado a "+calendarGateway.selectedGoogleAccount()+".":"El calendario necesita permisos de lectura y escritura; no se modificó ningún evento.");}else if(request==LOCATION_PERMISSION_REQUEST){if(locationProvider.hasPermission()){if(pendingWeatherForecast)showForecastHere();else showWeatherHere();}else say("No se concedió permiso de ubicación. No consulté una ubicación aproximada ni inventé tu clima.");}else if(request==52){say(results[0]==PackageManager.PERMISSION_GRANTED?"Notificaciones habilitadas. Ya puedo entregarte recordatorios.":"Las notificaciones están deshabilitadas; GORO no puede mostrar recordatorios hasta que las habilites en Android.");}}
-  @Override protected void onDestroy(){if(znpBleDiscovery!=null)znpBleDiscovery.close();if(calendarGateway!=null)calendarGateway.close();if(weatherService!=null)weatherService.close();if(voiceSession!=null)voiceSession.destroy();if(tts!=null){tts.stop();tts.shutdown();}super.onDestroy();}
+  @Override protected void onDestroy(){if(nemotronGateway!=null)nemotronGateway.close();if(znpBleDiscovery!=null)znpBleDiscovery.close();if(calendarGateway!=null)calendarGateway.close();if(weatherService!=null)weatherService.close();if(voiceSession!=null)voiceSession.destroy();if(tts!=null){tts.stop();tts.shutdown();}super.onDestroy();}
 }
