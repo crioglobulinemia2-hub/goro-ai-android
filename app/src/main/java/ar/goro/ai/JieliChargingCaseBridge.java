@@ -1,6 +1,20 @@
 package ar.goro.ai;
 
 import android.bluetooth.BluetoothDevice;
+import android.content.Context;
+import com.jieli.bluetooth.bean.charging_case.ChargingCaseInfo;
+import com.jieli.bluetooth.bean.file.op.CreateFileParam;
+import com.jieli.bluetooth.bean.settings.v0.SDKMessage;
+import com.jieli.bluetooth.impl.rcsp.file.FileOpImpl;
+import com.jieli.bluetooth.interfaces.rcsp.callback.OnTaskStateListener;
+import com.jieli.bluetooth.utils.CryptoUtil;
+import com.jieli.filebrowse.bean.SDCardBean;
+import com.jieli.lib.gif.GifConverter;
+import com.jieli.lib.gif.model.GifConvertResult;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import com.jieli.bluetooth.bean.BleScanMessage;
 import com.jieli.bluetooth.bean.base.BaseError;
 import com.jieli.bluetooth.bean.charging_case.ChargingCaseInfo;
@@ -22,6 +36,9 @@ import java.util.List;
  */
 public final class JieliChargingCaseBridge {
  public interface Listener {void onStatus(String status);}
+ private final Context context;
+ private final ExecutorService resourceExecutor=Executors.newSingleThreadExecutor();
+ private boolean uploadingResource;
  private final RCSPController controller;
  private final Listener listener;
  private final BTRcspEventCallback eventCallback;
@@ -46,14 +63,15 @@ public final class JieliChargingCaseBridge {
    if(isTarget(device))emit("ZNP · evento RCSP de estuche recibido.");
   }
  };
- public JieliChargingCaseBridge(Listener listener){
+ public JieliChargingCaseBridge(Context context,Listener listener){
+  this.context=context.getApplicationContext();
   this.listener=listener;
   controller=RCSPController.getInstance();
   eventCallback=new BTRcspEventCallback(){
    @Override public void onDiscoveryStatus(boolean ble,boolean start){
     if(!ble)return;
     scanning=start;
-    if(!start&&!connected)emit("Búsqueda RCSP finalizada: no se conectó un estuche Z02/N02 compatible.");
+    if(!start&&!connected&&target==null)emit("Búsqueda RCSP finalizada: no se conectó un estuche Z02/N02 compatible.");
    }
    @Override public void onDiscovery(BluetoothDevice device,BleScanMessage message){
     if(closed||!scanning||device==null)return;
@@ -78,6 +96,20 @@ public final class JieliChargingCaseBridge {
      caseOp.addOnChargingCaseListener(caseListener);
      emit("ZNP conectado por RCSP. Consultando pantalla y estado de luz…");
      caseOp.getChargingCaseInfo(device);
+     caseOp.readSDKMessage(device,new OnRcspActionCallback<SDKMessage>(){
+      @Override public void onSuccess(BluetoothDevice d,SDKMessage message){
+       if(!isTarget(d)||message==null)return;
+       int chip=message.getChip();
+       ChargingCaseInfo info=caseOp.getChargingCaseInfo(d);
+       if(info!=null)emit("ZNP · chip "+chip+" · pantalla "+info.getScreenWidth()+"×"+info.getScreenHeight()+".");
+       if(chip==SDKMessage.CHIP_701N||chip==SDKMessage.CHIP_707N)
+        emit("ZNP · chip compatible con conversión de animaciones GIF.");
+       else emit("ZNP · chip sin soporte confirmado para animaciones de pantalla JieLi.");
+      }
+      @Override public void onError(BluetoothDevice d,BaseError error){
+       if(isTarget(d))emit("No se pudo identificar el chip del estuche: "+error.getMessage());
+      }
+     });
      caseOp.readScreenInfo(device,new OnRcspActionCallback<ScreenInfo>(){
       @Override public void onSuccess(BluetoothDevice d,ScreenInfo info){
        if(isTarget(d))emit("Pantalla ZNP verificada por SDK: "+String.valueOf(info));
@@ -138,6 +170,81 @@ public final class JieliChargingCaseBridge {
    }
   });
  }
+ public synchronized void uploadGoroScreenSaver(File sourceGif){
+  if(closed||!connected||target==null||caseOp==null){
+   emit("No hay estuche RCSP conectado. No se inició la transferencia.");return;
+  }
+  if(uploadingResource){emit("Ya hay una transferencia de animación en curso.");return;}
+  if(sourceGif==null||!sourceGif.isFile()||!sourceGif.canRead()){
+   emit("No se encuentra el GIF de GORO para transferir.");return;
+  }
+  ChargingCaseInfo info=caseOp.getChargingCaseInfo(target);
+  if(info==null||info.getScreenWidth()<=0||info.getScreenHeight()<=0){
+   emit("La resolución real del estuche todavía no está disponible. No se envió ningún archivo.");return;
+  }
+  uploadingResource=true;
+  emit("Preparando animación GORO para pantalla "+info.getScreenWidth()+"×"+info.getScreenHeight()+"…");
+  caseOp.readSDKMessage(target,new OnRcspActionCallback<SDKMessage>(){
+   @Override public void onSuccess(BluetoothDevice device,SDKMessage sdk){
+    if(!isTarget(device)){finishUpload();return;}
+    if(sdk==null||(sdk.getChip()!=SDKMessage.CHIP_701N&&sdk.getChip()!=SDKMessage.CHIP_707N)){
+     emit("El chip del estuche no está soportado por el conversor GIF 701N/707N. Transferencia cancelada.");
+     finishUpload();return;
+    }
+    resourceExecutor.execute(()->convertAndTransfer(sourceGif,info,sdk.getChip()));
+   }
+   @Override public void onError(BluetoothDevice device,BaseError error){
+    if(isTarget(device)){emit("No se pudo leer el chip para convertir el GIF: "+error.getMessage());finishUpload();}
+   }
+  });
+ }
+ private void convertAndTransfer(File sourceGif,ChargingCaseInfo info,int chip){
+  try{
+   int converterChip=chip==SDKMessage.CHIP_707N?GifConverter.CHIP_707N:GifConverter.CHIP_701N;
+   GifConvertResult result=GifConverter.getInstance().gif2Bin(sourceGif.getAbsolutePath(),
+      GifConverter.MODE_LOW_COMPRESSION_RATE,converterChip);
+   if(result==null||!result.isSuccess()||result.getGifBin()==null||result.getGifBin().getData()==null){
+    emit("El conversor JieLi rechazó la animación GIF. No se modificó el estuche.");finishUpload();return;
+   }
+   byte[] bytes=result.getGifBin().getData();
+   short crc=CryptoUtil.CRC16(bytes,(short)0);
+   String suffix=chip==SDKMessage.CHIP_701N?".RES":"";
+   File output=new File(context.getCacheDir(),"GORO-"+Integer.toHexString(crc&0xffff)+suffix);
+   try(FileOutputStream stream=new FileOutputStream(output)){stream.write(bytes);stream.flush();}
+   List<SDCardBean> storages=caseOp.getOnlineStorages(target);
+   SDCardBean flash=null;
+   if(storages!=null)for(SDCardBean storage:storages)if(storage.isFlash()&&storage.isOnline()){flash=storage;break;}
+   if(flash==null){emit("El estuche no informa memoria flash disponible. No se transfirió el GIF.");output.delete();finishUpload();return;}
+   FileOpImpl fileOp=caseOp.getFileOp();
+   emit("Animación convertida. Transfiriendo "+bytes.length+" bytes al estuche…");
+   fileOp.createBigFile(new CreateFileParam(target,output,flash),new OnTaskStateListener(){
+    @Override public void onStart(){emit("Transferencia de animación GORO iniciada.");}
+    @Override public void onProgress(int progress){emit("Transferencia GORO · "+progress+"%.");}
+    @Override public void onStop(){
+     String devicePath="/"+output.getName();
+     caseOp.setCurrentScreenSaver(target,flash.getDevHandler(),devicePath,new OnRcspActionCallback<Boolean>(){
+      @Override public void onSuccess(BluetoothDevice device,Boolean ok){
+       output.delete();
+       if(isTarget(device)&&Boolean.TRUE.equals(ok)){
+        emit("Pantalla del ZNP actualizada con la animación GORO. Verificando recurso activo…");
+        caseOp.getCurrentScreenSaver(device,new OnRcspActionCallback<com.jieli.bluetooth.bean.settings.v0.ResourceInfo>(){
+         @Override public void onSuccess(BluetoothDevice d,com.jieli.bluetooth.bean.settings.v0.ResourceInfo resource){if(isTarget(d))emit("Animación GORO confirmada como protector activo: "+resource);}
+         @Override public void onError(BluetoothDevice d,BaseError error){if(isTarget(d))emit("El estuche aceptó el cambio, pero no se pudo leer el recurso activo: "+error.getMessage());}
+        });
+       }else emit("El estuche no confirmó la activación del recurso GORO.");
+       finishUpload();
+      }
+      @Override public void onError(BluetoothDevice device,BaseError error){
+       output.delete();if(isTarget(device))emit("El GIF se transfirió, pero no se pudo activar: "+error.getMessage());finishUpload();
+      }
+     });
+    }
+    @Override public void onCancel(int reason){output.delete();emit("Transferencia GORO cancelada por el dispositivo.");finishUpload();}
+    @Override public void onError(int code,String message){output.delete();emit("Falló la transferencia GORO: "+message+" (código "+code+").");finishUpload();}
+   });
+  }catch(Exception error){emit("No se pudo preparar la animación GORO: "+error.getClass().getSimpleName());finishUpload();}
+ }
+ private synchronized void finishUpload(){uploadingResource=false;}
  private boolean isTarget(BluetoothDevice device){
   return target!=null&&device!=null&&target.getAddress()!=null&&target.getAddress().equals(device.getAddress());
  }
@@ -147,6 +254,7 @@ public final class JieliChargingCaseBridge {
   if(scanning)controller.stopScan();
   controller.removeBTRcspEventCallback(eventCallback);
   if(caseOp!=null)caseOp.removeOnChargingCaseListener(caseListener);
+  resourceExecutor.shutdownNow();
   scanning=false;connected=false;target=null;caseOp=null;
  }
 }
