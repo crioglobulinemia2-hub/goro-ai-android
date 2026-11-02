@@ -67,8 +67,8 @@ public final class JieliChargingCaseBridge {
     controller.stopScan();
     scanning=false;
     emit("ZNP detectado: "+(name==null?"nombre no anunciado":name)+". Iniciando conexión RCSP BLE…");
-    boolean started=controller.connectDevice(device,BluetoothConstant.PROTOCOL_TYPE_BLE);
-    if(!started)emit("El SDK JieLi no pudo iniciar la conexión BLE RCSP.");
+    try{controller.connectDevice(device,BluetoothConstant.PROTOCOL_TYPE_BLE);}
+    catch(RuntimeException error){emit("El SDK JieLi no pudo iniciar la conexión BLE RCSP: "+error.getClass().getSimpleName());}
    }
    @Override public void onConnection(BluetoothDevice device,int status){
     if(!isTarget(device))return;
