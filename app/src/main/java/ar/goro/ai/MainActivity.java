@@ -18,6 +18,7 @@ import ar.goro.ai.tools.AssistantCommandParser;
 import ar.goro.ai.tools.AlarmClockIntents;
 import ar.goro.ai.automation.ReminderScheduler;
 import ar.goro.ai.calendar.DeviceCalendarGateway;
+import ar.goro.ai.gmail.GoroGmailGateway;
 import ar.goro.ai.calendar.CalendarEvent;
 import ar.goro.ai.weather.WeatherService;
 import ar.goro.ai.weather.DeviceLocationProvider;
@@ -65,6 +66,7 @@ public class MainActivity extends Activity {
   private boolean voiceActive=false;
   private ReminderScheduler reminderScheduler;
   private DeviceCalendarGateway calendarGateway;
+  private GoroGmailGateway gmailGateway;
   private WeatherService weatherService;
   private DeviceLocationProvider locationProvider;
   private NvidiaCredentialStore nvidiaCredentialStore;
@@ -90,6 +92,7 @@ public class MainActivity extends Activity {
     nvidiaCredentialStore=new NvidiaCredentialStore(this);
     try{String savedNvidiaKey=nvidiaCredentialStore.read();if(savedNvidiaKey!=null){nemotronGateway=new NemotronGateway(savedNvidiaKey);speechGateway=new NemotronSpeechGateway(savedNvidiaKey);}}catch(Exception credentialError){nvidiaCredentialStore.clear();}
     calendarGateway=new DeviceCalendarGateway(this);
+    gmailGateway=new GoroGmailGateway(this);
     zn02Controller=new GoroZn02Controller(this,message->{if(dashboard!=null)dashboard.showDeviceStatus(message);});
     memoryStore.migrateLegacy(memory);
     voiceSession=new ContinuousVoiceSession(this,new ContinuousVoiceSession.Listener(){
@@ -125,6 +128,7 @@ public class MainActivity extends Activity {
         voiceActive=true;dashboard.setVoiceActive(true);voiceSession.start();
       }
       public void onLinkAccount(){chooseGoogleAccount();}
+      public void onReadGmail(){readGmail();}
       public void onCalendarPermission(){
         if(calendarGateway.selectedGoogleAccount()==null)chooseGoogleAccount();
         else requestCalendarPermissions();
@@ -167,6 +171,10 @@ public class MainActivity extends Activity {
   }
   @Override protected void onActivityResult(int request,int result,Intent data) {
     super.onActivityResult(request,result,data);
+    if(request==GoroGmailGateway.REQUEST_AUTHORIZATION){
+      if(gmailGateway!=null)gmailGateway.onActivityResult(request,result,data);
+      return;
+    }
     if(request==GOOGLE_ACCOUNT_REQUEST){
       if(result==RESULT_OK&&data!=null){String email=data.getStringExtra(AccountManager.KEY_ACCOUNT_NAME);String type=data.getStringExtra(AccountManager.KEY_ACCOUNT_TYPE);if(email==null||!"com.google".equals(type)){say("No se seleccionó una cuenta Google válida.");return;}try{calendarGateway.setSelectedGoogleAccount(email);calendarAccountLabel.setText("Google Calendar: "+email);say("Cuenta "+email+" seleccionada para GORO. Ahora autorizá el acceso al calendario.");requestCalendarPermissions();}catch(Exception e){say("No pude vincular esa cuenta Google.");}}
       else say("Vinculación de Gmail cancelada.");return;
@@ -363,6 +371,14 @@ public class MainActivity extends Activity {
     if(missing.length>0){requestPermissions(missing,ZN02_BLE_PERMISSION_REQUEST);return;}
     zn02Controller.startScan();
   }
+  private void readGmail(){
+    if(gmailGateway==null){if(dashboard!=null)dashboard.showGmailStatus("Gmail no disponible");return;}
+    if(dashboard!=null)dashboard.showGmailStatus("Solicitando autorización Gmail…");
+    gmailGateway.readInbox((text,error)->{
+      if(dashboard!=null)dashboard.showGmailStatus(error==null?text:"Gmail · "+error);
+      if(error==null&&output!=null)output.setText(text);
+    });
+  }
   private void chooseGoogleAccount(){
     try{Intent picker=AccountManager.newChooseAccountIntent(null,null,new String[]{"com.google"},null,null,null,null);startActivityForResult(picker,GOOGLE_ACCOUNT_REQUEST);}
     catch(Exception e){say("Android no pudo abrir el selector de cuentas Google.");}
@@ -467,6 +483,7 @@ public class MainActivity extends Activity {
     if(goroAudioPlayer!=null)goroAudioPlayer.stop();
     if(zn02Controller!=null)zn02Controller.close();
     if(calendarGateway!=null)calendarGateway.close();
+    if(gmailGateway!=null)gmailGateway.close();
     if(weatherService!=null)weatherService.close();
     if(voiceSession!=null)voiceSession.destroy();
     if(tts!=null){tts.stop();tts.shutdown();}
