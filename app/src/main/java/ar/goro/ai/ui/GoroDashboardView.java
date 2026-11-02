@@ -62,6 +62,7 @@ public final class GoroDashboardView extends LinearLayout {
  private final boolean tablet;
  private final LinearLayout navigation;
  private GoroTheme palette;
+ private String pendingAvatarStatus;
 
  public GoroDashboardView(Activity activity, Actions actions, String account) {
   super(activity);
@@ -119,13 +120,14 @@ public final class GoroDashboardView extends LinearLayout {
   TextView title=text("GORO  ·  ASISTENTE PERSONAL",tablet?18:16,true,palette.text);
   hero.addView(title,new LinearLayout.LayoutParams(-1,dp(36)));
   avatarStage=new FrameLayout(activity);
-  avatarStage.addView(new GoroAvatarView(activity,value->{if(state!=null)state.setText(value);}),
+  avatarStage.addView(new GoroAvatarView(activity,this::onAvatarStatus),
       new FrameLayout.LayoutParams(-1,-1));
   hero.addView(avatarStage,new LinearLayout.LayoutParams(-1,0,1f));
   sectionValue=text("Inicio · Panel personal",15,true,palette.text);
   hero.addView(sectionValue,new LinearLayout.LayoutParams(-1,dp(30)));
 
   state=text("GORO · Servicios locales",15,true,palette.accentSecondary);
+  if(pendingAvatarStatus!=null)state.setText(pendingAvatarStatus);
   LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(-1,dp(34));
   sp.setMargins(dp(12),dp(2),dp(8),0);
   mainColumn.addView(state,sp);
@@ -218,6 +220,7 @@ public final class GoroDashboardView extends LinearLayout {
  public void showDeviceStatus(String value){devicesValue.setText(value==null?"Sin datos de dispositivo.":value);}
  public void setVoiceActive(boolean active){talk.setText(active?"Detener conversación":"Micrófono · Conversación continua");}
  public void showVoiceStatus(String value){state.setText(value==null?"Voz no disponible":value);}
+ private void onAvatarStatus(String value){pendingAvatarStatus=value;if(state!=null)state.setText(value);}
  public void showNvidiaStatus(String value){nvidiaValue.setText(value==null?"NVIDIA NIM: sin estado":value);}
  private static GoroTheme.Mode readTheme(Activity a){
   String saved=a.getSharedPreferences("goro_ui",Activity.MODE_PRIVATE).getString("theme_mode",null);
