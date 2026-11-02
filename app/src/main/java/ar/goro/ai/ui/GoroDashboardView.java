@@ -40,13 +40,12 @@ public final class GoroDashboardView extends LinearLayout {
   void onWeather();
   void onForecast();
   void onReminders();
-  void onBleScan();
   void onConfigureNvidia();
   void onTestNvidia();
-  void onConnectZnp();
-  void onZnpLightOn();
-  void onZnpLightOff();
-  void onZnpReadLight();
+  void onConnectZn02();
+  void onZn02LightOn();
+  void onZn02LightOff();
+  void onZn02ReadLight();
   void onInstallGoroAnimation();
  }
  public final TextView output;
@@ -176,7 +175,7 @@ public final class GoroDashboardView extends LinearLayout {
   else mainColumn.addView(tools,new LinearLayout.LayoutParams(-1,-2));
   weatherValue=text("Sin consultar. Usar ubicación GPS.",14,false,palette.text);
   agendaValue=text("Sin consultar. Vinculá tu cuenta Google.",14,false,palette.text);
-  devicesValue=text("Sin datos de vinculación verificados.",14,false,palette.text);
+  devicesValue=text("ZN02 · Sin conexión verificada.",14,false,palette.text);
   nvidiaValue=text("NVIDIA NIM: sin configurar",14,false,palette.text);
 
   LinearLayout weatherCard=card("CLIMA LOCAL",weatherValue);
@@ -195,12 +194,11 @@ public final class GoroDashboardView extends LinearLayout {
   tools.addView(button("Configurar clave NVIDIA",()->actions.onConfigureNvidia(),false),new LinearLayout.LayoutParams(-1,dp(44)));
   tools.addView(button("Probar conexión Nemotron",()->actions.onTestNvidia(),false),new LinearLayout.LayoutParams(-1,dp(44)));
   tools.addView(card("DISPOSITIVOS",devicesValue),cardParams());
-  tools.addView(button("Inspeccionar BLE Z02/N02",()->actions.onBleScan(),false),new LinearLayout.LayoutParams(-1,dp(44)));
-  tools.addView(button("Conectar ZNP por RCSP JieLi",()->actions.onConnectZnp(),true),new LinearLayout.LayoutParams(-1,dp(48)));
-  tools.addView(button("Encender luz del estuche",()->actions.onZnpLightOn(),false),new LinearLayout.LayoutParams(-1,dp(44)));
-  tools.addView(button("Apagar luz del estuche",()->actions.onZnpLightOff(),false),new LinearLayout.LayoutParams(-1,dp(44)));
-  tools.addView(button("Consultar estado de luz",()->actions.onZnpReadLight(),false),new LinearLayout.LayoutParams(-1,dp(44)));
-  tools.addView(button("Enviar animación GORO al visor",()->actions.onInstallGoroAnimation(),true),new LinearLayout.LayoutParams(-1,dp(48)));
+  tools.addView(button("Conectar ZN02 · GORO",()->actions.onConnectZn02(),true),new LinearLayout.LayoutParams(-1,dp(48)));
+  tools.addView(button("Encender luz del ZN02",()->actions.onZn02LightOn(),false),new LinearLayout.LayoutParams(-1,dp(44)));
+  tools.addView(button("Apagar luz del ZN02",()->actions.onZn02LightOff(),false),new LinearLayout.LayoutParams(-1,dp(44)));
+  tools.addView(button("Consultar estado del ZN02",()->actions.onZn02ReadLight(),false),new LinearLayout.LayoutParams(-1,dp(44)));
+  tools.addView(button("Enviar animación GORO al visor ZN02",()->actions.onInstallGoroAnimation(),true),new LinearLayout.LayoutParams(-1,dp(48)));
   TextView warning=text("Datos y conexión: solo estados verificados",12,false,palette.muted);
   tools.addView(warning);
 
