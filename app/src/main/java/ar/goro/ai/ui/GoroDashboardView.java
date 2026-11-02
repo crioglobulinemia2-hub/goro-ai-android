@@ -211,6 +211,7 @@ public final class GoroDashboardView extends LinearLayout {
  public void showWeather(String value){weatherValue.setText(value==null?"Sin datos.":value);}
  public void showDeviceStatus(String value){devicesValue.setText(value==null?"Sin datos de dispositivo.":value);}
  public void setVoiceActive(boolean active){talk.setText(active?"Detener conversación":"Micrófono · Conversación continua");}
+ public void showVoiceStatus(String value){state.setText(value==null?"Voz no disponible":value);}
  private static GoroTheme.Mode readTheme(Activity a){
   String saved=a.getSharedPreferences("goro_ui",Activity.MODE_PRIVATE).getString("theme_mode",null);
   if(saved==null){return a.getSharedPreferences("goro_ui",Activity.MODE_PRIVATE).getBoolean("dark",false)?GoroTheme.Mode.DARK:GoroTheme.Mode.LIGHT;}
