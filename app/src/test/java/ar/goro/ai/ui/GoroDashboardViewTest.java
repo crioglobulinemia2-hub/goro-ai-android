@@ -46,7 +46,7 @@ public class GoroDashboardViewTest {
  @Test public void exposesEightSectionsThreeThemesAndConnectedActions(){
   Activity activity=Robolectric.buildActivity(Activity.class).setup().get();
   Calls calls=new Calls();
-  GoroDashboardView dashboard=new GoroDashboardView(activity,calls,null);
+  GoroDashboardView dashboard=new GoroDashboardView(activity,calls,null,false);
   activity.setContentView(dashboard);
   assertEquals(8,dashboard.navigationItemCount());
   assertEquals(3,((ViewGroup)dashboard.getChildAt(2)).getChildCount());
@@ -69,7 +69,7 @@ public class GoroDashboardViewTest {
  }
  @Test public void buttonsHaveVisiblePressedStateAndRestoreOnCancel(){
   Activity activity=Robolectric.buildActivity(Activity.class).setup().get();
-  GoroDashboardView dashboard=new GoroDashboardView(activity,new Calls(),null);
+  GoroDashboardView dashboard=new GoroDashboardView(activity,new Calls(),null,false);
   activity.setContentView(dashboard);
   Button button=findButton(dashboard,"Inicio");
   assertNotNull(button);
