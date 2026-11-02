@@ -230,14 +230,15 @@ public final class JieliChargingCaseBridge {
    SDCardBean flash=null;
    if(storages!=null)for(SDCardBean storage:storages)if(storage.isFlash()&&storage.isOnline()){flash=storage;break;}
    if(flash==null){emit("El estuche no informa memoria flash disponible. No se transfirió el GIF.");output.delete();finishUpload();return;}
+   final SDCardBean selectedFlash=flash;
    FileOpImpl fileOp=caseOp.getFileOp();
    emit("Animación convertida. Transfiriendo "+bytes.length+" bytes al estuche…");
-   fileOp.createBigFile(new CreateFileParam(target,output,flash),new OnTaskStateListener(){
+   fileOp.createBigFile(new CreateFileParam(target,output,selectedFlash),new OnTaskStateListener(){
     @Override public void onStart(){emit("Transferencia de animación GORO iniciada.");}
     @Override public void onProgress(int progress){emit("Transferencia GORO · "+progress+"%.");}
     @Override public void onStop(){
      String devicePath="/"+output.getName();
-     caseOp.setCurrentScreenSaver(target,flash.getDevHandler(),devicePath,new OnRcspActionCallback<Boolean>(){
+     caseOp.setCurrentScreenSaver(target,selectedFlash.getDevHandler(),devicePath,new OnRcspActionCallback<Boolean>(){
       @Override public void onSuccess(BluetoothDevice device,Boolean ok){
        output.delete();
        if(isTarget(device)&&Boolean.TRUE.equals(ok)){
