@@ -2,6 +2,7 @@ package ar.goro.ai.ui;
 
 import android.app.Activity;
 import android.view.MotionEvent;
+import android.graphics.drawable.RippleDrawable;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -67,6 +68,7 @@ public class GoroDashboardViewTest {
   Button button=findButton(dashboard,"Inicio");
   assertNotNull(button);
   assertTrue(button.getElevation()>0f);
+  assertTrue(button.getBackground() instanceof RippleDrawable);
   MotionEvent down=MotionEvent.obtain(0,0,MotionEvent.ACTION_DOWN,2f,2f,0);
   button.dispatchTouchEvent(down);down.recycle();
   assertEquals(0.965f,button.getScaleX(),0.001f);
