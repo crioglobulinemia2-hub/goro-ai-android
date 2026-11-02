@@ -23,6 +23,8 @@ import ar.goro.ai.weather.WeatherService;
 import ar.goro.ai.weather.DeviceLocationProvider;
 import ar.goro.ai.core.NemotronGateway;
 import ar.goro.ai.core.NvidiaCredentialStore;
+import ar.goro.ai.core.NemotronSpeechGateway;
+import ar.goro.ai.voice.GoroAudioPlayer;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.concurrent.TimeUnit;
@@ -64,6 +66,8 @@ public class MainActivity extends Activity {
   private DeviceLocationProvider locationProvider;
   private NvidiaCredentialStore nvidiaCredentialStore;
   private NemotronGateway nemotronGateway;
+  private NemotronSpeechGateway speechGateway;
+  private GoroAudioPlayer goroAudioPlayer;
   private TextView calendarAccountLabel;
   private boolean pendingWeatherForecast=false;
   private CalendarEvent pendingCalendarEvent;
@@ -79,8 +83,9 @@ public class MainActivity extends Activity {
     reminderScheduler=new ReminderScheduler(this);
     weatherService=new WeatherService();
     locationProvider=new DeviceLocationProvider(this);
+    goroAudioPlayer=new GoroAudioPlayer(this);
     nvidiaCredentialStore=new NvidiaCredentialStore(this);
-    try{String savedNvidiaKey=nvidiaCredentialStore.read();if(savedNvidiaKey!=null)nemotronGateway=new NemotronGateway(savedNvidiaKey);}catch(Exception credentialError){nvidiaCredentialStore.clear();}
+    try{String savedNvidiaKey=nvidiaCredentialStore.read();if(savedNvidiaKey!=null){nemotronGateway=new NemotronGateway(savedNvidiaKey);speechGateway=new NemotronSpeechGateway(savedNvidiaKey);}}catch(Exception credentialError){nvidiaCredentialStore.clear();}
     calendarGateway=new DeviceCalendarGateway(this);
     znpBleDiscovery=new ZnpBleDiscovery(this,message->{if(dashboard!=null){dashboard.showDeviceStatus(message);}});
     jieliChargingCaseBridge=new JieliChargingCaseBridge(message->{if(dashboard!=null)dashboard.showDeviceStatus(message);});
@@ -90,7 +95,7 @@ public class MainActivity extends Activity {
       public void onFinalText(String text){if(voiceSession!=null){voiceSession.pauseForResponse();} if(command!=null)command.setText(text);runCommand(text);}
       public void onPartialText(String text){if(command!=null)command.setText(text);}
       public void onError(String message){if(output!=null)output.setText(message);}
-      public void onUserSpeechStarted(){if(tts!=null)tts.stop();}
+      public void onUserSpeechStarted(){if(tts!=null)tts.stop();if(goroAudioPlayer!=null)goroAudioPlayer.stop();}
     });
     tts=new TextToSpeech(this, status -> {
       voiceReady=status==TextToSpeech.SUCCESS;
@@ -171,9 +176,30 @@ public class MainActivity extends Activity {
   }
   private void say(String message) {
     output.setText(message);
-    if(state!=null)state.setText(voiceReady?"GORO · Respondiendo":"GORO · Listo");
-    if(maleVoiceReady) { if(voiceSession!=null)voiceSession.pauseForResponse(); tts.speak(message,TextToSpeech.QUEUE_FLUSH,null,"goro_reply"); }
-    else {if(state!=null)state.setText("GORO · Falta voz masculina española");if(voiceSession!=null)voiceSession.resumeAfterResponse();}
+    if(speechGateway!=null){
+      if(state!=null)state.setText("GORO · Generando voz masculina NVIDIA");
+      if(voiceSession!=null)voiceSession.pauseForResponse();
+      if(goroAudioPlayer!=null)goroAudioPlayer.stop();
+      speechGateway.synthesize(message,(wav,error)->{
+        if(error!=null||wav==null){
+          if(maleVoiceReady){if(state!=null)state.setText("GORO · Voz local masculina");tts.speak(message,TextToSpeech.QUEUE_FLUSH,null,"goro_reply");}
+          else{if(state!=null)state.setText("GORO · Error de voz NVIDIA");if(output!=null)output.setText(message+"\\n\\nVoz NVIDIA no disponible: "+error);if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();}
+          return;
+        }
+        goroAudioPlayer.play(wav,new GoroAudioPlayer.Listener(){
+          public void onStarted(){if(state!=null)state.setText("GORO · Hablando · Diego");}
+          public void onCompleted(){if(state!=null)state.setText(voiceActive?"GORO · Escuchando":"GORO · Listo");if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();}
+          public void onError(String problem){if(state!=null)state.setText("GORO · Error de reproducción");if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();}
+        });
+      });
+    }else if(maleVoiceReady){
+      if(state!=null)state.setText("GORO · Voz masculina local");
+      if(voiceSession!=null)voiceSession.pauseForResponse();
+      tts.speak(message,TextToSpeech.QUEUE_FLUSH,null,"goro_reply");
+    }else{
+      if(state!=null)state.setText("GORO · Configurá la clave NVIDIA para voz masculina");
+      if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();
+    }
   }
   private void runCommand(String raw) {
     if(raw.isEmpty()) return;
@@ -288,6 +314,7 @@ public class MainActivity extends Activity {
         nvidiaCredentialStore.save(key);
         if(nemotronGateway!=null)nemotronGateway.close();
         nemotronGateway=new NemotronGateway(key);
+        speechGateway=new NemotronSpeechGateway(key);
         if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: clave cifrada · verificando…");
         testNemotron();
        }catch(Exception e){if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: clave no guardada");say("No pude guardar la clave NVIDIA. Verificá que sea una API key nvapi válida.");}
@@ -400,5 +427,5 @@ public class MainActivity extends Activity {
     say("No hay ninguna operación de calendario pendiente.");
   }
   @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results){super.onRequestPermissionsResult(request,permissions,results);if(results.length==0)return;if(request==ZNP_BLE_PERMISSION_REQUEST){if(znpBleDiscovery.neededPermissions().length==0){if(pendingJieliScan){pendingJieliScan=false;jieliChargingCaseBridge.startScan();}else znpBleDiscovery.begin();}else{pendingJieliScan=false;if(dashboard!=null)dashboard.showDeviceStatus("Permiso Bluetooth denegado: conexión cancelada.");}}else if(request==41&&results[0]==PackageManager.PERMISSION_GRANTED){voiceActive=true;if(dashboard!=null)dashboard.setVoiceActive(true);voiceSession.start();}else if(request==CALENDAR_PERMISSION_REQUEST){boolean granted=checkSelfPermission(Manifest.permission.READ_CALENDAR)==PackageManager.PERMISSION_GRANTED&&checkSelfPermission(Manifest.permission.WRITE_CALENDAR)==PackageManager.PERMISSION_GRANTED;say(granted?"Google Calendar vinculado a "+calendarGateway.selectedGoogleAccount()+".":"El calendario necesita permisos de lectura y escritura; no se modificó ningún evento.");}else if(request==LOCATION_PERMISSION_REQUEST){if(locationProvider.hasPermission()){if(pendingWeatherForecast)showForecastHere();else showWeatherHere();}else say("No se concedió permiso de ubicación. No consulté una ubicación aproximada ni inventé tu clima.");}else if(request==52){say(results[0]==PackageManager.PERMISSION_GRANTED?"Notificaciones habilitadas. Ya puedo entregarte recordatorios.":"Las notificaciones están deshabilitadas; GORO no puede mostrar recordatorios hasta que las habilites en Android.");}}
-  @Override protected void onDestroy(){if(nemotronGateway!=null)nemotronGateway.close();if(jieliChargingCaseBridge!=null)jieliChargingCaseBridge.close();if(znpBleDiscovery!=null)znpBleDiscovery.close();if(calendarGateway!=null)calendarGateway.close();if(weatherService!=null)weatherService.close();if(voiceSession!=null)voiceSession.destroy();if(tts!=null){tts.stop();tts.shutdown();}super.onDestroy();}
+  @Override protected void onDestroy(){if(nemotronGateway!=null)nemotronGateway.close();if(speechGateway!=null)speechGateway.close();if(goroAudioPlayer!=null)goroAudioPlayer.stop();if(jieliChargingCaseBridge!=null)jieliChargingCaseBridge.close();if(znpBleDiscovery!=null)znpBleDiscovery.close();if(calendarGateway!=null)calendarGateway.close();if(weatherService!=null)weatherService.close();if(voiceSession!=null)voiceSession.destroy();if(tts!=null){tts.stop();tts.shutdown();}super.onDestroy();}
 }
