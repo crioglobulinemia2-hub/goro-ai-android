@@ -48,7 +48,6 @@ public final class GoroDashboardView extends LinearLayout {
   void onZnpLightOff();
   void onZnpReadLight();
   void onInstallGoroAnimation();
-  void onInstallGoroAnimation();
  }
  public final TextView output;
  public final TextView state;
