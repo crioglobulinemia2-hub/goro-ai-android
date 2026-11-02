@@ -15,7 +15,7 @@ import static org.junit.Assert.*;
 @RunWith(RobolectricTestRunner.class)
 public class GoroDashboardViewTest {
  private static final class Calls implements GoroDashboardView.Actions {
-  int commands,voice,link,calendar,unlink,weather,forecast,reminders,ble;
+  int commands,voice,link,calendar,unlink,weather,forecast,reminders,connect,lightOn,lightOff,lightRead,animation;
   public void onCommand(String value){commands++;}
   public void onVoiceSession(){voice++;}
   public void onLinkAccount(){link++;}
@@ -24,14 +24,13 @@ public class GoroDashboardViewTest {
   public void onWeather(){weather++;}
   public void onForecast(){forecast++;}
   public void onReminders(){reminders++;}
-  public void onBleScan(){ble++;}
   public void onConfigureNvidia(){}
   public void onTestNvidia(){}
-  public void onConnectZnp(){}
-  public void onZnpLightOn(){}
-  public void onZnpLightOff(){}
-  public void onZnpReadLight(){}
-  public void onInstallGoroAnimation(){}
+  public void onConnectZn02(){connect++;}
+  public void onZn02LightOn(){lightOn++;}
+  public void onZn02LightOff(){lightOff++;}
+  public void onZn02ReadLight(){lightRead++;}
+  public void onInstallGoroAnimation(){animation++;}
  }
  private Button findButton(View root,String label){
   if(root instanceof Button && label.contentEquals(((Button)root).getText()))return (Button)root;
@@ -58,7 +57,11 @@ public class GoroDashboardViewTest {
   findButton(dashboard,"Vincular cuenta Google").performClick();
   findButton(dashboard,"Autorizar Google Calendar").performClick();
   findButton(dashboard,"Desvincular cuenta").performClick();
-  findButton(dashboard,"Inspeccionar BLE Z02/N02").performClick();
+  findButton(dashboard,"Conectar ZN02 · GORO").performClick();
+  findButton(dashboard,"Encender luz del ZN02").performClick();
+  findButton(dashboard,"Apagar luz del ZN02").performClick();
+  findButton(dashboard,"Consultar estado del ZN02").performClick();
+  findButton(dashboard,"Enviar animación GORO al visor ZN02").performClick();
   assertEquals(1,calls.voice);
   assertEquals(1,calls.commands);
   assertEquals(1,calls.weather);
@@ -66,7 +69,11 @@ public class GoroDashboardViewTest {
   assertEquals(1,calls.link);
   assertEquals(1,calls.calendar);
   assertEquals(1,calls.unlink);
-  assertEquals(1,calls.ble);
+  assertEquals(1,calls.connect);
+  assertEquals(1,calls.lightOn);
+  assertEquals(1,calls.lightOff);
+  assertEquals(1,calls.lightRead);
+  assertEquals(1,calls.animation);
  }
  @Test public void buttonsHaveVisiblePressedStateAndRestoreOnCancel(){
   Activity activity=Robolectric.buildActivity(Activity.class).setup().get();
