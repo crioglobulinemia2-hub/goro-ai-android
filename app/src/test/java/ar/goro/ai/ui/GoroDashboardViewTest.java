@@ -32,7 +32,6 @@ public class GoroDashboardViewTest {
   public void onZnpLightOff(){}
   public void onZnpReadLight(){}
   public void onInstallGoroAnimation(){}
-  public void onInstallGoroAnimation(){}
  }
  private Button findButton(View root,String label){
   if(root instanceof Button && label.contentEquals(((Button)root).getText()))return (Button)root;
