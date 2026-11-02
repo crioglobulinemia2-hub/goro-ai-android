@@ -32,6 +32,11 @@ import android.content.SharedPreferences;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Base64;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
 import android.provider.AlarmClock;
 import android.speech.RecognizerIntent;
 import android.speech.tts.TextToSpeech;
@@ -142,6 +147,7 @@ public class MainActivity extends Activity {
       public void onZnpLightOn(){jieliChargingCaseBridge.setFlashlight(true);}
       public void onZnpLightOff(){jieliChargingCaseBridge.setFlashlight(false);}
       public void onZnpReadLight(){jieliChargingCaseBridge.readFlashlight();}
+      public void onInstallGoroAnimation(){installGoroAnimationOnZnp();}
       public void onReminders(){
         if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)
           requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},52);
@@ -336,6 +342,26 @@ public class MainActivity extends Activity {
       if(error!=null){if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: error · "+error);say("La consulta a Nemotron falló. "+error);}
       else{if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: conectado");say(reply);}
     });
+  }
+  private void installGoroAnimationOnZnp(){
+    if(jieliChargingCaseBridge==null){say("El puente JieLi no está disponible.");return;}
+    String[] parts={"znp_faces_00.b64","znp_faces_00b.b64","znp_faces_01.b64","znp_faces_02.b64","znp_faces_03.b64","znp_faces_04.b64","znp_faces_05.b64","znp_faces_06.b64","znp_faces_07.b64","znp_faces_08.b64","znp_faces_09.b64","znp_faces_10.b64","znp_faces_11.b64","znp_faces_12.b64","znp_faces_13.b64","znp_faces_14.b64","znp_faces_15.b64","znp_faces_16.b64","znp_faces_17.b64"};
+    try{
+      StringBuilder encoded=new StringBuilder();
+      for(String part:parts){
+        try(InputStream input=getAssets().open("goro/"+part);ByteArrayOutputStream bytes=new ByteArrayOutputStream()){
+          byte[] buffer=new byte[4096];int count;
+          while((count=input.read(buffer))!=-1)bytes.write(buffer,0,count);
+          encoded.append(bytes.toString("US-ASCII"));
+        }
+      }
+      byte[] gif=Base64.decode(encoded.toString(),Base64.DEFAULT);
+      File file=new File(getCacheDir(),"GORO-ZNP-320x172.gif");
+      try(FileOutputStream outputFile=new FileOutputStream(file)){outputFile.write(gif);outputFile.flush();}
+      jieliChargingCaseBridge.uploadGoroScreenSaver(file);
+    }catch(Exception error){
+      if(dashboard!=null)dashboard.showDeviceStatus("No se pudo preparar el recurso animado GORO: "+error.getClass().getSimpleName());
+    }
   }
   private void connectZnpWithJieli(){
     if(jieliChargingCaseBridge==null){say("El puente JieLi no está disponible.");return;}
