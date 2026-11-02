@@ -26,6 +26,7 @@ import ar.goro.ai.core.NemotronGateway;
 import ar.goro.ai.core.NvidiaCredentialStore;
 import ar.goro.ai.core.NemotronSpeechGateway;
 import ar.goro.ai.voice.GoroAudioPlayer;
+import ar.goro.ai.avatar.GoroAvatarView;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.concurrent.TimeUnit;
@@ -96,11 +97,18 @@ public class MainActivity extends Activity {
     zn02Controller=new GoroZn02Controller(this,message->{if(dashboard!=null)dashboard.showDeviceStatus(message);});
     memoryStore.migrateLegacy(memory);
     voiceSession=new ContinuousVoiceSession(this,new ContinuousVoiceSession.Listener(){
-      public void onState(ConversationState s){if(state!=null)state.setText("GORO • "+s.name());}
+      public void onState(ConversationState s){
+        if(state!=null)state.setText("GORO • "+s.name());
+        if(dashboard!=null){
+          if(s.name().equals("LISTENING"))dashboard.showAvatarMood(GoroAvatarView.Mood.LISTENING);
+          else if(s.name().equals("PROCESSING"))dashboard.showAvatarMood(GoroAvatarView.Mood.THINKING);
+          else if(s.name().equals("IDLE"))dashboard.showAvatarMood(GoroAvatarView.Mood.IDLE);
+        }
+      }
       public void onFinalText(String text){if(voiceSession!=null){voiceSession.pauseForResponse();} if(command!=null)command.setText(text);runCommand(text);}
       public void onPartialText(String text){if(command!=null)command.setText(text);}
       public void onError(String message){if(output!=null)output.setText(message);}
-      public void onUserSpeechStarted(){if(tts!=null)tts.stop();if(goroAudioPlayer!=null)goroAudioPlayer.stop();}
+      public void onUserSpeechStarted(){if(tts!=null)tts.stop();if(goroAudioPlayer!=null)goroAudioPlayer.stop();if(dashboard!=null)dashboard.showAvatarMood(GoroAvatarView.Mood.LISTENING);}
     });
     tts=new TextToSpeech(this, status -> {
       voiceReady=status==TextToSpeech.SUCCESS;
@@ -194,19 +202,28 @@ public class MainActivity extends Activity {
       return;
     }
     if(state!=null)state.setText("GORO · Generando voz NVIDIA Magpie · Diego");
+    if(dashboard!=null)dashboard.showAvatarMood(GoroAvatarView.Mood.THINKING);
     if(voiceSession!=null)voiceSession.pauseForResponse();
     if(goroAudioPlayer!=null)goroAudioPlayer.stop();
     speechGateway.synthesize(message,(wav,error)->{
       if(error!=null||wav==null){
         if(state!=null)state.setText("GORO · Voz NVIDIA no disponible");
+        if(dashboard!=null)dashboard.showAvatarMood(GoroAvatarView.Mood.ALERT);
         if(output!=null)output.setText(message+"\\n\\nNo se reprodujo audio: NVIDIA Magpie no respondió correctamente. No se utilizó una voz local de reemplazo. "+(error==null?"":error));
         if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();
         return;
       }
       goroAudioPlayer.play(wav,new GoroAudioPlayer.Listener(){
-        public void onStarted(){if(state!=null)state.setText("GORO · Hablando · NVIDIA Diego");}
-        public void onCompleted(){if(state!=null)state.setText(voiceActive?"GORO · Escuchando":"GORO · Listo");if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();}
-        public void onError(String problem){if(state!=null)state.setText("GORO · Error de reproducción NVIDIA");if(output!=null)output.setText(message+"\\n\\nError de audio: "+problem);if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();}
+        public void onStarted(){
+          if(state!=null)state.setText("GORO · Hablando · NVIDIA Diego");
+          if(dashboard!=null)dashboard.avatarSpeak(message,wav);
+        }
+        public void onCompleted(){
+          if(state!=null)state.setText(voiceActive?"GORO · Escuchando":"GORO · Listo");
+          if(dashboard!=null)dashboard.showAvatarMood(voiceActive?GoroAvatarView.Mood.LISTENING:GoroAvatarView.Mood.IDLE);
+          if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();
+        }
+        public void onError(String problem){if(state!=null)state.setText("GORO · Error de reproducción NVIDIA");if(dashboard!=null)dashboard.showAvatarMood(GoroAvatarView.Mood.ALERT);if(output!=null)output.setText(message+"\\n\\nError de audio: "+problem);if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();}
       });
     });
   }
@@ -340,6 +357,7 @@ public class MainActivity extends Activity {
   private void requestNemotron(String text){
     if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: procesando…");
     output.setText("GORO está consultando Nemotron…");
+    if(dashboard!=null)dashboard.showAvatarMood(GoroAvatarView.Mood.THINKING);
     nemotronGateway.request("goro-main",text,(reply,error)->{
       if(error!=null){if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: error · "+error);say("La consulta a Nemotron falló. "+error);}
       else{if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: conectado");say(reply);}
