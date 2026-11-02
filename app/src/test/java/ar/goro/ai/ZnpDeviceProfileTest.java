@@ -2,9 +2,10 @@ package ar.goro.ai;
 import org.junit.Test;
 import static org.junit.Assert.*;
 public class ZnpDeviceProfileTest {
- @Test public void detectsZ02(){assertEquals(ZnpDeviceProfile.Model.Z02,ZnpDeviceProfile.detect("ZNP-Z02").model);}
  @Test public void detectsN02(){assertEquals(ZnpDeviceProfile.Model.N02,ZnpDeviceProfile.detect("ZNP N02").model);}
+ @Test public void detectsZn02Alias(){assertEquals(ZnpDeviceProfile.Model.N02,ZnpDeviceProfile.detect("ZN02").model);}
+ @Test public void rejectsZ02UsedBySeparateCabezónProject(){assertEquals(ZnpDeviceProfile.Model.UNKNOWN,ZnpDeviceProfile.detect("ZNP-Z02").model);}
+ @Test public void genericRcspDoesNotIdentifyN02(){assertEquals(ZnpDeviceProfile.Model.UNKNOWN,ZnpDeviceProfile.detect("Unknown badge",true).model);}
  @Test public void unknownIsSafe(){assertEquals(ZnpDeviceProfile.Model.UNKNOWN,ZnpDeviceProfile.detect(null).model);}
- @Test public void detectsJieliRcspWithoutInventingDeviceCapabilities(){ZnpDeviceProfile p=ZnpDeviceProfile.detect("Unknown badge",true);assertEquals(ZnpDeviceProfile.Model.JIELI_RCSP_UNVERIFIED,p.model);assertFalse(p.canShowGoro());assertFalse(p.canUseTouch());assertFalse(p.canRouteAudio());}
- @Test public void noInventedCapabilities(){assertFalse(ZnpDeviceProfile.detect("N02").canShowGoro());assertFalse(ZnpDeviceProfile.detect("Z02").canRouteAudio());}
+ @Test public void noUnverifiedCapabilitiesAreInvented(){ZnpDeviceProfile p=ZnpDeviceProfile.detect("ZN02");assertFalse(p.canShowGoro());assertFalse(p.canRouteAudio());assertFalse(p.canUseTouch());}
 }
