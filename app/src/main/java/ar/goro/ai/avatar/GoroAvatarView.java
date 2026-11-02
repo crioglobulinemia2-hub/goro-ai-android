@@ -13,12 +13,14 @@ import com.google.android.filament.View;
 import com.google.android.filament.android.UiHelper;
 import com.google.android.filament.utils.Float3;
 import com.google.android.filament.utils.ModelViewer;
+import com.google.android.filament.utils.Utils;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 
 /** Filament glTF viewer for the authored GORO rig. */
 public final class GoroAvatarView extends FrameLayout {
+ static { Utils.INSTANCE.init(); }
  public interface StatusListener {void onStatus(String status);}
  private static final String ASSET_PATH="goro/goro_rigged.glb";
  private final StatusListener statusListener;
@@ -31,11 +33,12 @@ public final class GoroAvatarView extends FrameLayout {
    framePosted=false;
    ModelViewer current=viewer;
    if(current==null||!isAttachedToWindow())return;
-   if(current.getAnimator()!=null&&current.getAnimator().getAnimationCount()>0){
+   com.google.android.filament.gltfio.Animator animator=current.getAnimator();
+   if(animator!=null&&animator.getAnimationCount()>0){
     if(animationStartNanos==0)animationStartNanos=frameTimeNanos;
     float elapsed=(frameTimeNanos-animationStartNanos)/1_000_000_000f;
-    current.getAnimator().applyAnimation(0,elapsed);
-    current.getAnimator().updateBoneMatrices();
+    animator.applyAnimation(0,elapsed);
+    animator.updateBoneMatrices();
    }
    current.render(frameTimeNanos);
    postFrame();
