@@ -55,6 +55,8 @@ jobs:
             assert not re.search(r'nvapi-[A-Za-z0-9_-]{12,}',s),f'Embedded NVIDIA key in {p}'
           print('Static security gate PASS')
           PY
+      - name: Validate GORO ZNP animation asset
+        run: python3 scripts/validate_znp_animation.py
       - name: Unit tests and build
         run: gradle --no-daemon clean testDebugUnitTest assembleDebug
       - name: Android memory persistence tests (Robolectric)
