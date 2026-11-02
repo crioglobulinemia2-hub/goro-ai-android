@@ -148,6 +148,7 @@ public class MainActivity extends Activity {
       public void onZnpLightOff(){jieliChargingCaseBridge.setFlashlight(false);}
       public void onZnpReadLight(){jieliChargingCaseBridge.readFlashlight();}
       public void onInstallGoroAnimation(){installGoroAnimationOnZnp();}
+      public void onInstallGoroAnimation(){installGoroAnimationOnZnp();}
       public void onReminders(){
         if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)
           requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},52);
