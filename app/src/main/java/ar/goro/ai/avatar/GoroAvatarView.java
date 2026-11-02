@@ -31,11 +31,11 @@ public final class GoroAvatarView extends FrameLayout {
    framePosted=false;
    ModelViewer current=viewer;
    if(current==null||!isAttachedToWindow())return;
-   if(current.animator!=null&&current.animator.getAnimationCount()>0){
+   if(current.getAnimator()!=null&&current.getAnimator().getAnimationCount()>0){
     if(animationStartNanos==0)animationStartNanos=frameTimeNanos;
     float elapsed=(frameTimeNanos-animationStartNanos)/1_000_000_000f;
-    current.animator.applyAnimation(0,elapsed);
-    current.animator.updateBoneMatrices();
+    current.getAnimator().applyAnimation(0,elapsed);
+    current.getAnimator().updateBoneMatrices();
    }
    current.render(frameTimeNanos);
    postFrame();
