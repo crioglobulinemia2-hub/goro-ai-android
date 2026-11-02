@@ -109,7 +109,7 @@ public class MainActivity extends Activity {
         tts.setLanguage(new Locale("es","AR"));
         Voice male=GoroVoiceSelector.select(tts.getVoices());
         if(male!=null){tts.setVoice(male);tts.setSpeechRate(0.96f);tts.setPitch(0.92f);maleVoiceReady=true;selectedGoroVoice=male.getName();}
-        runOnUiThread(()->{if(dashboard!=null)dashboard.showVoiceStatus(maleVoiceReady?"Voz masculina · "+selectedGoroVoice:"Sin voz masculina española instalada");});
+        runOnUiThread(()->{if(dashboard!=null)dashboard.showVoiceStatus(speechGateway!=null?"NVIDIA Magpie · voz Diego · pendiente de prueba":"NVIDIA Magpie: falta API key · salida de voz deshabilitada");});
         tts.setOnUtteranceProgressListener(new UtteranceProgressListener(){
           public void onStart(String id){runOnUiThread(()->{if(state!=null)state.setText("GORO · Hablando");});}
           public void onDone(String id){runOnUiThread(()->{if(state!=null)state.setText(voiceActive?"GORO · Escuchando":"GORO · Listo");if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();});}
