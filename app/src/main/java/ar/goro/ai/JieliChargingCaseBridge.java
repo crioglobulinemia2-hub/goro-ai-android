@@ -2,6 +2,8 @@ package ar.goro.ai;
 
 import android.bluetooth.BluetoothDevice;
 import android.content.Context;
+import android.os.Handler;
+import android.os.Looper;
 import com.jieli.bluetooth.bean.charging_case.ChargingCaseInfo;
 import com.jieli.bluetooth.bean.file.op.CreateFileParam;
 import com.jieli.bluetooth.bean.settings.v0.SDKMessage;
@@ -41,6 +43,7 @@ public final class JieliChargingCaseBridge {
  private boolean uploadingResource;
  private final RCSPController controller;
  private final Listener listener;
+ private final Handler mainHandler=new Handler(Looper.getMainLooper());
  private final BTRcspEventCallback eventCallback;
  private ChargingCaseOpImpl caseOp;
  private BluetoothDevice target;
@@ -182,6 +185,18 @@ public final class JieliChargingCaseBridge {
   if(info==null||info.getScreenWidth()<=0||info.getScreenHeight()<=0){
    emit("La resolución real del estuche todavía no está disponible. No se envió ningún archivo.");return;
   }
+  try(java.io.FileInputStream input=new java.io.FileInputStream(sourceGif)){
+   byte[] header=new byte[10];
+   if(input.read(header)!=10||header[0]!='G'||header[1]!='I'||header[2]!='F'){
+    emit("El archivo de GORO no es un GIF válido.");return;
+   }
+   int gifWidth=(header[6]&255)|((header[7]&255)<<8);
+   int gifHeight=(header[8]&255)|((header[9]&255)<<8);
+   if(gifWidth!=info.getScreenWidth()||gifHeight!=info.getScreenHeight()){
+    emit("El GIF es "+gifWidth+"×"+gifHeight+" y la pantalla real es "+info.getScreenWidth()+"×"+info.getScreenHeight()+". No se transfirió para evitar deformarlo.");
+    return;
+   }
+  }catch(Exception error){emit("No se pudo verificar la resolución del GIF: "+error.getClass().getSimpleName());return;}
   uploadingResource=true;
   emit("Preparando animación GORO para pantalla "+info.getScreenWidth()+"×"+info.getScreenHeight()+"…");
   caseOp.readSDKMessage(target,new OnRcspActionCallback<SDKMessage>(){
@@ -248,7 +263,7 @@ public final class JieliChargingCaseBridge {
  private boolean isTarget(BluetoothDevice device){
   return target!=null&&device!=null&&target.getAddress()!=null&&target.getAddress().equals(device.getAddress());
  }
- private void emit(String value){if(listener!=null&&!closed)listener.onStatus(value);}
+ private void emit(String value){if(listener!=null&&!closed)mainHandler.post(()->{if(listener!=null&&!closed)listener.onStatus(value);});}
  public synchronized void close(){
   if(closed)return;closed=true;
   if(scanning)controller.stopScan();
