@@ -21,7 +21,7 @@ import java.nio.ByteBuffer;
 
 /** Filament glTF viewer for the authored GORO rig. */
 public final class GoroAvatarView extends FrameLayout {
- static { if(System.getProperty("robolectric.version")==null) Utils.INSTANCE.init(); }
+ static { if(!"robolectric".equals(android.os.Build.FINGERPRINT) && System.getProperty("robolectric.version")==null) Utils.INSTANCE.init(); }
  static { Utils.INSTANCE.init(); }
  public interface StatusListener {void onStatus(String status);}
  private static final String ASSET_PATH="goro/goro_rigged.glb";
