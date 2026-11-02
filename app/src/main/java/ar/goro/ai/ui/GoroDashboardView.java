@@ -19,6 +19,7 @@ import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import ar.goro.ai.avatar.GoroAvatarView;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
@@ -118,10 +119,8 @@ public final class GoroDashboardView extends LinearLayout {
   TextView title=text("GORO  ·  ASISTENTE PERSONAL",tablet?18:16,true,palette.text);
   hero.addView(title,new LinearLayout.LayoutParams(-1,dp(36)));
   avatarStage=new FrameLayout(activity);
-  // Explicit asset gate: a production GLB has not yet been authored or bundled.
-  TextView assetGate=text("AVATAR HUMANOIDE 3D\nMODELO GLB ARTICULADO PENDIENTE",tablet?19:15,true,palette.muted);
-  assetGate.setGravity(Gravity.CENTER);
-  avatarStage.addView(assetGate,new FrameLayout.LayoutParams(-1,-1));
+  avatarStage.addView(new GoroAvatarView(activity,value->{if(state!=null)state.setText(value);}),
+      new FrameLayout.LayoutParams(-1,-1));
   hero.addView(avatarStage,new LinearLayout.LayoutParams(-1,0,1f));
   sectionValue=text("Inicio · Panel personal",15,true,palette.text);
   hero.addView(sectionValue,new LinearLayout.LayoutParams(-1,dp(30)));
