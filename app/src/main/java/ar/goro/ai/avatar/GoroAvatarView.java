@@ -12,6 +12,7 @@ import com.google.android.filament.Engine;
 import com.google.android.filament.View;
 import com.google.android.filament.android.UiHelper;
 import com.google.android.filament.utils.ModelViewer;
+import com.google.android.filament.utils.Float3;
 import com.google.android.filament.utils.Utils;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
@@ -71,7 +72,7 @@ public final class GoroAvatarView extends FrameLayout {
    viewer.getView().setAntiAliasing(View.AntiAliasing.FXAA);
    viewer.loadModelGlb(ByteBuffer.wrap(bytes));
    // GLB front is +Z; use ModelViewer default framing so the camera faces the complete faceplate.
-   viewer.transformToUnitCube();
+   viewer.transformToUnitCube(new Float3(0f,0f,0f));
    // GORO mesh faces +Z. Place the camera in front and aim at the GLB centre (-4 Z).
    viewer.getCamera().lookAt(0.0,0.0,0.0, 0.0,0.0,-4.0, 0.0,1.0,0.0);
    animationStartNanos=0;
