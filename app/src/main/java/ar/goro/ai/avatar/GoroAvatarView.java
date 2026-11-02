@@ -2,7 +2,6 @@ package ar.goro.ai.avatar;
 
 import android.content.Context;
 import android.graphics.Color;
-import android.os.SystemClock;
 import android.view.Choreographer;
 import android.view.MotionEvent;
 import android.view.SurfaceView;
@@ -24,7 +23,7 @@ public final class GoroAvatarView extends FrameLayout {
  public interface StatusListener {void onStatus(String status);}
  private static final String ASSET_PATH="goro/goro_rigged.glb";
  private final StatusListener statusListener;
- private final SurfaceView surface;
+ private SurfaceView surface;
  private ModelViewer viewer;
  private boolean framePosted;
  private long animationStartNanos;
@@ -47,13 +46,6 @@ public final class GoroAvatarView extends FrameLayout {
  public GoroAvatarView(Context context,StatusListener listener){
   super(context);statusListener=listener;
   setBackgroundColor(Color.TRANSPARENT);
-  surface=new SurfaceView(context);
-  surface.setBackgroundColor(Color.TRANSPARENT);
-  addView(surface,new FrameLayout.LayoutParams(-1,-1));
-  surface.setOnTouchListener((v,event)->{
-   if(viewer!=null){viewer.onTouchEvent(event);return true;}
-   return false;
-  });
   loadIfPresent();
  }
  private void loadIfPresent(){
@@ -67,6 +59,15 @@ public final class GoroAvatarView extends FrameLayout {
    status("Filament preparado; falta el GLB riggeado original de GORO.");
    return;
   }
+  surface=new SurfaceView(getContext());
+  surface.setFocusable(false);
+  surface.setFocusableInTouchMode(false);
+  surface.setBackgroundColor(Color.TRANSPARENT);
+  addView(surface,new FrameLayout.LayoutParams(-1,-1));
+  surface.setOnTouchListener((v,event)->{
+   if(viewer!=null){viewer.onTouchEvent(event);return true;}
+   return false;
+  });
   try{
    viewer=new ModelViewer(surface,Engine.create(),new UiHelper(UiHelper.ContextErrorPolicy.DONT_CHECK),null);
    viewer.getView().setAntiAliasing(View.AntiAliasing.FXAA);
