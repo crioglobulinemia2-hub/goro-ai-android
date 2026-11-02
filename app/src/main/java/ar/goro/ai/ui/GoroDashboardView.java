@@ -40,6 +40,8 @@ public final class GoroDashboardView extends LinearLayout {
   void onForecast();
   void onReminders();
   void onBleScan();
+  void onConfigureNvidia();
+  void onTestNvidia();
  }
  public final TextView output;
  public final TextView state;
@@ -50,6 +52,7 @@ public final class GoroDashboardView extends LinearLayout {
  private final TextView agendaValue;
  private final TextView weatherValue;
  private final TextView devicesValue;
+ private final TextView nvidiaValue;
  private final TextView sectionValue;
  private final TextView clock;
  private final Activity activity;
@@ -166,6 +169,7 @@ public final class GoroDashboardView extends LinearLayout {
   weatherValue=text("Sin consultar. Usar ubicación GPS.",14,false,palette.text);
   agendaValue=text("Sin consultar. Vinculá tu cuenta Google.",14,false,palette.text);
   devicesValue=text("Sin datos de vinculación verificados.",14,false,palette.text);
+  nvidiaValue=text("NVIDIA NIM: sin configurar",14,false,palette.text);
 
   LinearLayout weatherCard=card("CLIMA LOCAL",weatherValue);
   tools.addView(weatherCard,cardParams());
@@ -179,6 +183,9 @@ public final class GoroDashboardView extends LinearLayout {
   tools.addView(button("Autorizar Google Calendar",()->actions.onCalendarPermission(),false),new LinearLayout.LayoutParams(-1,dp(44)));
   tools.addView(button("Desvincular cuenta",()->actions.onUnlinkAccount(),false),new LinearLayout.LayoutParams(-1,dp(44)));
   tools.addView(button("Consultar agenda",()->actions.onCommand("agenda hoy"),false),new LinearLayout.LayoutParams(-1,dp(46)));
+  tools.addView(card("INTELIGENCIA NEMOTRON",nvidiaValue),cardParams());
+  tools.addView(button("Configurar clave NVIDIA",()->actions.onConfigureNvidia(),false),new LinearLayout.LayoutParams(-1,dp(44)));
+  tools.addView(button("Probar conexión Nemotron",()->actions.onTestNvidia(),false),new LinearLayout.LayoutParams(-1,dp(44)));
   tools.addView(card("DISPOSITIVOS",devicesValue),cardParams());
   tools.addView(button("Inspeccionar ZNP Z02/N02",()->actions.onBleScan(),false),new LinearLayout.LayoutParams(-1,dp(46)));
   TextView warning=text("Datos y conexión: solo estados verificados",12,false,palette.muted);
@@ -212,6 +219,7 @@ public final class GoroDashboardView extends LinearLayout {
  public void showDeviceStatus(String value){devicesValue.setText(value==null?"Sin datos de dispositivo.":value);}
  public void setVoiceActive(boolean active){talk.setText(active?"Detener conversación":"Micrófono · Conversación continua");}
  public void showVoiceStatus(String value){state.setText(value==null?"Voz no disponible":value);}
+ public void showNvidiaStatus(String value){nvidiaValue.setText(value==null?"NVIDIA NIM: sin estado":value);}
  private static GoroTheme.Mode readTheme(Activity a){
   String saved=a.getSharedPreferences("goro_ui",Activity.MODE_PRIVATE).getString("theme_mode",null);
   if(saved==null){return a.getSharedPreferences("goro_ui",Activity.MODE_PRIVATE).getBoolean("dark",false)?GoroTheme.Mode.DARK:GoroTheme.Mode.LIGHT;}
