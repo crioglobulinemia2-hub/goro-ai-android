@@ -2,6 +2,7 @@ package ar.goro.ai.avatar;
 
 import android.content.Context;
 import android.graphics.Color;
+import android.os.SystemClock;
 import android.view.Choreographer;
 import android.view.MotionEvent;
 import android.view.SurfaceView;
@@ -10,15 +11,13 @@ import android.widget.TextView;
 import com.google.android.filament.Engine;
 import com.google.android.filament.View;
 import com.google.android.filament.android.UiHelper;
+import com.google.android.filament.utils.Float3;
 import com.google.android.filament.utils.ModelViewer;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 
-/**
- * Filament glTF viewer for the authored GORO rig.
- * It intentionally refuses to substitute a bitmap, emoji or primitive when the GLB is absent.
- */
+/** Filament glTF viewer for the authored GORO rig. */
 public final class GoroAvatarView extends FrameLayout {
  public interface StatusListener {void onStatus(String status);}
  private static final String ASSET_PATH="goro/goro_rigged.glb";
@@ -26,11 +25,19 @@ public final class GoroAvatarView extends FrameLayout {
  private final SurfaceView surface;
  private ModelViewer viewer;
  private boolean framePosted;
+ private long animationStartNanos;
  private final Choreographer.FrameCallback frameCallback=new Choreographer.FrameCallback(){
   @Override public void doFrame(long frameTimeNanos){
    framePosted=false;
-   if(viewer==null||!isAttachedToWindow())return;
-   viewer.render(frameTimeNanos);
+   ModelViewer current=viewer;
+   if(current==null||!isAttachedToWindow())return;
+   if(current.animator!=null&&current.animator.getAnimationCount()>0){
+    if(animationStartNanos==0)animationStartNanos=frameTimeNanos;
+    float elapsed=(frameTimeNanos-animationStartNanos)/1_000_000_000f;
+    current.animator.applyAnimation(0,elapsed);
+    current.animator.updateBoneMatrices();
+   }
+   current.render(frameTimeNanos);
    postFrame();
   }
  };
@@ -51,21 +58,21 @@ public final class GoroAvatarView extends FrameLayout {
   try{bytes=readAsset();}
   catch(Exception missing){
    TextView label=new TextView(getContext());
-   label.setText("GORO 3D · ESPERANDO MODELO GLB RIGGEADO");
+   label.setText("GORO 3D · MODELO ARTICULADO PENDIENTE");
    label.setTextColor(Color.WHITE);label.setTextSize(15);label.setGravity(android.view.Gravity.CENTER);
    addView(label,new FrameLayout.LayoutParams(-1,-1));
-   status("Modelo GLB de GORO no incluido: renderizador Filament preparado, avatar pendiente.");
+   status("Filament preparado; falta el GLB riggeado original de GORO.");
    return;
   }
   try{
    viewer=new ModelViewer(surface,Engine.create(),new UiHelper(UiHelper.ContextErrorPolicy.DONT_CHECK),null);
-   viewer.setAutoPlayAnimations(true);
    viewer.getView().setAntiAliasing(View.AntiAliasing.FXAA);
    viewer.loadModelGlb(ByteBuffer.wrap(bytes));
-   viewer.transformToUnitCube();
-   status("GLB de GORO cargado en Filament. Animaciones del archivo habilitadas.");
+   viewer.transformToUnitCube(new Float3(0f,0f,-4f));
+   animationStartNanos=0;
+   status("GLB de GORO cargado en Filament; reproducción esquelética activa si el archivo contiene animaciones.");
   }catch(Throwable error){
-   if(viewer!=null){try{viewer.destroy();}catch(Throwable ignored){}viewer=null;}
+   viewer=null;
    TextView label=new TextView(getContext());
    label.setText("GORO 3D · ERROR DE CARGA DEL MODELO");
    label.setTextColor(Color.WHITE);label.setTextSize(15);label.setGravity(android.view.Gravity.CENTER);
@@ -90,12 +97,11 @@ public final class GoroAvatarView extends FrameLayout {
    framePosted=true;Choreographer.getInstance().postFrameCallback(frameCallback);
   }
  }
- @Override protected void onAttachedToWindow(){
-  super.onAttachedToWindow();postFrame();
- }
+ @Override protected void onAttachedToWindow(){super.onAttachedToWindow();postFrame();}
  @Override protected void onDetachedFromWindow(){
   Choreographer.getInstance().removeFrameCallback(frameCallback);framePosted=false;
-  if(viewer!=null){viewer.destroy();viewer=null;}
+  // ModelViewer v1.70 owns SurfaceView teardown and destroys its Filament engine on detach.
+  viewer=null;animationStartNanos=0;
   super.onDetachedFromWindow();
  }
 }
