@@ -57,7 +57,7 @@ public class GoroDashboardViewTest {
   findButton(dashboard,"Vincular cuenta Google").performClick();
   findButton(dashboard,"Autorizar Google Calendar").performClick();
   findButton(dashboard,"Desvincular cuenta").performClick();
-  findButton(dashboard,"Inspeccionar ZNP Z02/N02").performClick();
+  findButton(dashboard,"Inspeccionar BLE Z02/N02").performClick();
   assertEquals(1,calls.voice);
   assertEquals(1,calls.commands);
   assertEquals(1,calls.weather);
