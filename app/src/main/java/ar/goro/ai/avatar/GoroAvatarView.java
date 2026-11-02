@@ -11,7 +11,6 @@ import android.widget.TextView;
 import com.google.android.filament.Engine;
 import com.google.android.filament.View;
 import com.google.android.filament.android.UiHelper;
-import com.google.android.filament.utils.Float3;
 import com.google.android.filament.utils.ModelViewer;
 import com.google.android.filament.utils.Utils;
 import java.io.ByteArrayOutputStream;
@@ -71,7 +70,8 @@ public final class GoroAvatarView extends FrameLayout {
    viewer=new ModelViewer(surface,Engine.create(),new UiHelper(UiHelper.ContextErrorPolicy.DONT_CHECK),null);
    viewer.getView().setAntiAliasing(View.AntiAliasing.FXAA);
    viewer.loadModelGlb(ByteBuffer.wrap(bytes));
-   viewer.transformToUnitCube(new Float3(0f,0f,-4f));
+   // GLB front is +Z; use ModelViewer default framing so the camera faces the complete faceplate.
+   viewer.transformToUnitCube();
    animationStartNanos=0;
    status("GLB de GORO cargado en Filament; reproducción esquelética activa si el archivo contiene animaciones.");
   }catch(Throwable error){
