@@ -122,24 +122,23 @@ public class MainActivity extends Activity {
         catch(SecurityException error){if(dashboard!=null)dashboard.showDeviceStatus("Android no autorizó identificar la salida de audio Z02.");}
       }
     });
-    zn02GattInspector=new GoroZn02GattInspector(this,message->{
-      if(dashboard!=null){
-        String route=zn02AudioRouter!=null&&zn02AudioRouter.isActive()
-          ?"Audio de comunicación ZNP Z02 seleccionado por Android."
-          :"Audio ZNP Z02 no disponible o todavía no verificado.";
-        dashboard.showDeviceStatus(message+"\\n"+route);
-      }
-    });
+    zn02GattInspector=new GoroZn02GattInspector(this,message->{if(dashboard!=null)dashboard.showDeviceStatus(message);});
     memoryStore.migrateLegacy(memory);
     dashboard=new ar.goro.ai.ui.GoroDashboardView(this,new ar.goro.ai.ui.GoroDashboardView.Actions(){
       public void onCommand(String text){runCommand(text);}
       public void onVoiceSession(){
-        if(voiceActive){voiceActive=false;voiceSession.stop();dashboard.setVoiceActive(false);return;}
-        if(checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){
-          requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO},41);return;
+        if(voiceActive){
+          voiceActive=false;
+          if(zn02Controller!=null)zn02Controller.stopVoice();
+          dashboard.setVoiceActive(false);
+          if(state!=null)state.setText("GORO · Conversación pausada");
+          return;
         }
-        if(!voiceSession.available()){say("No hay reconocimiento de voz disponible.");return;}
-        voiceActive=true;dashboard.setVoiceActive(true);voiceSession.start();
+        if(asrGateway==null||speechGateway==null){
+          say("Primero configurá y autorizá NVIDIA NIM en Ajustes.");
+          return;
+        }
+        voiceActive=true;dashboard.setVoiceActive(true);startZ02Listening();
       }
       public void onLinkAccount(){chooseGoogleAccount();}
       public void onReadGmail(){readGmail();}
@@ -203,38 +202,58 @@ public class MainActivity extends Activity {
     }
   }
   private void say(String message) {
-    output.setText(message);
+    if(output!=null)output.setText(message);
     if(dashboard!=null)dashboard.showAssistantMessage(message);
     if(speechGateway==null){
-      if(state!=null)state.setText("GORO · Voz NVIDIA no configurada");
-      if(output!=null)output.setText(message+"\\n\\nLa salida de voz requiere NVIDIA Magpie. No se utilizó TTS local.");
-      if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();
+      if(state!=null)state.setText("GORO · NVIDIA Magpie no configurado");
+      if(output!=null)output.setText(message+"\n\nLa respuesta queda en pantalla; no se usa la tablet como salida de voz.");
+      if(voiceActive){voiceActive=false;if(dashboard!=null)dashboard.setVoiceActive(false);if(zn02Controller!=null)zn02Controller.stopVoice();}
       return;
     }
+    if(voiceActive&&zn02Controller!=null)zn02Controller.stopVoice();
+    if(z02Player!=null)z02Player.stop();
+    pendingSpeechText=message;
     if(state!=null)state.setText("GORO · Generando voz NVIDIA Magpie · Diego");
     if(dashboard!=null)dashboard.showAvatarMood(GoroAvatarView.Mood.THINKING);
-    if(voiceSession!=null)voiceSession.pauseForResponse();
-    if(goroAudioPlayer!=null)goroAudioPlayer.stop();
     speechGateway.synthesize(message,(wav,error)->{
       if(error!=null||wav==null){
-        if(state!=null)state.setText("GORO · Voz NVIDIA no disponible");
+        if(state!=null)state.setText("GORO · Magpie no disponible");
         if(dashboard!=null)dashboard.showAvatarMood(GoroAvatarView.Mood.ALERT);
-        if(output!=null)output.setText(message+"\\n\\nNo se reprodujo audio: NVIDIA Magpie no respondió correctamente. No se utilizó una voz local de reemplazo. "+(error==null?"":error));
-        if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();
+        if(output!=null)output.setText(message+"\n\nNo se pudo generar audio NVIDIA: "+(error==null?"respuesta vacía":error));
+        if(voiceActive)startZ02Listening();
         return;
       }
-      goroAudioPlayer.play(wav,new GoroAudioPlayer.Listener(){
-        public void onStarted(){
-          if(state!=null)state.setText("GORO · Hablando · NVIDIA Diego");
-          if(dashboard!=null)dashboard.avatarSpeak(message,wav);
-        }
-        public void onCompleted(){
-          if(state!=null)state.setText(voiceActive?"GORO · Escuchando":"GORO · Listo");
-          if(dashboard!=null)dashboard.showAvatarMood(voiceActive?GoroAvatarView.Mood.LISTENING:GoroAvatarView.Mood.IDLE);
-          if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();
-        }
-        public void onError(String problem){if(state!=null)state.setText("GORO · Error de reproducción NVIDIA");if(dashboard!=null)dashboard.showAvatarMood(GoroAvatarView.Mood.ALERT);if(output!=null)output.setText(message+"\\n\\nError de audio: "+problem);if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();}
-      });
+      if(z02Player==null){
+        if(output!=null)output.setText(message+"\n\nNo hay reproductor Z02 disponible. No se reprodujo por la tablet.");
+        return;
+      }
+      z02Player.playWav(wav);
+    });
+  }
+  private void startZ02Listening(){
+    if(!voiceActive||zn02Controller==null)return;
+    if(!zn02Controller.startVoice()){
+      voiceActive=false;
+      if(dashboard!=null)dashboard.setVoiceActive(false);
+      if(state!=null)state.setText("GORO · Micrófono Z02 no disponible");
+      return;
+    }
+    if(state!=null)state.setText("GORO · Escuchando desde el micrófono Z02");
+    if(dashboard!=null)dashboard.showAvatarMood(GoroAvatarView.Mood.LISTENING);
+  }
+  private void handleZ02Pcm(byte[] pcm){
+    if(!voiceActive)return;
+    if(asrGateway==null){say("NVIDIA ASR no está configurado.");return;}
+    if(state!=null)state.setText("GORO · Transcribiendo voz Z02 con NVIDIA");
+    if(dashboard!=null)dashboard.showAvatarMood(GoroAvatarView.Mood.THINKING);
+    asrGateway.transcribe(pcm,16000,(transcript,error)->{
+      if(!voiceActive)return;
+      if(error!=null||transcript==null||transcript.trim().isEmpty()){
+        if(output!=null)output.setText("No pude reconocer la frase del Z02: "+(error==null?"audio sin transcripción":error));
+        startZ02Listening();return;
+      }
+      if(command!=null)command.setText(transcript);
+      runCommand(transcript);
     });
   }
   private void runCommand(String raw) {
