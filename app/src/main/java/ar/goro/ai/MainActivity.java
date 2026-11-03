@@ -93,7 +93,14 @@ public class MainActivity extends Activity {
     calendarGateway=new DeviceCalendarGateway(this);
     gmailGateway=new GoroGmailGateway(this);
     zn02Controller=new GoroZn02Controller(this,message->{if(dashboard!=null)dashboard.showDeviceStatus(message);});
-    zn02GattInspector=new GoroZn02GattInspector(this,message->{if(dashboard!=null)dashboard.showDeviceStatus(message);});
+    zn02GattInspector=new GoroZn02GattInspector(this,message->{
+      if(dashboard!=null){
+        String route=zn02AudioRouter!=null&&zn02AudioRouter.isActive()
+          ?"Audio de comunicación ZNP Z02 seleccionado por Android."
+          :"Audio ZNP Z02 no disponible o todavía no verificado.";
+        dashboard.showDeviceStatus(message+"\\n"+route);
+      }
+    });
     memoryStore.migrateLegacy(memory);
     voiceSession=new ContinuousVoiceSession(this,new ContinuousVoiceSession.Listener(){
       public void onState(ConversationState s){
@@ -541,6 +548,7 @@ public class MainActivity extends Activity {
     if(request==ZN02_BLE_PERMISSION_REQUEST){
       if(zn02GattInspector!=null&&zn02GattInspector.neededPermissions().length==0){
         pendingZn02Inspection=false;
+        if(zn02AudioRouter!=null&&dashboard!=null)dashboard.showDeviceStatus(zn02AudioRouter.activate());
         zn02GattInspector.scan();
       }else if(dashboard!=null){
         pendingZn02Inspection=false;
