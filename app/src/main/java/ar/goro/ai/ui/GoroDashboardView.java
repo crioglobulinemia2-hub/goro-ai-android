@@ -15,6 +15,7 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -57,6 +58,7 @@ public final class GoroDashboardView extends LinearLayout {
  public final EditText command;
  public final Button talk;
  public final FrameLayout avatarStage;
+ private final TextView speechBubble;
  private final GoroAvatarView avatar;
  private final TextView agendaValue;
  private final TextView weatherValue;
@@ -84,11 +86,20 @@ public final class GoroDashboardView extends LinearLayout {
 
   LinearLayout header=new LinearLayout(activity);header.setGravity(Gravity.CENTER_VERTICAL);
   header.setOrientation(HORIZONTAL);
-  clock=text("",tablet?21:17,true,palette.text);
+  clock=text("",tablet?19:13,true,palette.text);
   clock.setText(new SimpleDateFormat("HH:mm · EEE dd MMM",new Locale("es","AR")).format(new Date()));
   LinearLayout.LayoutParams clockParams=new LinearLayout.LayoutParams(0,dp(52),1f);
   header.addView(clock,clockParams);
-  TextView logo=text("GORO   ASISTENTE PERSONAL",tablet?22:16,true,palette.text);
+  ImageView mark=new ImageView(activity);
+  mark.setImageResource(ar.goro.ai.R.drawable.ic_goro_foreground);
+  mark.setScaleType(ImageView.ScaleType.FIT_CENTER);
+  mark.setPadding(dp(3),dp(3),dp(3),dp(3));
+  mark.setBackground(gradient(palette.robotBackdrop,palette.surfaceElevated,dp(15)));
+  LinearLayout.LayoutParams markParams=new LinearLayout.LayoutParams(dp(44),dp(44));
+  markParams.setMargins(dp(3),0,dp(9),0);
+  header.addView(mark,markParams);
+  TextView logo=text("GORO   ASISTENTE PERSONAL",tablet?20:14,true,palette.text);
+  logo.setLetterSpacing(.025f);
   header.addView(logo);
   addView(header,new LinearLayout.LayoutParams(-1,dp(56)));
 
@@ -133,6 +144,16 @@ public final class GoroDashboardView extends LinearLayout {
   avatar=enableAvatar?new GoroAvatarView(activity,this::onAvatarStatus):null;
   if(avatar!=null)avatarStage.addView(avatar,new FrameLayout.LayoutParams(-1,-1));
   else{TextView testStage=text("Avatar renderer disabled in JVM test",13,false,palette.muted);testStage.setGravity(Gravity.CENTER);avatarStage.addView(testStage,new FrameLayout.LayoutParams(-1,-1));}
+  speechBubble=text("GORO · Listo para ayudarte",tablet?14:12,true,palette.text);
+  speechBubble.setGravity(Gravity.CENTER_VERTICAL);
+  speechBubble.setMaxLines(3);
+  speechBubble.setPadding(dp(12),dp(10),dp(12),dp(10));
+  speechBubble.setBackground(gradient(palette.surface,palette.surfaceElevated,dp(15)));
+  speechBubble.setElevation(dp(8));
+  speechBubble.setClickable(false);
+  FrameLayout.LayoutParams speechParams=new FrameLayout.LayoutParams(dp(tablet?214:166),-2,Gravity.RIGHT|Gravity.BOTTOM);
+  speechParams.setMargins(dp(8),dp(8),dp(7),dp(9));
+  avatarStage.addView(speechBubble,speechParams);
   hero.addView(avatarStage,new LinearLayout.LayoutParams(-1,0,1f));
   sectionValue=text("Inicio · Panel personal",15,true,palette.text);
   hero.addView(sectionValue,new LinearLayout.LayoutParams(-1,dp(30)));
@@ -223,7 +244,20 @@ public final class GoroDashboardView extends LinearLayout {
 
  private void select(GoroSection section){
   ui.section(section);
-  sectionValue.setText(section.label+" · GORO AI");
+  sectionValue.setText(section.label+" · GORO IA");
+  for(int n=0;n<navigation.getChildCount();n++){
+   Button item=(Button)navigation.getChildAt(n);
+   boolean selected=GoroSection.values()[n]==section;
+   int front=selected?Color.WHITE:palette.text;
+   int first=selected?palette.accent:palette.surface;
+   int last=selected?palette.accentSecondary:palette.surfaceElevated;
+   item.setTextColor(front);
+   GradientDrawable fill=gradient(first,last,dp(14));
+   GradientDrawable mask=new GradientDrawable();
+   mask.setColor(Color.WHITE);mask.setCornerRadius(dp(14));
+   item.setBackground(new RippleDrawable(ColorStateList.valueOf(palette.accentSecondary),fill,mask));
+   item.setElevation(selected?dp(6):dp(2));
+  }
   switch(section){
    case HOME: output.setText("Inicio. Conversación, agenda, clima y dispositivos, sin valores inventados.");break;
    case AGENDA: output.setText("Agenda. Consultá tus eventos, o pedile a GORO que los cree, cambie o elimine, con confirmación.");break;
@@ -243,11 +277,20 @@ public final class GoroDashboardView extends LinearLayout {
  private void onAvatarStatus(String value){pendingAvatarStatus=value;if(state!=null)state.setText(value);}
  public void showAvatarMood(GoroAvatarView.Mood mood){if(avatar!=null)avatar.setMood(mood);}
  public void avatarSpeak(String spoken,byte[] audio){if(avatar!=null)avatar.startSpeaking(spoken,audio);}
+ public void showAssistantMessage(String value){
+  if(value==null||value.trim().isEmpty())return;
+  String message=value.trim().replace('\n',' ');
+  speechBubble.setText(message.length()>104?message.substring(0,101)+"…":message);
+ }
  public void showGmailStatus(String value){gmailValue.setText(value==null?"Gmail no disponible":value);}
  public void showNvidiaStatus(String value){nvidiaValue.setText(value==null?"NVIDIA NIM: sin estado":value);}
  private static GoroTheme.Mode readTheme(Activity a){
   String saved=a.getSharedPreferences("goro_ui",Activity.MODE_PRIVATE).getString("theme_mode",null);
-  if(saved==null){return a.getSharedPreferences("goro_ui",Activity.MODE_PRIVATE).getBoolean("dark",false)?GoroTheme.Mode.DARK:GoroTheme.Mode.LIGHT;}
+  if(saved==null){
+   android.content.SharedPreferences prefs=a.getSharedPreferences("goro_ui",Activity.MODE_PRIVATE);
+   if(prefs.contains("dark"))return prefs.getBoolean("dark",true)?GoroTheme.Mode.DARK:GoroTheme.Mode.LIGHT;
+   return GoroTheme.Mode.DARK;
+  }
   try{return GoroTheme.Mode.valueOf(saved);}catch(Exception e){return GoroTheme.Mode.LIGHT;}
  }
  private void selectTheme(GoroTheme.Mode mode){
