@@ -44,11 +44,23 @@ public final class GoroGmailGateway {
  private String accountEmail;
  private final List<String> latestInboxIds=new ArrayList<>();
  private Callback pending;
+ private String pendingQuery;
  public GoroGmailGateway(Activity activity){this.activity=activity;}
- public void readInbox(Callback callback){
+ public void readInbox(Callback callback){authorizeAndRead(callback,null);}
+ public void searchInbox(String query,Callback callback){
+  if(callback==null)throw new IllegalArgumentException("callback");
+  if(query==null||query.trim().isEmpty()||query.length()>120){
+   callback.complete(null,"La búsqueda Gmail requiere entre 1 y 120 caracteres");
+   return;
+  }
+  authorizeAndRead(callback,query.trim());
+ }
+ private void authorizeAndRead(Callback callback,String query){
   if(callback==null)throw new IllegalArgumentException("callback");
   if(closed){callback.complete(null,"Gmail cerrado");return;}
+  if(pending!=null){callback.complete(null,"Gmail tiene otra autorización en curso");return;}
   pending=callback;
+  pendingQuery=query;
   AuthorizationRequest request=AuthorizationRequest.builder()
     .setRequestedScopes(Collections.singletonList(new Scope(GMAIL_SCOPE)))
     .build();
@@ -82,7 +94,7 @@ public final class GoroGmailGateway {
   if(result.toGoogleSignInAccount()!=null)accountEmail=result.toGoogleSignInAccount().getEmail();
   io.execute(()->{
    try{
-    String resultText=fetchInbox(token);
+    String resultText=fetchInbox(token,pendingQuery);
     main.post(()->complete(resultText,null));
    }catch(Exception e){
     String error=e.getMessage()==null?"Error Gmail":e.getMessage();
@@ -90,15 +102,19 @@ public final class GoroGmailGateway {
    }
   });
  }
- private String fetchInbox(String token)throws Exception{
-  JSONObject response=getJson("https://gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=INBOX&maxResults=10",token);
+ private String fetchInbox(String token,String query)throws Exception{
+  String url="https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=10"+
+    (query==null?"&labelIds=INBOX":"&q="+URLEncoder.encode(query,"UTF-8"));
+  JSONObject response=getJson(url,token);
   JSONArray messages=response.optJSONArray("messages");
   if(messages==null||messages.length()==0){
    synchronized(latestInboxIds){latestInboxIds.clear();}
-   return "Gmail: no hay mensajes en la bandeja de entrada.";
+   return query==null?"Gmail: no hay mensajes en la bandeja de entrada.":
+    "Gmail: no se encontraron correos para la búsqueda.";
   }
   List<String> ids=new ArrayList<>();
-  StringBuilder output=new StringBuilder("Gmail · últimos mensajes");
+  StringBuilder output=new StringBuilder(query==null?"Gmail · últimos mensajes":
+    "Gmail · resultados de búsqueda");
   if(accountEmail!=null&&!accountEmail.isEmpty())output.append(" · ").append(accountEmail);
   for(int i=0;i<messages.length();i++){
    String id=messages.getJSONObject(i).optString("id","");
@@ -200,8 +216,8 @@ public final class GoroGmailGateway {
  private static String limit(String text,int max){return text.length()<=max?text:text.substring(0,max);}
  private void complete(String text,String error){
   if(closed)return;
-  Callback cb=pending;pending=null;
+  Callback cb=pending;pending=null;pendingQuery=null;
   if(cb!=null)cb.complete(text,error);
  }
- public void close(){closed=true;accessToken=null;pending=null;io.shutdownNow();}
+ public void close(){closed=true;accessToken=null;pending=null;pendingQuery=null;io.shutdownNow();}
 }
