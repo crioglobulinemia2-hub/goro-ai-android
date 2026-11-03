@@ -1,6 +1,8 @@
 package ar.goro.ai.voice;
 
+import android.Manifest;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
 import android.os.Build;
@@ -10,23 +12,34 @@ import android.os.Build;
  */
 public final class GoroZn02AudioRouter {
  private final AudioManager audio;
+ private final Context appContext;
  private boolean active=false;
  private int previousMode=AudioManager.MODE_NORMAL;
  public GoroZn02AudioRouter(Context context){
-  audio=(AudioManager)context.getApplicationContext().getSystemService(Context.AUDIO_SERVICE);
+  appContext=context.getApplicationContext();
+  audio=(AudioManager)appContext.getSystemService(Context.AUDIO_SERVICE);
+ }
+ private boolean contextPermissionMissing(){
+  return android.os.Build.VERSION.SDK_INT>=31&&
+    appContext.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)!=PackageManager.PERMISSION_GRANTED;
  }
  public String activate(){
   if(audio==null)return "AudioManager no disponible.";
   if(Build.VERSION.SDK_INT<31)return "La selección de audio del ZN02 requiere Android 12 o superior.";
+  if(contextPermissionMissing())return "Permiso Bluetooth CONNECT pendiente. No se consultó ningún dispositivo.";
   AudioDeviceInfo matching=null;
-  for(AudioDeviceInfo device:audio.getAvailableCommunicationDevices()){
-   if(!device.isSink())continue;
-   int type=device.getType();
-   if(type!=AudioDeviceInfo.TYPE_BLUETOOTH_SCO&&type!=AudioDeviceInfo.TYPE_BLE_HEADSET)continue;
-   CharSequence label=device.getProductName();
-   String name=label==null?"":label.toString().toUpperCase(java.util.Locale.ROOT)
-    .replaceAll("[^A-Z0-9]","");
-   if(name.endsWith("ZNPZ02")||name.equals("Z02")||name.endsWith("Z02")){matching=device;break;}
+  try{
+   for(AudioDeviceInfo device:audio.getAvailableCommunicationDevices()){
+    if(!device.isSink())continue;
+    int type=device.getType();
+    if(type!=AudioDeviceInfo.TYPE_BLUETOOTH_SCO&&type!=AudioDeviceInfo.TYPE_BLE_HEADSET)continue;
+    CharSequence label=device.getProductName();
+    String name=label==null?"":label.toString().toUpperCase(java.util.Locale.ROOT)
+     .replaceAll("[^A-Z0-9]","");
+    if(name.equals("ZNPZ02")||name.equals("Z02")){matching=device;break;}
+   }
+  }catch(SecurityException denied){
+   return "Android no autorizó consultar las rutas de audio Bluetooth.";
   }
   if(matching==null)return "No se encontró ninguna salida de comunicación Bluetooth identificada como ZN02. No se modificó el audio.";
   try{
