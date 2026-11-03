@@ -114,7 +114,7 @@ public final class GoroZn02Controller {
     controller.stopScan();
     scanning=false;
     emit("El anuncio Bluetooth coincide con ZN02. Verificando el protocolo antes de habilitar controles…");
-    try{controller.connectDevice(device);
+    try{controller.connectDevice(device);}
     catch(RuntimeException error){emit("El SDK JieLi no pudo iniciar la conexión BLE RCSP: "+error.getClass().getSimpleName());}
    }
    @Override public void onConnection(BluetoothDevice device,int status){
@@ -124,7 +124,8 @@ public final class GoroZn02Controller {
      emit("Enlace BLE Z02 abierto. Verificando autenticación RCSP…");
      verifyAuthenticated(device);
     }else if(status==StateCode.CONNECTION_DISCONNECT||status==StateCode.CONNECTION_FAILED){
-     connected=false;vendorProtocolVerified=false;
+     connectionEpoch++;connected=false;vendorProtocolVerified=false;releaseVoice();bondSession.close();
+     if(authPoll!=null)mainHandler.removeCallbacks(authPoll);if(authTimeout!=null)mainHandler.removeCallbacks(authTimeout);
      emit("ZN02 desconectado o conexión fallida (estado "+status+").");
     }else if(status==StateCode.CONNECTION_CONNECTING){
      emit("Conectando ZN02 por Bluetooth LE…");
@@ -440,10 +441,12 @@ public final class GoroZn02Controller {
  }
  private void emit(String value){if(listener!=null&&!closed)mainHandler.post(()->{if(listener!=null&&!closed)listener.onStatus(value);});}
  public synchronized void close(){
-  if(closed)return;closed=true;
+  if(closed)return;closed=true;connectionEpoch++;releaseVoice();bondSession.close();
+  if(authPoll!=null)mainHandler.removeCallbacks(authPoll);if(authTimeout!=null)mainHandler.removeCallbacks(authTimeout);
   if(controller!=null){
    if(scanning)controller.stopScan();
    controller.removeBTRcspEventCallback(eventCallback);
+   if(target!=null)try{controller.disconnectDevice(target);}catch(RuntimeException ignored){}
   }
   if(caseOp!=null)caseOp.removeOnChargingCaseListener(caseListener);
   resourceExecutor.shutdownNow();
