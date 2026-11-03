@@ -96,7 +96,11 @@ public final class GoroAvatarView extends FrameLayout {
    return false;
   });
   try{
-   engine=Engine.create();
+   // Vulkan avoids the GL_MAX_VERTEX_UNIFORM_VECTORS(256) limitation
+   // triggered by GORO's skinned PBR model on the API 36 emulator.
+   // Do not silently fall back to unsafe GLES, which aborts natively.
+   engine=Engine.create(Engine.Backend.VULKAN);
+   if(engine==null)throw new IllegalStateException("Vulkan is not available");
    UiHelper helper=new UiHelper(UiHelper.ContextErrorPolicy.DONT_CHECK);
    helper.setOpaque(false);
    helper.setMediaOverlay(true);
