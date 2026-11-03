@@ -36,6 +36,8 @@ public final class GoroAvatarView extends FrameLayout {
  private ModelViewer viewer;
  private Engine engine;
  private int sunEntity=0;
+ private int fillEntity=0;
+ private boolean morphErrorReported=false;
  private int faceEntity=0;
  private boolean framePosted=false;
  private Mood mood=Mood.IDLE;
@@ -95,7 +97,10 @@ public final class GoroAvatarView extends FrameLayout {
   });
   try{
    engine=Engine.create();
-   viewer=new ModelViewer(surface,engine,new UiHelper(UiHelper.ContextErrorPolicy.DONT_CHECK),null);
+   UiHelper helper=new UiHelper(UiHelper.ContextErrorPolicy.DONT_CHECK);
+   helper.setOpaque(false);
+   helper.setMediaOverlay(true);
+   viewer=new ModelViewer(surface,engine,helper,null);
    viewer.getView().setAntiAliasing(View.AntiAliasing.FXAA);
    viewer.loadModelGlb(ByteBuffer.wrap(bytes));
    viewer.transformToUnitCube(new Float3(0f,0f,0f));
@@ -109,6 +114,13 @@ public final class GoroAvatarView extends FrameLayout {
        .direction(-.45f,-.8f,-.45f)
        .build(engine,sunEntity);
    viewer.getScene().addEntity(sunEntity);
+   fillEntity=EntityManager.get().create();
+   new LightManager.Builder(LightManager.Type.DIRECTIONAL)
+       .color(.35f,.80f,1f)
+       .intensity(21000f)
+       .direction(.65f,-.40f,.42f)
+       .build(engine,fillEntity);
+   viewer.getScene().addEntity(fillEntity);
    moodStartedNanos=0;
    status("GORO 3D · Esqueleto y expresiones cargados.");
   }catch(Throwable error){
@@ -214,7 +226,9 @@ public final class GoroAvatarView extends FrameLayout {
    }
   }
   try{renderables.setMorphWeights(instance,weights,0);}
-  catch(RuntimeException unsupported){status("El dispositivo no admite morph targets de GORO.");}
+  catch(RuntimeException unsupported){
+   if(!morphErrorReported){morphErrorReported=true;status("El dispositivo no admite morph targets de GORO.");}
+  }
  }
  private byte[] readAsset()throws Exception{
   try(InputStream in=getContext().getAssets().open(ASSET_PATH);
@@ -236,10 +250,13 @@ public final class GoroAvatarView extends FrameLayout {
  @Override protected void onAttachedToWindow(){super.onAttachedToWindow();postFrame();}
  @Override protected void onDetachedFromWindow(){
   Choreographer.getInstance().removeFrameCallback(frameCallback);framePosted=false;
-  if(viewer!=null&&sunEntity!=0){
-   try{viewer.getScene().removeEntity(sunEntity);engine.destroyEntity(sunEntity);}catch(Exception ignored){}
+  if(viewer!=null&&engine!=null){
+   try{
+    if(sunEntity!=0){viewer.getScene().removeEntity(sunEntity);engine.destroyEntity(sunEntity);}
+    if(fillEntity!=0){viewer.getScene().removeEntity(fillEntity);engine.destroyEntity(fillEntity);}
+   }catch(RuntimeException ignored){}
   }
-  sunEntity=0;faceEntity=0;viewer=null;moodStartedNanos=0;
+  sunEntity=0;fillEntity=0;faceEntity=0;viewer=null;engine=null;moodStartedNanos=0;
   super.onDetachedFromWindow();
  }
 }
