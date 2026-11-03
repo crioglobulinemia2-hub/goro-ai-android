@@ -200,47 +200,13 @@ public final class GoroDashboardView extends LinearLayout {
   cp.setMargins(dp(8),0,dp(8),dp(8));
   mainColumn.addView(controls,cp);
 
-  LinearLayout tools=new LinearLayout(activity);
-  tools.setOrientation(VERTICAL);
-  tools.setPadding(dp(9),dp(6),dp(9),dp(4));
-  mainColumn.addView(tools,new LinearLayout.LayoutParams(-1,-2));
-  tools.setVisibility(GONE);
   weatherValue=text("Sin consultar. Usar ubicación GPS.",14,false,palette.text);
   agendaValue=text("Sin consultar. Vinculá tu cuenta Google.",14,false,palette.text);
-  devicesValue=text("ZN02 · Sin conexión verificada.",14,false,palette.text);
+  devicesValue=text("ZNP Z02 · Sin conexión verificada.",14,false,palette.text);
   nvidiaValue=text("NVIDIA NIM: sin configurar",14,false,palette.text);
   voiceValue=text("Magpie Diego: sin conexión verificada.",14,false,palette.text);
   gmailValue=text("Gmail: sin autorización OAuth.",14,false,palette.text);
-
-  LinearLayout weatherCard=card("CLIMA LOCAL",weatherValue);
-  tools.addView(weatherCard,cardParams());
-  tools.addView(button("Consultar GPS",()->actions.onWeather(),false),new LinearLayout.LayoutParams(-1,dp(46)));
-  tools.addView(button("Pronóstico · 3 días",()->actions.onForecast(),false),new LinearLayout.LayoutParams(-1,dp(46)));
-  LinearLayout agendaCard=card("AGENDA DE HOY",agendaValue);
-  tools.addView(agendaCard,cardParams());
   accountLabel=text(account==null?"Google Calendar: sin vincular":"Calendar · "+account,12,false,palette.muted);
-  tools.addView(accountLabel,new LinearLayout.LayoutParams(-1,dp(42)));
-  tools.addView(button("Vincular cuenta Google",()->actions.onLinkAccount(),false),new LinearLayout.LayoutParams(-1,dp(44)));
-  tools.addView(button("Autorizar Google Calendar",()->actions.onCalendarPermission(),false),new LinearLayout.LayoutParams(-1,dp(44)));
-  tools.addView(button("Desvincular cuenta",()->actions.onUnlinkAccount(),false),new LinearLayout.LayoutParams(-1,dp(44)));
-  tools.addView(button("Consultar agenda",()->actions.onCommand("agenda hoy"),false),new LinearLayout.LayoutParams(-1,dp(46)));
-  tools.addView(card("GMAIL · CORREOS",gmailValue),cardParams());
-  tools.addView(button("Autorizar y leer Gmail",()->actions.onReadGmail(),false),new LinearLayout.LayoutParams(-1,dp(46)));
-  tools.addView(card("INTELIGENCIA NEMOTRON",nvidiaValue),cardParams());
-  tools.addView(card("VOZ NVIDIA · DIEGO",voiceValue),cardParams());
-  tools.addView(button("Configurar clave NVIDIA",()->actions.onConfigureNvidia(),false),new LinearLayout.LayoutParams(-1,dp(44)));
-  tools.addView(button("Probar conexión Nemotron",()->actions.onTestNvidia(),false),new LinearLayout.LayoutParams(-1,dp(44)));
-  tools.addView(card("DISPOSITIVOS",devicesValue),cardParams());
-  tools.addView(button("Conectar ZN02 · GORO",()->actions.onConnectZn02(),true),new LinearLayout.LayoutParams(-1,dp(48)));
-  tools.addView(button("Examinar BLE ZN02 · solo lectura",()->actions.onInspectZn02(),false),new LinearLayout.LayoutParams(-1,dp(44)));
-  tools.addView(button("Encender luz del ZN02",()->actions.onZn02LightOn(),false),new LinearLayout.LayoutParams(-1,dp(44)));
-  tools.addView(button("Apagar luz del ZN02",()->actions.onZn02LightOff(),false),new LinearLayout.LayoutParams(-1,dp(44)));
-  tools.addView(button("Consultar estado del ZN02",()->actions.onZn02ReadLight(),false),new LinearLayout.LayoutParams(-1,dp(44)));
-  tools.addView(button("Activar audio ZN02",()->actions.onZn02AudioOn(),false),new LinearLayout.LayoutParams(-1,dp(44)));
-  tools.addView(button("Audio al teléfono",()->actions.onZn02AudioOff(),false),new LinearLayout.LayoutParams(-1,dp(44)));
-  tools.addView(button("Enviar animación GORO al visor ZN02",()->actions.onInstallGoroAnimation(),true),new LinearLayout.LayoutParams(-1,dp(48)));
-  TextView warning=text("Datos y conexión: solo estados verificados",12,false,palette.muted);
-  tools.addView(warning);
 
   settingsPanel=new LinearLayout(activity);settingsPanel.setOrientation(VERTICAL);
   settingsPanel.addView(accountLabel,new LinearLayout.LayoutParams(-1,dp(32)));
@@ -249,6 +215,7 @@ public final class GoroDashboardView extends LinearLayout {
   settingsPanel.addView(button("Autorizar Calendar",()->actions.onCalendarPermission(),false),new LinearLayout.LayoutParams(-1,dp(42)));
   settingsPanel.addView(button("Autorizar Gmail",()->actions.onReadGmail(),false),new LinearLayout.LayoutParams(-1,dp(42)));
   settingsPanel.addView(card("NVIDIA NEMOTRON",nvidiaValue),cardParams());
+  settingsPanel.addView(card("GMAIL",gmailValue),cardParams());
   settingsPanel.addView(card("MAGPIE DIEGO",voiceValue),cardParams());
   settingsPanel.addView(button("Configurar NVIDIA",()->actions.onConfigureNvidia(),false),new LinearLayout.LayoutParams(-1,dp(42)));
   settingsPanel.addView(button("Verificar NVIDIA",()->actions.onTestNvidia(),false),new LinearLayout.LayoutParams(-1,dp(42)));
