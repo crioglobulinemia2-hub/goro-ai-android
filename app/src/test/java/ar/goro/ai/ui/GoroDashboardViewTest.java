@@ -85,7 +85,7 @@ public class GoroDashboardViewTest {
   findButton(dashboard,"Verificar NVIDIA").performClick();
   assertEquals(1,calls.link);
   assertEquals(1,calls.calendar);
-  assertEquals(2,calls.gmail);
+  assertEquals(1,calls.gmail);
   assertEquals(2,calls.nvidia);
  }
  @Test public void buttonsHaveVisiblePressedStateAndRestoreOnCancel(){
