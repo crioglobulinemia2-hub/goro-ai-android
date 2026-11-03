@@ -7,12 +7,11 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.core.app.ActivityScenario;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.*;
 
 @RunWith(AndroidJUnit4.class)
 public class GoroLaunchSmokeTest {
- @Test public void appLaunchesAndPrimaryVoiceControlsAreVisible(){
+ @Test public void appLaunchesInConversationModeWithoutTechnicalButtonWall(){
   try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)){
    scenario.onActivity(activity->{
     View root=activity.findViewById(android.R.id.content);
@@ -20,22 +19,42 @@ public class GoroLaunchSmokeTest {
     assertNotNull(findText(root,"GORO   ASISTENTE PERSONAL"));
     assertNotNull(findText(root,"Micrófono · Conversación continua"));
     assertNotNull(findText(root,"Enviar"));
-    assertNotNull(findText(root,"Conectar ZN02 · GORO"));
+    assertNotNull(findText(root,"Conversar"));
+    assertNotNull(findText(root,"Explorar"));
+    assertNotNull(findText(root,"Automatizar"));
+    assertNotNull(findText(root,"Ajustes"));
+    assertNotNull(findText(root,"Dispositivos"));
+    assertEquals(4,countVisibleNavigation(root));
    });
   }
  }
- @Test public void navigationChangesTheVisibleSection(){
+ @Test public void navigationSeparatesDeviceAndSettingsControls(){
   try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)){
    scenario.onActivity(activity->{
     View root=activity.findViewById(android.R.id.content);
-    TextView agenda=findText(root,"Agenda");
-    assertNotNull(agenda);
-    agenda.performClick();
-    TextView output=findText(root,"Agenda. Consultá tus eventos, o pedile a GORO que los cree, cambie o elimine, con confirmación.");
-    assertNotNull(output);
-    assertEquals("Agenda. Consultá tus eventos, o pedile a GORO que los cree, cambie o elimine, con confirmación.",output.getText().toString());
+    TextView device=findText(root,"Dispositivos");
+    assertNotNull(device);
+    device.performClick();
+    TextView connect=findText(root,"Conectar ZNP Z02");
+    assertNotNull(connect);
+    assertTrue(connect.isShown());
+    TextView settings=findText(root,"Ajustes");
+    assertNotNull(settings);
+    settings.performClick();
+    TextView nvidia=findText(root,"Configurar NVIDIA");
+    assertNotNull(nvidia);
+    assertTrue(nvidia.isShown());
+    assertFalse(connect.isShown());
    });
   }
+ }
+ private int countVisibleNavigation(View root){
+  int count=0;
+  for(String label:new String[]{"Conversar","Explorar","Automatizar","Ajustes"}){
+   TextView value=findText(root,label);
+   if(value!=null&&value.isShown())count++;
+  }
+  return count;
  }
  private static TextView findText(View view,String expected){
   if(view instanceof TextView){
