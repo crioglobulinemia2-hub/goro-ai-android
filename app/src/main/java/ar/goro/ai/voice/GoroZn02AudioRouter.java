@@ -26,7 +26,7 @@ public final class GoroZn02AudioRouter {
    CharSequence label=device.getProductName();
    String name=label==null?"":label.toString().toUpperCase(java.util.Locale.ROOT)
     .replaceAll("[^A-Z0-9]","");
-   if(name.endsWith("N02")){matching=device;break;}
+   if(name.endsWith("ZNPZ02")||name.equals("Z02")||name.endsWith("Z02")){matching=device;break;}
   }
   if(matching==null)return "No se encontró ninguna salida de comunicación Bluetooth identificada como ZN02. No se modificó el audio.";
   try{
