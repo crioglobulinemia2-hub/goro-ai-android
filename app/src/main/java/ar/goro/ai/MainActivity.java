@@ -52,6 +52,8 @@ public class MainActivity extends Activity {
   private TextView output, state;
   private ar.goro.ai.ui.GoroDashboardView dashboard;
   private GoroZn02Controller zn02Controller;
+  private GoroZn02GattInspector zn02GattInspector;
+  private boolean pendingZn02Inspection=false;
   private static final int ZN02_BLE_PERMISSION_REQUEST=65;
   private EditText command;
   private SharedPreferences memory;
@@ -90,6 +92,7 @@ public class MainActivity extends Activity {
     calendarGateway=new DeviceCalendarGateway(this);
     gmailGateway=new GoroGmailGateway(this);
     zn02Controller=new GoroZn02Controller(this,message->{if(dashboard!=null)dashboard.showDeviceStatus(message);});
+    zn02GattInspector=new GoroZn02GattInspector(this,message->{if(dashboard!=null)dashboard.showDeviceStatus(message);});
     memoryStore.migrateLegacy(memory);
     voiceSession=new ContinuousVoiceSession(this,new ContinuousVoiceSession.Listener(){
       public void onState(ConversationState s){
@@ -132,6 +135,7 @@ public class MainActivity extends Activity {
       public void onConfigureNvidia(){configureNvidia();}
       public void onTestNvidia(){testNemotron();}
       public void onConnectZn02(){connectZn02();}
+      public void onInspectZn02(){inspectZn02();}
       public void onZn02LightOn(){if(zn02Controller!=null)zn02Controller.setFlashlight(true);}
       public void onZn02LightOff(){if(zn02Controller!=null)zn02Controller.setFlashlight(false);}
       public void onZn02ReadLight(){if(zn02Controller!=null)zn02Controller.readFlashlight();}
@@ -389,7 +393,14 @@ public class MainActivity extends Activity {
       if(dashboard!=null)dashboard.showDeviceStatus("No se pudo preparar la animación GORO para el ZN02: "+error.getClass().getSimpleName());
     }
   }
+  private void inspectZn02(){
+    if(zn02GattInspector==null){if(dashboard!=null)dashboard.showDeviceStatus("Inspector BLE del ZN02 no disponible.");return;}
+    String[] missing=zn02GattInspector.neededPermissions();
+    if(missing.length>0){pendingZn02Inspection=true;requestPermissions(missing,ZN02_BLE_PERMISSION_REQUEST);return;}
+    pendingZn02Inspection=false;zn02GattInspector.scan();
+  }
   private void connectZn02(){
+    pendingZn02Inspection=false;
     if(zn02Controller==null){say("El controlador ZN02 no está disponible.");return;}
     String[] missing=zn02Controller.neededPermissions();
     if(missing.length>0){requestPermissions(missing,ZN02_BLE_PERMISSION_REQUEST);return;}
@@ -512,8 +523,11 @@ public class MainActivity extends Activity {
   @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results){
     super.onRequestPermissionsResult(request,permissions,results);
     if(request==ZN02_BLE_PERMISSION_REQUEST){
-      if(zn02Controller!=null&&zn02Controller.neededPermissions().length==0)zn02Controller.startScan();
-      else if(dashboard!=null)dashboard.showDeviceStatus("Permisos Bluetooth denegados. El ZN02 no se conectó.");
+      if(zn02Controller!=null&&zn02Controller.neededPermissions().length==0){
+        if(pendingZn02Inspection&&zn02GattInspector!=null)zn02GattInspector.scan();
+        else zn02Controller.startScan();
+      }else if(dashboard!=null)dashboard.showDeviceStatus("Permisos Bluetooth denegados. El ZN02 no se conectó.");
+      pendingZn02Inspection=false;
       return;
     }
     if(results.length==0)return;
@@ -534,6 +548,7 @@ public class MainActivity extends Activity {
     if(speechGateway!=null)speechGateway.close();
     if(goroAudioPlayer!=null)goroAudioPlayer.stop();
     if(zn02AudioRouter!=null)zn02AudioRouter.close();
+    if(zn02GattInspector!=null)zn02GattInspector.close();
     if(zn02Controller!=null)zn02Controller.close();
     if(calendarGateway!=null)calendarGateway.close();
     if(gmailGateway!=null)gmailGateway.close();
