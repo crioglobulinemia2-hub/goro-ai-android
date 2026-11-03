@@ -203,8 +203,7 @@ public final class GoroDashboardView extends LinearLayout {
   LinearLayout tools=new LinearLayout(activity);
   tools.setOrientation(VERTICAL);
   tools.setPadding(dp(9),dp(6),dp(9),dp(4));
-  if(tablet){ScrollView toolsScroll=new ScrollView(activity);toolsScroll.addView(tools);columns.addView(toolsScroll,new LinearLayout.LayoutParams(dp(244),-1));}
-  else mainColumn.addView(tools,new LinearLayout.LayoutParams(-1,-2));
+  mainColumn.addView(tools,new LinearLayout.LayoutParams(-1,-2));
   tools.setVisibility(GONE);
   weatherValue=text("Sin consultar. Usar ubicación GPS.",14,false,palette.text);
   agendaValue=text("Sin consultar. Vinculá tu cuenta Google.",14,false,palette.text);
@@ -244,6 +243,7 @@ public final class GoroDashboardView extends LinearLayout {
   tools.addView(warning);
 
   settingsPanel=new LinearLayout(activity);settingsPanel.setOrientation(VERTICAL);
+  settingsPanel.addView(accountLabel,new LinearLayout.LayoutParams(-1,dp(32)));
   settingsPanel.addView(card("CUENTA GOOGLE",agendaValue),cardParams());
   settingsPanel.addView(button("Vincular cuenta Google",()->actions.onLinkAccount(),false),new LinearLayout.LayoutParams(-1,dp(42)));
   settingsPanel.addView(button("Autorizar Calendar",()->actions.onCalendarPermission(),false),new LinearLayout.LayoutParams(-1,dp(42)));
@@ -252,6 +252,7 @@ public final class GoroDashboardView extends LinearLayout {
   settingsPanel.addView(card("MAGPIE DIEGO",voiceValue),cardParams());
   settingsPanel.addView(button("Configurar NVIDIA",()->actions.onConfigureNvidia(),false),new LinearLayout.LayoutParams(-1,dp(42)));
   settingsPanel.addView(button("Verificar NVIDIA",()->actions.onTestNvidia(),false),new LinearLayout.LayoutParams(-1,dp(42)));
+  settingsPanel.addView(button("Cambiar tema",()->selectTheme(readTheme(activity)==GoroTheme.Mode.DARK?GoroTheme.Mode.LIGHT:GoroTheme.Mode.DARK),false),new LinearLayout.LayoutParams(-1,dp(42)));
   settingsPanel.setVisibility(GONE);
   mainColumn.addView(settingsPanel,new LinearLayout.LayoutParams(-1,-2));
 
@@ -263,12 +264,6 @@ public final class GoroDashboardView extends LinearLayout {
   devicePanel.setVisibility(GONE);
   mainColumn.addView(devicePanel,new LinearLayout.LayoutParams(-1,-2));
 
-  LinearLayout featureRow=new LinearLayout(activity);featureRow.setOrientation(HORIZONTAL);
-  for(GoroTheme.Mode mode:GoroTheme.Mode.values()){
-   String name=mode==GoroTheme.Mode.LIGHT?"Claro":mode==GoroTheme.Mode.DARK?"Oscuro":"Profesional";
-   featureRow.addView(button(name,()->selectTheme(mode),false),new LinearLayout.LayoutParams(0,dp(48),1f));
-  }
-  addView(featureRow,new LinearLayout.LayoutParams(-1,dp(48)));
   addView(navigation,new LinearLayout.LayoutParams(-1,dp(52)));
   select(GoroSection.HOME);
  }
@@ -291,7 +286,6 @@ public final class GoroDashboardView extends LinearLayout {
   }
   settingsPanel.setVisibility(section==GoroSection.SETTINGS?VISIBLE:GONE);
   devicePanel.setVisibility(section==GoroSection.DEVICES?VISIBLE:GONE);
-  tools.setVisibility(GONE);
   switch(section){
    case HOME: output.setText("Conversá con GORO. Usá los accesos rápidos para Agenda, Gmail, Proyectos y Dispositivos.");break;
    case EXPLORE: output.setText("Explorar proyectos. Pedime que retomemos cualquiera de tus proyectos.");break;
