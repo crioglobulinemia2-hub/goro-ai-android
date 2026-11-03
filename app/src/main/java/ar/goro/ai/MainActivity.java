@@ -335,9 +335,14 @@ public class MainActivity extends Activity {
        try{
         nvidiaCredentialStore.save(key);
         if(nemotronGateway!=null)nemotronGateway.close();
+        if(speechGateway!=null)speechGateway.close();
         nemotronGateway=new NemotronGateway(key);
         speechGateway=new NemotronSpeechGateway(key);
         if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: clave cifrada · verificando…");
+        if(dashboard!=null)dashboard.showVoiceStatus("Magpie Diego: consultando catálogo NVIDIA…");
+        speechGateway.verifyDiego((ready,detail)->{
+          if(dashboard!=null)dashboard.showVoiceStatus(detail);
+        });
         testNemotron();
        }catch(Exception e){if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: clave no guardada");say("No pude guardar la clave NVIDIA. Verificá que sea una API key nvapi válida.");}
       }).show();
@@ -345,7 +350,7 @@ public class MainActivity extends Activity {
   private void testNemotron(){
     if(nemotronGateway==null){if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: falta API key");say("Primero configurá la API key de NVIDIA NIM.");return;}
     if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: probando endpoint…");
-    nemotronGateway.request("goro-main","Respondé exactamente: GORO conectado.",(reply,error)->{
+    nemotronGateway.request("goro-healthcheck","Respondé exactamente: GORO conectado.",(reply,error)->{
       if(error!=null){if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: error · "+error);say("No pude autenticar con NVIDIA NIM. "+error);}
       else{if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: conectado · "+NemotronGateway.MODEL);say(reply);}
     });
