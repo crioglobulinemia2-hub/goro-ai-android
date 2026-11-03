@@ -328,7 +328,7 @@ clipdefs=[
  ("confirming",{"head":[0,11,0,0],"right_shoulder":[0,-22,-8,0]}),
  ("alert",{"head":[0,-7,5,0],"left_elbow":[0,-12,12,0]}),
 ]
-timeinput=buf.attr([0.,.55,1.15,1.8],"f","SCALAR",5126)
+timeinput=buf.attr([0.,.55,1.15,1.8],"f","SCALAR",5126,minmax=True)
 for name,targets in clipdefs:
  channels=[];samplers=[]
  for bone,values in targets.items():
