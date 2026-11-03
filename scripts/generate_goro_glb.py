@@ -261,9 +261,15 @@ class Buffer:
 buf=Buffer()
 def primitive(part,material,morphs=False):
  p=part["p"]
+ # glTF requires TEXCOORD_0 whenever a material references baseColorTexture.
+ uv=[]
+ for i in range(0,len(p),3):
+  x,y,z=p[i:i+3]
+  uv.extend(((x+1.75)/3.5,y/3.0))
  attrs={
   "POSITION":buf.attr(p,"f","VEC3",5126,34962,True),
   "NORMAL":buf.attr(part["n"],"f","VEC3",5126,34962),
+  "TEXCOORD_0":buf.attr(uv,"f","VEC2",5126,34962),
   "JOINTS_0":buf.attr(part["j"],"H","VEC4",5123,34962),
   "WEIGHTS_0":buf.attr(part["w"],"f","VEC4",5126,34962),
  }
