@@ -45,6 +45,7 @@ public final class GoroDashboardView extends LinearLayout {
   void onConfigureNvidia();
   void onTestNvidia();
   void onConnectZn02();
+  void onInspectZn02();
   void onZn02LightOn();
   void onZn02LightOff();
   void onZn02ReadLight();
@@ -227,6 +228,7 @@ public final class GoroDashboardView extends LinearLayout {
   tools.addView(button("Probar conexión Nemotron",()->actions.onTestNvidia(),false),new LinearLayout.LayoutParams(-1,dp(44)));
   tools.addView(card("DISPOSITIVOS",devicesValue),cardParams());
   tools.addView(button("Conectar ZN02 · GORO",()->actions.onConnectZn02(),true),new LinearLayout.LayoutParams(-1,dp(48)));
+  tools.addView(button("Examinar BLE ZN02 · solo lectura",()->actions.onInspectZn02(),false),new LinearLayout.LayoutParams(-1,dp(44)));
   tools.addView(button("Encender luz del ZN02",()->actions.onZn02LightOn(),false),new LinearLayout.LayoutParams(-1,dp(44)));
   tools.addView(button("Apagar luz del ZN02",()->actions.onZn02LightOff(),false),new LinearLayout.LayoutParams(-1,dp(44)));
   tools.addView(button("Consultar estado del ZN02",()->actions.onZn02ReadLight(),false),new LinearLayout.LayoutParams(-1,dp(44)));
