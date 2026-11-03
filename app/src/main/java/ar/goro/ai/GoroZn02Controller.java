@@ -89,7 +89,7 @@ public final class GoroZn02Controller {
     String name=null;
     try{name=device.getName();}catch(SecurityException ignored){}
     ZnpDeviceProfile profile=ZnpDeviceProfile.detect(name);
-    if(profile.model!=ZnpDeviceProfile.Model.N02)return;
+    if(profile.model!=ZnpDeviceProfile.Model.N02_CANDIDATE)return;
     if(message!=null&&message.getDeviceType()!=JL_DeviceType.JL_DEVICE_TYPE_CHARGING_BIN){
      emit("ZN02 identificado por nombre, pero el perfil RCSP no coincide con un estuche. No se conectó.");
      return;
