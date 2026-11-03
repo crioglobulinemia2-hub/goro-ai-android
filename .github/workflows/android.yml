@@ -71,6 +71,11 @@ jobs:
           doc=json.loads(b[20:20+l])
           assert len(doc['skins'])>=1 and len(doc['animations'])>=6
           assert len(doc['meshes'][1]['extras']['targetNames'])==10
+          for mesh in doc['meshes']:
+            for primitive in mesh['primitives']:
+              attrs=primitive['attributes']
+              assert 'TEXCOORD_0' in attrs and 'JOINTS_0' in attrs and 'WEIGHTS_0' in attrs
+          assert doc['materials'] and doc['textures']
           print('GORO rig geometry and animation contract PASS',len(b))
           PY
       - name: Validate GORO ZNP animation asset
