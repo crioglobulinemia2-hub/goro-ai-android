@@ -15,20 +15,20 @@ import static org.junit.Assert.*;
 @RunWith(RobolectricTestRunner.class)
 public class GoroDashboardViewTest {
  private static final class Calls implements GoroDashboardView.Actions {
-  int commands,voice,link,calendar,unlink,weather,forecast,reminders,connect,inspections,lightOn,lightOff,lightRead,animation;
+  int commands,voice,link,gmail,calendar,unlink,weather,forecast,reminders,connect,inspect,lightOn,lightOff,lightRead,animation,nvidia;
   public void onCommand(String value){commands++;}
   public void onVoiceSession(){voice++;}
   public void onLinkAccount(){link++;}
-  public void onReadGmail(){}
+  public void onReadGmail(){gmail++;}
   public void onCalendarPermission(){calendar++;}
   public void onUnlinkAccount(){unlink++;}
   public void onWeather(){weather++;}
   public void onForecast(){forecast++;}
   public void onReminders(){reminders++;}
-  public void onConfigureNvidia(){}
-  public void onTestNvidia(){}
+  public void onConfigureNvidia(){nvidia++;}
+  public void onTestNvidia(){nvidia++;}
   public void onConnectZn02(){connect++;}
-  public void onInspectZn02(){inspections++;}
+  public void onInspectZn02(){inspect++;}
   public void onZn02LightOn(){lightOn++;}
   public void onZn02LightOff(){lightOff++;}
   public void onZn02ReadLight(){lightRead++;}
@@ -47,45 +47,52 @@ public class GoroDashboardViewTest {
   }
   return null;
  }
- @Test public void exposesEightSectionsThreeThemesAndConnectedActions(){
+ @Test public void homeHasFourSectionsAndOnlyQuickActions(){
   Activity activity=Robolectric.buildActivity(Activity.class).setup().get();
   Calls calls=new Calls();
   GoroDashboardView dashboard=new GoroDashboardView(activity,calls,null,false);
   activity.setContentView(dashboard);
-  assertEquals(8,dashboard.navigationItemCount());
-  assertEquals(3,((ViewGroup)dashboard.getChildAt(2)).getChildCount());
-  findButton(dashboard,"Micrófono · Conversación continua").performClick();
-  findButton(dashboard,"Enviar").performClick();
-  findButton(dashboard,"Consultar GPS").performClick();
-  findButton(dashboard,"Pronóstico · 3 días").performClick();
-  findButton(dashboard,"Vincular cuenta Google").performClick();
-  findButton(dashboard,"Autorizar Google Calendar").performClick();
-  findButton(dashboard,"Desvincular cuenta").performClick();
-  findButton(dashboard,"Conectar ZN02 · GORO").performClick();
-  findButton(dashboard,"Examinar BLE ZN02 · solo lectura").performClick();
-  findButton(dashboard,"Encender luz del ZN02").performClick();
-  findButton(dashboard,"Apagar luz del ZN02").performClick();
-  findButton(dashboard,"Consultar estado del ZN02").performClick();
-  findButton(dashboard,"Enviar animación GORO al visor ZN02").performClick();
-  assertEquals(1,calls.voice);
+  assertEquals(4,dashboard.navigationItemCount());
+  assertNotNull(findButton(dashboard,"Conversar"));
+  assertNotNull(findButton(dashboard,"Explorar"));
+  assertNotNull(findButton(dashboard,"Automatizar"));
+  assertNotNull(findButton(dashboard,"Ajustes"));
+  findButton(dashboard,"Agenda").performClick();
+  findButton(dashboard,"Gmail").performClick();
+  findButton(dashboard,"Dispositivos").performClick();
+  findButton(dashboard,"Proyectos").performClick();
   assertEquals(1,calls.commands);
-  assertEquals(1,calls.weather);
-  assertEquals(1,calls.forecast);
+  assertEquals(1,calls.gmail);
+  assertNull(findButton(dashboard,"Encender luz del ZN02"));
+  assertNull(findButton(dashboard,"Examinar BLE ZN02 · solo lectura"));
+  assertNull(findButton(dashboard,"Enviar animación GORO al visor ZN02"));
+ }
+ @Test public void deviceAndSettingsActionsAreSeparatedFromHome(){
+  Activity activity=Robolectric.buildActivity(Activity.class).setup().get();
+  Calls calls=new Calls();
+  GoroDashboardView dashboard=new GoroDashboardView(activity,calls,null,false);
+  activity.setContentView(dashboard);
+  findButton(dashboard,"Dispositivos").performClick();
+  findButton(dashboard,"Conectar ZNP Z02").performClick();
+  findButton(dashboard,"Hablar con GORO").performClick();
+  assertEquals(1,calls.connect);
+  assertEquals(1,calls.voice);
+  findButton(dashboard,"Ajustes").performClick();
+  findButton(dashboard,"Vincular cuenta Google").performClick();
+  findButton(dashboard,"Autorizar Calendar").performClick();
+  findButton(dashboard,"Autorizar Gmail").performClick();
+  findButton(dashboard,"Configurar NVIDIA").performClick();
+  findButton(dashboard,"Verificar NVIDIA").performClick();
   assertEquals(1,calls.link);
   assertEquals(1,calls.calendar);
-  assertEquals(1,calls.unlink);
-  assertEquals(1,calls.connect);
-  assertEquals(1,calls.inspections);
-  assertEquals(1,calls.lightOn);
-  assertEquals(1,calls.lightOff);
-  assertEquals(1,calls.lightRead);
-  assertEquals(1,calls.animation);
+  assertEquals(2,calls.gmail);
+  assertEquals(2,calls.nvidia);
  }
  @Test public void buttonsHaveVisiblePressedStateAndRestoreOnCancel(){
   Activity activity=Robolectric.buildActivity(Activity.class).setup().get();
   GoroDashboardView dashboard=new GoroDashboardView(activity,new Calls(),null,false);
   activity.setContentView(dashboard);
-  Button button=findButton(dashboard,"Inicio");
+  Button button=findButton(dashboard,"Conversar");
   assertNotNull(button);
   assertTrue(button.getElevation()>0f);
   assertTrue(button.getBackground() instanceof RippleDrawable);
