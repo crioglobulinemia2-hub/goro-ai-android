@@ -120,43 +120,9 @@ public final class GoroZn02Controller {
    @Override public void onConnection(BluetoothDevice device,int status){
     if(!isTarget(device))return;
     if(status==StateCode.CONNECTION_OK){
-     connected=true;
-     vendorProtocolVerified=false;
-     caseOp=ChargingCaseOpImpl.instance(controller.getRcspOp());
-     caseOp.addOnChargingCaseListener(caseListener);
-     emit("ZN02 conectado. Consultando pantalla y estado de iluminación…");
-     caseOp.getChargingCaseInfo(device);
-     caseOp.readSDKMessage(device,new OnRcspActionCallback<SDKMessage>(){
-      @Override public void onSuccess(BluetoothDevice d,SDKMessage message){
-       if(!isTarget(d)||message==null)return;
-       int chip=message.getChip();
-       ChargingCaseInfo info=caseOp.getChargingCaseInfo(d);
-       if(info!=null)emit("ZN02 · chip "+chip+" · pantalla "+info.getScreenWidth()+"×"+info.getScreenHeight()+".");
-       if(chip==SDKMessage.CHIP_701N||chip==SDKMessage.CHIP_707N){
-        vendorProtocolVerified=true;
-        emit("Protocolo de estuche JieLi y chip "+chip+" confirmados. Controles habilitados.");
-        readFlashlight();
-       }else{
-        vendorProtocolVerified=false;
-        emit("Chip desconocido: los comandos de luz y pantalla permanecen bloqueados.");
-       }
-      }
-      @Override public void onError(BluetoothDevice d,BaseError error){
-       if(isTarget(d))emit("No se pudo identificar el chip del estuche: "+error.getMessage());
-      }
-     });
-     caseOp.readScreenInfo(device,new OnRcspActionCallback<ScreenInfo>(){
-      @Override public void onSuccess(BluetoothDevice d,ScreenInfo info){
-       if(isTarget(d))emit("Pantalla del ZN02 verificada por SDK: "+String.valueOf(info));
-      }
-      @Override public void onError(BluetoothDevice d,BaseError error){
-       if(isTarget(d))emit("La conexión existe, pero el SDK no pudo leer la pantalla: "+error.getMessage());
-      }
-     });
-     caseOp.getBrightness(device,new OnRcspActionCallback<Integer>(){
-      @Override public void onSuccess(BluetoothDevice d,Integer value){if(isTarget(d))emit("Brillo de pantalla confirmado: "+value+"%.");}
-      @Override public void onError(BluetoothDevice d,BaseError error){if(isTarget(d))emit("Brillo no disponible: "+error.getMessage());}
-     });
+     connected=true;vendorProtocolVerified=false;
+     emit("Enlace BLE Z02 abierto. Verificando autenticación RCSP…");
+     verifyAuthenticated(device);
     }else if(status==StateCode.CONNECTION_DISCONNECT||status==StateCode.CONNECTION_FAILED){
      connected=false;vendorProtocolVerified=false;
      emit("ZN02 desconectado o conexión fallida (estado "+status+").");
@@ -205,6 +171,153 @@ public final class GoroZn02Controller {
   emit("Buscando exclusivamente ZN02 / ZNP N02 con el protocolo Bluetooth del dispositivo…");
   scanning=controller.startBleScan(20000);
   if(!scanning)emit("El SDK JieLi no pudo iniciar el escaneo. Revisá Bluetooth y permisos.");
+ }
+
+ private void verifyAuthenticated(BluetoothDevice device){
+  final long epoch=++connectionEpoch;
+  if(authPoll!=null)mainHandler.removeCallbacks(authPoll);
+  if(authTimeout!=null)mainHandler.removeCallbacks(authTimeout);
+  authPoll=new Runnable(){@Override public void run(){
+   if(closed||epoch!=connectionEpoch||!isTarget(device))return;
+   try{
+    if(controller!=null&&controller.isDeviceConnected(device)
+      &&controller.getRcspOp().isRcspInit(device)
+      &&controller.getRcspOp().isDeviceAuthPass(device)){
+     if(authTimeout!=null)mainHandler.removeCallbacks(authTimeout);
+     initializeAuthenticatedDevice(device,epoch);return;
+    }
+   }catch(RuntimeException ignored){}
+   mainHandler.postDelayed(this,250);
+  }};
+  authTimeout=()->{if(epoch==connectionEpoch&&!closed){connected=false;vendorProtocolVerified=false;emit("El SDK no completó la autenticación del Z02 en 20 segundos.");}};
+  mainHandler.postDelayed(authTimeout,20000);
+  mainHandler.post(authPoll);
+ }
+ private void initializeAuthenticatedDevice(BluetoothDevice device,long epoch){
+  if(closed||epoch!=connectionEpoch||!isTarget(device))return;
+  emit("Autenticación RCSP del Z02 confirmada.");
+  try{
+   caseOp=ChargingCaseOpImpl.instance(controller.getRcspOp());
+   caseOp.addOnChargingCaseListener(caseListener);
+   caseOp.getChargingCaseInfo(device);
+   caseOp.readSDKMessage(device,new OnRcspActionCallback<SDKMessage>(){
+    @Override public void onSuccess(BluetoothDevice d,SDKMessage message){
+     if(!isTarget(d)||message==null)return;
+     int chip=message.getChip();ChargingCaseInfo info=caseOp.getChargingCaseInfo(d);
+     if(info!=null)emit("Z02 · chip "+chip+" · pantalla "+info.getScreenWidth()+"×"+info.getScreenHeight()+".");
+     if(chip==SDKMessage.CHIP_701N||chip==SDKMessage.CHIP_707N){vendorProtocolVerified=true;emit("Perfil de pantalla JieLi confirmado.");readFlashlight();}
+     else{vendorProtocolVerified=false;emit("Micrófono RCSP disponible; controles de pantalla bloqueados por chip no compatible.");}
+    }
+    @Override public void onError(BluetoothDevice d,BaseError error){if(isTarget(d))emit("Pantalla Z02 no disponible: "+error.getMessage());}
+   });
+   caseOp.readScreenInfo(device,new OnRcspActionCallback<ScreenInfo>(){
+    @Override public void onSuccess(BluetoothDevice d,ScreenInfo info){if(isTarget(d))emit("Pantalla Z02 leída por SDK: "+String.valueOf(info));}
+    @Override public void onError(BluetoothDevice d,BaseError error){if(isTarget(d))emit("Pantalla Z02 no disponible: "+error.getMessage());}
+   });
+   caseOp.getBrightness(device,new OnRcspActionCallback<Integer>(){
+    @Override public void onSuccess(BluetoothDevice d,Integer value){if(isTarget(d))emit("Brillo Z02: "+value+"%.");}
+    @Override public void onError(BluetoothDevice d,BaseError error){if(isTarget(d))emit("Brillo Z02 no disponible: "+error.getMessage());}
+   });
+  }catch(RuntimeException error){emit("RCSP autenticado; perfil de pantalla no disponible: "+error.getClass().getSimpleName());}
+  try{
+   String edr=null;
+   if(controller.getRcspOp().getDeviceInfo(device)!=null)edr=controller.getRcspOp().getDeviceInfo(device).getEdrAddr();
+   BluetoothManager manager=(BluetoothManager)context.getSystemService(Context.BLUETOOTH_SERVICE);
+   BluetoothAdapter adapter=manager==null?null:manager.getAdapter();
+   BluetoothDevice audioTarget=(edr!=null&&BluetoothAdapter.checkBluetoothAddress(edr)&&!"00:00:00:00:00:00".equals(edr)&&adapter!=null)?adapter.getRemoteDevice(edr):device;
+   listener.onAudioTarget(audioTarget);
+   final BluetoothDevice selected=audioTarget;
+   bondSession.start(selected,()->{
+    if(closed||epoch!=connectionEpoch||!isTarget(device))return;
+    try{controller.getBluetoothManager().startConnectByBreProfiles(selected);emit("Perfil de audio clásico solicitado. Verificando salida multimedia Z02…");}
+    catch(Exception error){emit("No se pudo iniciar el perfil de audio Z02: "+error.getClass().getSimpleName());}
+   },this::emit);
+  }catch(Exception error){emit("No se pudo resolver el perfil de audio Z02: "+error.getClass().getSimpleName());}
+ }
+ public synchronized boolean startVoice(){
+  if(closed||!connected||target==null||recording||draining||controller==null){emit("El micrófono Z02 no está listo o ya hay una captura activa.");return false;}
+  if(!controller.getRcspOp().isRcspInit(target)||!controller.getRcspOp().isDeviceAuthPass(target)){emit("La sesión RCSP del Z02 dejó de estar autenticada.");return false;}
+  final BluetoothDevice device=target;final long epoch=connectionEpoch;final long capture=++voiceEpoch;
+  microphonePcm=new ByteArrayOutputStream();final ByteArrayOutputStream out=microphonePcm;
+  try{
+   RecordOpImpl op=RecordOpImpl.getInstance(controller.getRcspOp());recorder=op;
+   OpusManager opus=new OpusManager();decoder=opus;recording=true;draining=false;
+   OnRecordStateCallback callback=new OnRecordStateCallback(){
+    @Override public void onStateChange(BluetoothDevice d,RecordState state){
+     if(d==null||!isTarget(d)||state==null)return;
+     int code=state.getState();byte[] block=state.getVoiceDataBlock()==null?null:state.getVoiceDataBlock().clone();
+     mainHandler.post(()->{
+      if(closed||epoch!=connectionEpoch||capture!=voiceEpoch)return;
+      if(code==RecordState.RECORD_STATE_WORKING){
+       if((recording||draining)&&block!=null&&block.length>0){try{opus.writeAudioStream(block);}catch(Exception error){abortVoice("No se pudo decodificar Opus del Z02: "+error.getClass().getSimpleName());}}
+      }else if(code==RecordState.RECORD_STATE_IDLE&&recording)stopVoice();
+     });
+    }
+   };
+   recordCallback=callback;op.addOnRecordStateCallback(callback);
+   opus.startDecodeStream(new OpusOption(),new OnDecodeStreamCallback(){
+    @Override public void onStart(){mainHandler.post(()->{
+     if(closed||epoch!=connectionEpoch||capture!=voiceEpoch||!recording)return;
+     try{
+      op.startRecord(device,new RecordParam(Constants.AUDIO_TYPE_OPUS,RecordParam.SAMPLE_RATE_16K,RecordParam.VAD_WAY_DEVICE),new OnRcspActionCallback<Boolean>(){
+       @Override public void onSuccess(BluetoothDevice d,Boolean ok){mainHandler.post(()->{if(epoch==connectionEpoch&&capture==voiceEpoch&&recording){if(Boolean.TRUE.equals(ok))emit("Micrófono Z02 activo. Esperando voz…");else abortVoice("El Z02 rechazó la captura de micrófono.");}});}
+       @Override public void onError(BluetoothDevice d,BaseError error){mainHandler.post(()->{if(epoch==connectionEpoch&&capture==voiceEpoch)abortVoice("El Z02 rechazó la captura: "+error.getMessage());});}
+      });
+     }catch(Exception error){abortVoice("No se pudo iniciar el micrófono Z02: "+error.getClass().getSimpleName());}
+    });}
+    @Override public void onDecodeStream(byte[] data){
+     if(data==null||data.length==0)return;byte[] copy=data.clone();
+     mainHandler.post(()->{
+      if(closed||epoch!=connectionEpoch||capture!=voiceEpoch||(!recording&&!draining))return;
+      if(out.size()+copy.length>480000){stopVoice();return;}
+      boolean first=out.size()==0;out.write(copy,0,copy.length);if(first)emit("PCM16 recibido desde el micrófono Z02.");
+     });
+    }
+    @Override public void onComplete(String path){mainHandler.post(()->{if(epoch==connectionEpoch&&capture==voiceEpoch&&draining)finishVoice();});}
+    @Override public void onError(int code,String message){mainHandler.post(()->{if(epoch==connectionEpoch&&capture==voiceEpoch)abortVoice("Decodificación Opus falló ("+code+"): "+message);});}
+   });
+   voiceTimeout=()->{if(epoch==connectionEpoch&&capture==voiceEpoch)stopVoice();};
+   mainHandler.postDelayed(voiceTimeout,12000);
+   emit("Abriendo micrófono del Z02…");return true;
+  }catch(Exception error){abortVoice("Audio Z02 no disponible: "+error.getClass().getSimpleName());return false;}
+ }
+ public synchronized void stopVoice(){
+  if(!recording)return;
+  recording=false;draining=true;
+  if(voiceTimeout!=null)mainHandler.removeCallbacks(voiceTimeout);
+  final long epoch=connectionEpoch,capture=voiceEpoch;BluetoothDevice device=target;RecordOpImpl op=recorder;
+  if(device!=null&&op!=null)try{op.stopRecord(device,RecordState.REASON_STOP,null);}catch(Exception ignored){}
+  drainTimeout=()->{
+   if(epoch!=connectionEpoch||capture!=voiceEpoch||!draining)return;
+   try{if(decoder!=null)decoder.stopDecodeStream();}catch(Exception ignored){}
+   drainFinishTimeout=()->{if(epoch==connectionEpoch&&capture==voiceEpoch&&draining)finishVoice();};
+   mainHandler.postDelayed(drainFinishTimeout,250);
+  };
+  mainHandler.postDelayed(drainTimeout,250);
+ }
+ private void finishVoice(){
+  if(!draining)return;
+  if(drainTimeout!=null)mainHandler.removeCallbacks(drainTimeout);
+  byte[] pcm=microphonePcm.toByteArray();releaseVoice();
+  if(pcm.length==0)emit("El micrófono Z02 no entregó audio decodificado.");
+  else{emit("Captura del micrófono Z02 recibida ("+pcm.length+" bytes PCM).");listener.onMicrophonePcm(pcm);}
+ }
+ private void abortVoice(String message){
+  BluetoothDevice device=target;RecordOpImpl op=recorder;releaseVoice();
+  if(device!=null&&op!=null)try{op.stopRecord(device,RecordState.REASON_STOP,null);}catch(Exception ignored){}
+  emit(message);
+ }
+ private void releaseVoice(){
+  ++voiceEpoch;recording=false;draining=false;
+  if(voiceTimeout!=null)mainHandler.removeCallbacks(voiceTimeout);
+  if(drainTimeout!=null)mainHandler.removeCallbacks(drainTimeout);
+  if(drainFinishTimeout!=null)mainHandler.removeCallbacks(drainFinishTimeout);
+  voiceTimeout=null;drainTimeout=null;drainFinishTimeout=null;
+  if(recordCallback!=null&&recorder!=null)try{recorder.removeOnRecordStateCallback(recordCallback);}catch(Exception ignored){}
+  recordCallback=null;
+  OpusManager old=decoder;decoder=null;
+  if(old!=null){try{old.stopDecodeStream();}catch(Exception ignored){}try{old.release();}catch(Exception ignored){}}
+  recorder=null;microphonePcm.reset();
  }
  public synchronized void setFlashlight(boolean enabled){
   if(closed||!connected||!vendorProtocolVerified||target==null||caseOp==null){
