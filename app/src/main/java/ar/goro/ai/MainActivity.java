@@ -177,6 +177,7 @@ public class MainActivity extends Activity {
   }
   private void say(String message) {
     output.setText(message);
+    if(dashboard!=null)dashboard.showAssistantMessage(message);
     if(speechGateway==null){
       if(state!=null)state.setText("GORO · Voz NVIDIA no configurada");
       if(output!=null)output.setText(message+"\\n\\nLa salida de voz requiere NVIDIA Magpie. No se utilizó TTS local.");
