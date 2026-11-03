@@ -98,26 +98,22 @@ public final class NemotronGateway implements ModelGateway {
      throw new IllegalStateException("NVIDIA NIM "+status+": "+(detail.length()>240?detail.substring(0,240):detail));
     }
     StringBuilder accumulated=new StringBuilder();
+    NvidiaStreamParser parser=new NvidiaStreamParser();
     try(BufferedReader reader=new BufferedReader(new InputStreamReader(connection.getInputStream(),StandardCharsets.UTF_8))){
      String line;
      while((line=reader.readLine())!=null){
       if(!line.startsWith("data:"))continue;
-      String data=line.substring(5).trim();
-      if(data.isEmpty()||"[DONE]".equals(data))continue;
-      JSONObject event=new JSONObject(data);
-      JSONArray choices=event.optJSONArray("choices");
-      if(choices==null||choices.length()==0)continue;
-      JSONObject delta=choices.getJSONObject(0).optJSONObject("delta");
-      if(delta==null)continue;
-      // Never display or persist model reasoning; only stream the final answer content.
-      String piece=delta.optString("content","");
+      String piece=parser.accept(line);
       if(!piece.isEmpty()){
        if(accumulated.length()+piece.length()>MAX_REPLY_CHARS)
         throw new IllegalStateException("NVIDIA reply exceeded the application limit");
        accumulated.append(piece);
       }
+      if(parser.isDone())break;
      }
     }
+    if(!parser.isDone()&&parser.hasAnswer())
+      throw new IllegalStateException("NVIDIA streaming response ended before completion");
     reply=accumulated.toString().trim();
     if(reply.isEmpty())throw new IllegalStateException("NVIDIA returned no answer content");
     synchronized(history){
