@@ -18,12 +18,39 @@ public final class NemotronSpeechGateway {
  public static final String VOICE="Magpie-Multilingual.ES-US.Diego";
  public static final String LANGUAGE="es-US";
  public interface Callback {void completed(byte[] wav,String error);}
+ public interface AvailabilityCallback {void completed(boolean available,String message);}
+ public static final String VOICES_ENDPOINT=
+   "https://877104f7-e885-42b9-8de8-f6e4c6303969.invocation.api.nvcf.nvidia.com/v1/audio/list_voices";
  private final String apiKey;
  private final ExecutorService executor=Executors.newSingleThreadExecutor();
  private final Handler main=new Handler(Looper.getMainLooper());
  public NemotronSpeechGateway(String apiKey){
   if(apiKey==null||!apiKey.startsWith("nvapi-"))throw new IllegalArgumentException("NVIDIA NIM API key required");
   this.apiKey=apiKey;
+ }
+ /** Check the actual remote voice catalogue, not merely the local string constant. */
+ public void verifyDiego(AvailabilityCallback callback){
+  if(callback==null)throw new IllegalArgumentException("callback required");
+  executor.execute(()->{
+   HttpURLConnection connection=null;boolean found=false;String detail=null;
+   try{
+    connection=(HttpURLConnection)new URL(VOICES_ENDPOINT).openConnection();
+    connection.setRequestMethod("GET");
+    connection.setConnectTimeout(12000);connection.setReadTimeout(20000);
+    connection.setRequestProperty("Authorization","Bearer "+apiKey);
+    connection.setRequestProperty("Accept","application/json");
+    int status=connection.getResponseCode();
+    if(status!=200)throw new IllegalStateException("Catálogo de voces NVIDIA HTTP "+status);
+    String response=new String(readBounded(connection.getInputStream(),256*1024),StandardCharsets.UTF_8);
+    found=response.toLowerCase(java.util.Locale.ROOT).contains(VOICE.toLowerCase(java.util.Locale.ROOT));
+    detail=found?"NVIDIA confirmó Magpie Diego en su catálogo.":
+      "NVIDIA respondió, pero no anunció la voz Diego solicitada.";
+   }catch(Exception e){
+    detail="No se pudo verificar Magpie Diego: "+(e.getMessage()==null?e.getClass().getSimpleName():e.getMessage());
+   }finally{if(connection!=null)connection.disconnect();}
+   final boolean available=found;final String result=detail;
+   main.post(()->callback.completed(available,result));
+  });
  }
  public void synthesize(String text,Callback callback){
   if(callback==null)throw new IllegalArgumentException("callback required");
@@ -53,9 +80,8 @@ public final class NemotronSpeechGateway {
      String detail=new String(response,StandardCharsets.UTF_8);
      throw new IllegalStateException("NVIDIA Speech "+status+": "+(detail.length()>220?detail.substring(0,220):detail));
     }
-    if(response.length<44||response[0]!='R'||response[1]!='I'||response[2]!='F'||response[3]!='F'||
-       response[8]!='W'||response[9]!='A'||response[10]!='V'||response[11]!='E')
-      throw new IllegalStateException("NVIDIA Speech devolvió un audio WAV inválido");
+    NvidiaWavValidator.Info info=NvidiaWavValidator.inspect(response);
+    if(info.durationMs<100)throw new IllegalStateException("La síntesis NVIDIA devolvió menos de 100 ms de audio");
     wav=response;
    }catch(Exception e){error=e.getMessage()==null?"Error de síntesis NVIDIA":e.getMessage();}
    finally{if(connection!=null)connection.disconnect();}

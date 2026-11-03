@@ -1,7 +1,12 @@
 package ar.goro.ai;
 
+import android.Manifest;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothManager;
+import android.bluetooth.BluetoothAdapter;
 import android.content.Context;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import com.jieli.bluetooth.bean.charging_case.ChargingCaseInfo;
@@ -18,6 +23,7 @@ import java.io.FileOutputStream;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import com.jieli.bluetooth.bean.BleScanMessage;
+import com.jieli.bluetooth.bean.BluetoothOption;
 import com.jieli.bluetooth.bean.base.BaseError;
 import com.jieli.bluetooth.bean.charging_case.ChargingCaseInfo;
 import com.jieli.bluetooth.bean.settings.v0.ScreenInfo;
@@ -33,15 +39,16 @@ import com.jieli.bluetooth.interfaces.rcsp.charging_case.OnChargingCaseListener;
 import java.util.List;
 
 /**
- * Official JieLi RCSP charging-case bridge.
- * It scans only after an explicit user action and never assumes a device feature exists.
+ * GORO-owned ZN02 controller. Uses the vendor RCSP transport only; no Cabezón,
+ * Tuya, vacuum-control, or cross-app state is imported into this application.
+ * A device must identify itself as N02 before the controller will connect.
  */
-public final class JieliChargingCaseBridge {
+public final class GoroZn02Controller {
  public interface Listener {void onStatus(String status);}
  private final Context context;
  private final ExecutorService resourceExecutor=Executors.newSingleThreadExecutor();
  private boolean uploadingResource;
- private final RCSPController controller;
+ private RCSPController controller;
  private final Listener listener;
  private final Handler mainHandler=new Handler(Looper.getMainLooper());
  private final BTRcspEventCallback eventCallback;
@@ -49,45 +56,48 @@ public final class JieliChargingCaseBridge {
  private BluetoothDevice target;
  private boolean scanning;
  private boolean connected;
+ private volatile boolean vendorProtocolVerified=false;
  private boolean closed;
  private final OnChargingCaseListener caseListener=new OnChargingCaseListener(){
   @Override public void onInit(BluetoothDevice device,int state){
    if(!isTarget(device))return;
-   emit(state==0?"ZNP · inicialización RCSP de estuche completada.":"ZNP · error de inicialización RCSP: "+state);
+   emit(state==0?"ZN02 · inicialización Bluetooth completada.":"ZN02 · error de inicialización: "+state);
   }
   @Override public void onChargingCaseInfoChange(BluetoothDevice device,int function,ChargingCaseInfo info){
    if(!isTarget(device)||info==null)return;
    if(function==ChargingCaseInfo.FUNC_FLASHLIGHT)
-    emit("ZNP · luz del estuche: "+(info.isFlashlightOn()?"encendida":"apagada"));
+    emit("ZN02 · luz: "+(info.isFlashlightOn()?"encendida":"apagada"));
    else if(function==ChargingCaseInfo.FUNC_BRIGHTNESS)
-    emit("ZNP · brillo de pantalla: "+info.getBrightness()+"%");
+    emit("ZN02 · brillo de pantalla: "+info.getBrightness()+"%");
   }
   @Override public void onChargingCaseEvent(BluetoothDevice device,SettingFunction function){
-   if(isTarget(device))emit("ZNP · evento RCSP de estuche recibido.");
+   if(isTarget(device))emit("ZN02 · evento de dispositivo recibido.");
   }
  };
- public JieliChargingCaseBridge(Context context,Listener listener){
+ public GoroZn02Controller(Context context,Listener listener){
   this.context=context.getApplicationContext();
   this.listener=listener;
-  controller=RCSPController.getInstance();
+  controller=null;
   eventCallback=new BTRcspEventCallback(){
    @Override public void onDiscoveryStatus(boolean ble,boolean start){
     if(!ble)return;
     scanning=start;
-    if(!start&&!connected&&target==null)emit("Búsqueda RCSP finalizada: no se conectó un estuche Z02/N02 compatible.");
+    if(!start&&!connected&&target==null)emit("Búsqueda finalizada: no se encontró el estuche ZN02.");
    }
    @Override public void onDiscovery(BluetoothDevice device,BleScanMessage message){
     if(closed||!scanning||device==null)return;
-    boolean chargingCase=message!=null&&message.getDeviceType()==JL_DeviceType.JL_DEVICE_TYPE_CHARGING_BIN;
     String name=null;
     try{name=device.getName();}catch(SecurityException ignored){}
-    String normalized=name==null?"":name.toUpperCase(java.util.Locale.ROOT);
-    boolean namedZnp=normalized.contains("Z02")||normalized.contains("N02")||normalized.contains("ZNP");
-    if(!chargingCase&&!namedZnp)return;
+    ZnpDeviceProfile profile=ZnpDeviceProfile.detect(name);
+    if(profile.model!=ZnpDeviceProfile.Model.N02_CANDIDATE)return;
+    if(message!=null&&message.getDeviceType()!=JL_DeviceType.JL_DEVICE_TYPE_CHARGING_BIN){
+     emit("ZN02 identificado por nombre, pero el perfil RCSP no coincide con un estuche. No se conectó.");
+     return;
+    }
     target=device;
     controller.stopScan();
     scanning=false;
-    emit("ZNP detectado: "+(name==null?"nombre no anunciado":name)+". Iniciando conexión RCSP BLE…");
+    emit("El anuncio Bluetooth coincide con ZN02. Verificando el protocolo antes de habilitar controles…");
     try{controller.connectDevice(device,BluetoothConstant.PROTOCOL_TYPE_BLE);}
     catch(RuntimeException error){emit("El SDK JieLi no pudo iniciar la conexión BLE RCSP: "+error.getClass().getSimpleName());}
    }
@@ -95,19 +105,25 @@ public final class JieliChargingCaseBridge {
     if(!isTarget(device))return;
     if(status==StateCode.CONNECTION_OK){
      connected=true;
+     vendorProtocolVerified=false;
      caseOp=ChargingCaseOpImpl.instance(controller.getRcspOp());
      caseOp.addOnChargingCaseListener(caseListener);
-     emit("ZNP conectado por RCSP. Consultando pantalla y estado de luz…");
+     emit("ZN02 conectado. Consultando pantalla y estado de iluminación…");
      caseOp.getChargingCaseInfo(device);
      caseOp.readSDKMessage(device,new OnRcspActionCallback<SDKMessage>(){
       @Override public void onSuccess(BluetoothDevice d,SDKMessage message){
        if(!isTarget(d)||message==null)return;
        int chip=message.getChip();
        ChargingCaseInfo info=caseOp.getChargingCaseInfo(d);
-       if(info!=null)emit("ZNP · chip "+chip+" · pantalla "+info.getScreenWidth()+"×"+info.getScreenHeight()+".");
-       if(chip==SDKMessage.CHIP_701N||chip==SDKMessage.CHIP_707N)
-        emit("ZNP · chip compatible con conversión de animaciones GIF.");
-       else emit("ZNP · chip sin soporte confirmado para animaciones de pantalla JieLi.");
+       if(info!=null)emit("ZN02 · chip "+chip+" · pantalla "+info.getScreenWidth()+"×"+info.getScreenHeight()+".");
+       if(chip==SDKMessage.CHIP_701N||chip==SDKMessage.CHIP_707N){
+        vendorProtocolVerified=true;
+        emit("Protocolo de estuche JieLi y chip "+chip+" confirmados. Controles habilitados.");
+        readFlashlight();
+       }else{
+        vendorProtocolVerified=false;
+        emit("Chip desconocido: los comandos de luz y pantalla permanecen bloqueados.");
+       }
       }
       @Override public void onError(BluetoothDevice d,BaseError error){
        if(isTarget(d))emit("No se pudo identificar el chip del estuche: "+error.getMessage());
@@ -115,75 +131,102 @@ public final class JieliChargingCaseBridge {
      });
      caseOp.readScreenInfo(device,new OnRcspActionCallback<ScreenInfo>(){
       @Override public void onSuccess(BluetoothDevice d,ScreenInfo info){
-       if(isTarget(d))emit("Pantalla ZNP verificada por SDK: "+String.valueOf(info));
+       if(isTarget(d))emit("Pantalla del ZN02 verificada por SDK: "+String.valueOf(info));
       }
       @Override public void onError(BluetoothDevice d,BaseError error){
        if(isTarget(d))emit("La conexión existe, pero el SDK no pudo leer la pantalla: "+error.getMessage());
       }
      });
-     readFlashlight();
      caseOp.getBrightness(device,new OnRcspActionCallback<Integer>(){
       @Override public void onSuccess(BluetoothDevice d,Integer value){if(isTarget(d))emit("Brillo de pantalla confirmado: "+value+"%.");}
       @Override public void onError(BluetoothDevice d,BaseError error){if(isTarget(d))emit("Brillo no disponible: "+error.getMessage());}
      });
     }else if(status==StateCode.CONNECTION_DISCONNECT||status==StateCode.CONNECTION_FAILED){
-     connected=false;
-     emit("ZNP desconectado o conexión RCSP fallida (estado "+status+").");
+     connected=false;vendorProtocolVerified=false;
+     emit("ZN02 desconectado o conexión fallida (estado "+status+").");
     }else if(status==StateCode.CONNECTION_CONNECTING){
-     emit("Conectando ZNP por Bluetooth LE…");
+     emit("Conectando ZN02 por Bluetooth LE…");
     }
    }
   };
  }
+ public String[] neededPermissions(){
+  if(Build.VERSION.SDK_INT>=31){
+   java.util.ArrayList<String> missing=new java.util.ArrayList<>();
+   if(context.checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN)!=PackageManager.PERMISSION_GRANTED)missing.add(Manifest.permission.BLUETOOTH_SCAN);
+   if(context.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)!=PackageManager.PERMISSION_GRANTED)missing.add(Manifest.permission.BLUETOOTH_CONNECT);
+   return missing.toArray(new String[0]);
+  }
+  if(context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED)
+   return new String[]{Manifest.permission.ACCESS_FINE_LOCATION};
+  return new String[0];
+ }
  public synchronized void startScan(){
-  if(closed){emit("Puente JieLi cerrado.");return;}
-  if(!RCSPController.isInit()){emit("El SDK JieLi no está inicializado.");return;}
+  if(closed){emit("Controlador ZN02 cerrado.");return;}
+  if(neededPermissions().length>0){emit("Faltan permisos Bluetooth para conectar el ZN02.");return;}
+  try{
+   BluetoothManager manager=(BluetoothManager)context.getSystemService(Context.BLUETOOTH_SERVICE);
+   BluetoothAdapter adapter=manager==null?null:manager.getAdapter();
+   if(adapter==null){emit("El dispositivo Android no tiene Bluetooth; GORO sigue funcionando sin ZN02.");return;}
+   if(!adapter.isEnabled()){emit("Bluetooth está apagado. Activá Bluetooth para conectar el ZN02.");return;}
+   if(!RCSPController.isInit()){
+    BluetoothOption option=BluetoothOption.createDefaultOption()
+      .setPriority(BluetoothOption.PREFER_BLE)
+      .setUseMultiDevice(false)
+      .setMandatoryUseBLE(true)
+      .setBleScanStrategy(BluetoothConstant.NONE_FILTER);
+    RCSPController.init(context,option);
+   }
+   controller=RCSPController.getInstance();
+   if(controller==null||!RCSPController.isInit()){emit("No se pudo inicializar el control Bluetooth del ZN02.");return;}
+  }catch(SecurityException error){emit("Android no autorizó el acceso Bluetooth del ZN02.");return;}
+   catch(RuntimeException error){emit("El SDK del ZN02 no pudo inicializarse. No se envió ningún comando.");return;}
   if(scanning){emit("La búsqueda ZNP ya está activa.");return;}
-  target=null;connected=false;
+  target=null;connected=false;vendorProtocolVerified=false;
   controller.addBTRcspEventCallback(eventCallback);
-  emit("Buscando Z02/N02 mediante el escáner RCSP oficial de JieLi…");
+  emit("Buscando exclusivamente ZN02 / ZNP N02 con el protocolo Bluetooth del dispositivo…");
   scanning=controller.startBleScan(20000);
   if(!scanning)emit("El SDK JieLi no pudo iniciar el escaneo. Revisá Bluetooth y permisos.");
  }
  public synchronized void setFlashlight(boolean enabled){
-  if(closed||!connected||target==null||caseOp==null){
-   emit("No hay estuche ZNP conectado por RCSP. No se envió ningún comando.");
+  if(closed||!connected||!vendorProtocolVerified||target==null||caseOp==null){
+   emit("ZN02 sin protocolo compatible verificado. No se envió ningún comando.");
    return;
   }
-  emit(enabled?"Solicitando encendido de luz al ZNP…":"Solicitando apagado de luz al ZNP…");
+  emit(enabled?"Solicitando encendido de luz al ZN02…":"Solicitando apagado de luz al ZN02…");
   caseOp.setFlashlightState(target,enabled,new OnRcspActionCallback<Boolean>(){
    @Override public void onSuccess(BluetoothDevice device,Boolean result){
     if(!isTarget(device))return;
-    emit(Boolean.TRUE.equals(result)?"Comando de luz aceptado por el ZNP. Verificando estado…":"El ZNP no confirmó el cambio de luz.");
+    emit(Boolean.TRUE.equals(result)?"El ZN02 aceptó el cambio de luz. Verificando estado…":"El ZN02 no confirmó el cambio de luz.");
     readFlashlight();
    }
    @Override public void onError(BluetoothDevice device,BaseError error){
-    if(isTarget(device))emit("El ZNP rechazó el comando de luz: "+error.getMessage()+" (código "+error.getSubCode()+").");
+    if(isTarget(device))emit("El ZN02 rechazó el comando de luz: "+error.getMessage()+" (código "+error.getSubCode()+").");
    }
   });
  }
  public synchronized void readFlashlight(){
-  if(!connected||target==null||caseOp==null){emit("Luz no consultada: ZNP sin conexión RCSP.");return;}
+  if(!connected||!vendorProtocolVerified||target==null||caseOp==null){emit("Luz no consultada: protocolo del ZN02 no verificado.");return;}
   caseOp.getFlashlightState(target,new OnRcspActionCallback<Boolean>(){
    @Override public void onSuccess(BluetoothDevice device,Boolean on){
-    if(isTarget(device))emit("Estado real de luz del estuche: "+(Boolean.TRUE.equals(on)?"ENCENDIDA":"APAGADA")+".");
+    if(isTarget(device))emit("Estado real de luz del ZN02: "+(Boolean.TRUE.equals(on)?"ENCENDIDA":"APAGADA")+".");
    }
    @Override public void onError(BluetoothDevice device,BaseError error){
-    if(isTarget(device))emit("La luz no está soportada o no respondió: "+error.getMessage()+" (código "+error.getSubCode()+").");
+    if(isTarget(device))emit("La luz del ZN02 no está soportada o no respondió: "+error.getMessage()+" (código "+error.getSubCode()+").");
    }
   });
  }
  public synchronized void uploadGoroScreenSaver(File sourceGif){
-  if(closed||!connected||target==null||caseOp==null){
-   emit("No hay estuche RCSP conectado. No se inició la transferencia.");return;
+  if(closed||!connected||!vendorProtocolVerified||target==null||caseOp==null){
+   emit("ZN02 sin protocolo de pantalla verificado. No se inició la transferencia.");return;
   }
   if(uploadingResource){emit("Ya hay una transferencia de animación en curso.");return;}
   if(sourceGif==null||!sourceGif.isFile()||!sourceGif.canRead()){
-   emit("No se encuentra el GIF de GORO para transferir.");return;
+   emit("No se encuentra la animación GORO para el ZN02.");return;
   }
   ChargingCaseInfo info=caseOp.getChargingCaseInfo(target);
   if(info==null||info.getScreenWidth()<=0||info.getScreenHeight()<=0){
-   emit("La resolución real del estuche todavía no está disponible. No se envió ningún archivo.");return;
+   emit("La resolución real del visor ZN02 todavía no está disponible. No se envió ningún archivo.");return;
   }
   try(java.io.FileInputStream input=new java.io.FileInputStream(sourceGif)){
    byte[] header=new byte[10];
@@ -198,7 +241,7 @@ public final class JieliChargingCaseBridge {
    }
   }catch(Exception error){emit("No se pudo verificar la resolución del GIF: "+error.getClass().getSimpleName());return;}
   uploadingResource=true;
-  emit("Preparando animación GORO para pantalla "+info.getScreenWidth()+"×"+info.getScreenHeight()+"…");
+  emit("Preparando animación GORO para el visor ZN02 "+info.getScreenWidth()+"×"+info.getScreenHeight()+"…");
   caseOp.readSDKMessage(target,new OnRcspActionCallback<SDKMessage>(){
    @Override public void onSuccess(BluetoothDevice device,SDKMessage sdk){
     if(!isTarget(device)){finishUpload();return;}
@@ -229,25 +272,25 @@ public final class JieliChargingCaseBridge {
    List<SDCardBean> storages=caseOp.getOnlineStorages(target);
    SDCardBean flash=null;
    if(storages!=null)for(SDCardBean storage:storages)if(storage.isFlash()&&storage.isOnline()){flash=storage;break;}
-   if(flash==null){emit("El estuche no informa memoria flash disponible. No se transfirió el GIF.");output.delete();finishUpload();return;}
+   if(flash==null){emit("El ZN02 no informa memoria flash disponible. No se transfirió la animación.");output.delete();finishUpload();return;}
    final SDCardBean selectedFlash=flash;
    FileOpImpl fileOp=caseOp.getFileOp();
-   emit("Animación convertida. Transfiriendo "+bytes.length+" bytes al estuche…");
+   emit("Animación GORO convertida. Transfiriendo "+bytes.length+" bytes al ZN02…");
    fileOp.createBigFile(new CreateFileParam(target,output,selectedFlash),new OnTaskStateListener(){
-    @Override public void onStart(){emit("Transferencia de animación GORO iniciada.");}
-    @Override public void onProgress(int progress){emit("Transferencia GORO · "+progress+"%.");}
+    @Override public void onStart(){emit("Transferencia de animación GORO al ZN02 iniciada.");}
+    @Override public void onProgress(int progress){emit("ZN02 · transferencia GORO "+progress+"%.");}
     @Override public void onStop(){
      String devicePath="/"+output.getName();
      caseOp.setCurrentScreenSaver(target,selectedFlash.getDevHandler(),devicePath,new OnRcspActionCallback<Boolean>(){
       @Override public void onSuccess(BluetoothDevice device,Boolean ok){
        output.delete();
        if(isTarget(device)&&Boolean.TRUE.equals(ok)){
-        emit("Pantalla del ZNP actualizada con la animación GORO. Verificando recurso activo…");
+        emit("Visor del ZN02 actualizado con la animación GORO. Verificando recurso activo…");
         caseOp.getCurrentScreenSaver(device,new OnRcspActionCallback<com.jieli.bluetooth.bean.settings.v0.ResourceInfo>(){
-         @Override public void onSuccess(BluetoothDevice d,com.jieli.bluetooth.bean.settings.v0.ResourceInfo resource){if(isTarget(d))emit("Animación GORO confirmada como protector activo: "+resource);}
-         @Override public void onError(BluetoothDevice d,BaseError error){if(isTarget(d))emit("El estuche aceptó el cambio, pero no se pudo leer el recurso activo: "+error.getMessage());}
+         @Override public void onSuccess(BluetoothDevice d,com.jieli.bluetooth.bean.settings.v0.ResourceInfo resource){if(isTarget(d))emit("Animación GORO confirmada en el visor ZN02: "+resource);}
+         @Override public void onError(BluetoothDevice d,BaseError error){if(isTarget(d))emit("El ZN02 aceptó el cambio, pero no se pudo leer el recurso activo: "+error.getMessage());}
         });
-       }else emit("El estuche no confirmó la activación del recurso GORO.");
+       }else emit("El ZN02 no confirmó la activación de la animación GORO.");
        finishUpload();
       }
       @Override public void onError(BluetoothDevice device,BaseError error){
@@ -267,10 +310,12 @@ public final class JieliChargingCaseBridge {
  private void emit(String value){if(listener!=null&&!closed)mainHandler.post(()->{if(listener!=null&&!closed)listener.onStatus(value);});}
  public synchronized void close(){
   if(closed)return;closed=true;
-  if(scanning)controller.stopScan();
-  controller.removeBTRcspEventCallback(eventCallback);
+  if(controller!=null){
+   if(scanning)controller.stopScan();
+   controller.removeBTRcspEventCallback(eventCallback);
+  }
   if(caseOp!=null)caseOp.removeOnChargingCaseListener(caseListener);
   resourceExecutor.shutdownNow();
-  scanning=false;connected=false;target=null;caseOp=null;
+  scanning=false;connected=false;vendorProtocolVerified=false;target=null;caseOp=null;
  }
 }
