@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.content.IntentSender;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Base64;
 import com.google.android.gms.auth.api.identity.AuthorizationRequest;
 import com.google.android.gms.auth.api.identity.AuthorizationResult;
 import com.google.android.gms.auth.api.identity.Identity;
@@ -41,6 +42,7 @@ public final class GoroGmailGateway {
  private boolean closed=false;
  private String accessToken;
  private String accountEmail;
+ private final List<String> latestInboxIds=new ArrayList<>();
  private Callback pending;
  public GoroGmailGateway(Activity activity){this.activity=activity;}
  public void readInbox(Callback callback){
@@ -91,12 +93,17 @@ public final class GoroGmailGateway {
  private String fetchInbox(String token)throws Exception{
   JSONObject response=getJson("https://gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=INBOX&maxResults=10",token);
   JSONArray messages=response.optJSONArray("messages");
-  if(messages==null||messages.length()==0)return "Gmail: no hay mensajes en la bandeja de entrada.";
+  if(messages==null||messages.length()==0){
+   synchronized(latestInboxIds){latestInboxIds.clear();}
+   return "Gmail: no hay mensajes en la bandeja de entrada.";
+  }
+  List<String> ids=new ArrayList<>();
   StringBuilder output=new StringBuilder("Gmail · últimos mensajes");
   if(accountEmail!=null&&!accountEmail.isEmpty())output.append(" · ").append(accountEmail);
   for(int i=0;i<messages.length();i++){
    String id=messages.getJSONObject(i).optString("id","");
    if(id.isEmpty())continue;
+   ids.add(id);
    JSONObject item=getJson("https://gmail.googleapis.com/gmail/v1/users/me/messages/"
      +URLEncoder.encode(id,"UTF-8")+"?format=metadata&metadataHeaders=From&metadataHeaders=Subject",token);
    JSONObject payload=item.optJSONObject("payload");
@@ -112,7 +119,59 @@ public final class GoroGmailGateway {
    output.append("\n").append(i+1).append(". ").append(limit(subject,120))
      .append("\n   ").append(limit(from,120));
   }
+  synchronized(latestInboxIds){latestInboxIds.clear();latestInboxIds.addAll(ids);}
   return output.toString();
+ }
+ /** Reads one previously listed email. Explicit user request is required. */
+ public void readMessage(int number,Callback callback){
+  if(callback==null)throw new IllegalArgumentException("callback");
+  if(closed){callback.complete(null,"Gmail cerrado");return;}
+  if(accessToken==null){callback.complete(null,"Primero autorizá Gmail y consultá la bandeja");return;}
+  String id;
+  synchronized(latestInboxIds){
+   if(number<1||number>latestInboxIds.size()){callback.complete(null,"Ese número de correo no está en la lista consultada");return;}
+   id=latestInboxIds.get(number-1);
+  }
+  String token=accessToken;
+  io.execute(()->{
+   String text=null,error=null;
+   try{
+    JSONObject item=getJson("https://gmail.googleapis.com/gmail/v1/users/me/messages/"
+      +URLEncoder.encode(id,"UTF-8")+"?format=full",token);
+    JSONObject payload=item.optJSONObject("payload");
+    JSONArray headers=payload==null?null:payload.optJSONArray("headers");
+    String subject="Sin asunto",from="Remitente no disponible";
+    if(headers!=null)for(int n=0;n<headers.length();n++){
+     JSONObject header=headers.optJSONObject(n);
+     if(header==null)continue;
+     String name=header.optString("name","");
+     if(name.equalsIgnoreCase("Subject"))subject=header.optString("value",subject);
+     if(name.equalsIgnoreCase("From"))from=header.optString("value",from);
+    }
+    String body=extractPlainText(payload,0);
+    if(body==null||body.isEmpty())body=item.optString("snippet","Mensaje sin vista previa de texto");
+    text="Correo "+number+" · "+limit(subject,150)+"\nDe: "+limit(from,150)
+      +"\n\n"+limit(body,3200);
+   }catch(Exception e){error=e.getMessage()==null?"No se pudo leer el correo":e.getMessage();}
+   final String message=text,problem=error;
+   main.post(()->{if(!closed)callback.complete(message,problem);});
+  });
+ }
+ private static String extractPlainText(JSONObject payload,int depth){
+  if(payload==null||depth>8)return null;
+  String type=payload.optString("mimeType","");
+  JSONObject body=payload.optJSONObject("body");
+  String encoded=body==null?null:body.optString("data",null);
+  if(type.toLowerCase(java.util.Locale.ROOT).startsWith("text/plain")&&encoded!=null&&!encoded.isEmpty()){
+   try{return new String(Base64.decode(encoded,Base64.URL_SAFE|Base64.NO_WRAP),StandardCharsets.UTF_8);}
+   catch(IllegalArgumentException ignored){}
+  }
+  JSONArray parts=payload.optJSONArray("parts");
+  if(parts!=null)for(int n=0;n<parts.length();n++){
+   String found=extractPlainText(parts.optJSONObject(n),depth+1);
+   if(found!=null&&!found.isEmpty())return found;
+  }
+  return null;
  }
  private static JSONObject getJson(String url,String token)throws Exception{
   HttpURLConnection connection=(HttpURLConnection)new URL(url).openConnection();
