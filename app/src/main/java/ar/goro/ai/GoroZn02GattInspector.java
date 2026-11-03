@@ -36,7 +36,7 @@ public final class GoroZn02GattInspector {
  private boolean scanning;
  private boolean closed;
  private final Runnable timeout=()->{
-  if(scanning){stopScan();emit("ZN02 no observado en 12 segundos. Sin cambios en el dispositivo.");}
+  if(scanning){stopScan();emit("ZNP Z02 no observado en 12 segundos. Sin cambios en el dispositivo.");}
  };
  private final ScanCallback scanListener=new ScanCallback(){
   @Override public void onScanResult(int callbackType,ScanResult result){
@@ -47,9 +47,9 @@ public final class GoroZn02GattInspector {
     try{name=device.getName();}catch(SecurityException ignored){}
    }
    // An advertised name is a candidate only, never authenticated model identity.
-   if(ZnpDeviceProfile.detect(name).model!=ZnpDeviceProfile.Model.N02)return;
+   if(!ZnpDeviceProfile.detect(name).isCandidate())return;
    stopScan();
-   emit("Se observó un anuncio N02. Identificación preliminar; leyendo servicios BLE sin escribir.");
+   emit("Se observó un anuncio ZNP Z02/N02. Candidato preliminar; leyendo servicios BLE sin escribir ni asumir protocolo.");
    if(device==null)return;
    try{
     gatt=device.connectGatt(context,false,gattListener,BluetoothDevice.TRANSPORT_LE);
@@ -65,14 +65,14 @@ public final class GoroZn02GattInspector {
   @Override public void onConnectionStateChange(BluetoothGatt remote,int status,int newState){
    if(closed){closeGatt(remote);return;}
    if(status!=BluetoothGatt.GATT_SUCCESS){
-    emit("El candidato N02 no completó GATT. Estado "+status+".");
+    emit("El candidato ZNP no completó GATT. Estado "+status+".");
     closeGatt(remote);
     return;
    }
    if(newState==BluetoothProfile.STATE_CONNECTED){
     emit("GATT conectado. Solicitando inventario de servicios.");
     try{
-     if(!remote.discoverServices()){emit("El N02 no aceptó el inventario de servicios.");closeGatt(remote);}
+     if(!remote.discoverServices()){emit("El candidato ZNP no aceptó el inventario de servicios.");closeGatt(remote);}
     }catch(SecurityException denied){emit("Android rechazó descubrir servicios BLE.");closeGatt(remote);}
    }else if(newState==BluetoothProfile.STATE_DISCONNECTED){
     emit("GATT desconectado. No se modificó el dispositivo.");
@@ -130,7 +130,7 @@ public final class GoroZn02GattInspector {
    if(scanning){emit("Ya se está leyendo el entorno BLE.");return;}
    scanning=true;scanner.startScan(scanListener);
    main.postDelayed(timeout,12000);
-   emit("Buscando N02 por Bluetooth LE, solo lectura y sin órdenes al firmware.");
+   emit("Buscando ZNP Z02 por Bluetooth LE, solo lectura y sin órdenes al firmware.");
   }catch(SecurityException denied){scanning=false;emit("Android no autorizó el escaneo BLE.");}
    catch(RuntimeException error){scanning=false;emit("No se pudo iniciar el inventario BLE.");}
  }
