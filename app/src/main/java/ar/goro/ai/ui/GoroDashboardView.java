@@ -76,6 +76,8 @@ public final class GoroDashboardView extends LinearLayout {
  private final LinearLayout navigation;
  private final LinearLayout settingsPanel;
  private final LinearLayout devicePanel;
+ private LinearLayout heroPane,quickPane,controlsPane;
+ private ScrollView mainScrollContainer;
  private GoroTheme palette;
  private String pendingAvatarStatus;
 
@@ -122,18 +124,18 @@ public final class GoroDashboardView extends LinearLayout {
 
   LinearLayout mainColumn=new LinearLayout(activity);mainColumn.setOrientation(VERTICAL);
   ScrollView mainScroll=new ScrollView(activity);mainScroll.setFillViewport(true);
+  mainScrollContainer=mainScroll;
   mainScroll.addView(mainColumn);
   LinearLayout.LayoutParams central=new LinearLayout.LayoutParams(-1,0,1f);
   columns.addView(mainScroll,central);
 
   LinearLayout hero=new LinearLayout(activity);hero.setOrientation(VERTICAL);
+  heroPane=hero;
   hero.setPadding(dp(12),dp(10),dp(12),dp(12));
   hero.setBackground(gradient(palette.robotBackdrop,palette.surfaceElevated,dp(24)));
   LinearLayout.LayoutParams heroParams=new LinearLayout.LayoutParams(-1,tablet?dp(430):dp(330));
   heroParams.setMargins(dp(8),dp(4),dp(8),dp(8));
   mainColumn.addView(hero,heroParams);
-  TextView title=text("GORO  ·  ASISTENTE PERSONAL",tablet?18:16,true,palette.text);
-  hero.addView(title,new LinearLayout.LayoutParams(-1,dp(36)));
   avatarStage=new FrameLayout(activity);
   avatar=enableAvatar?new GoroAvatarView(activity,this::onAvatarStatus):null;
   if(avatar!=null)avatarStage.addView(avatar,new FrameLayout.LayoutParams(-1,-1));
@@ -150,7 +152,6 @@ public final class GoroDashboardView extends LinearLayout {
   avatarStage.addView(speechBubble,speechParams);
   hero.addView(avatarStage,new LinearLayout.LayoutParams(-1,0,1f));
   sectionValue=text("Inicio · Panel personal",15,true,palette.text);
-  hero.addView(sectionValue,new LinearLayout.LayoutParams(-1,dp(30)));
 
   state=text("GORO · Servicios locales",15,true,palette.accentSecondary);
   if(pendingAvatarStatus!=null)state.setText(pendingAvatarStatus);
@@ -179,9 +180,11 @@ public final class GoroDashboardView extends LinearLayout {
   mainColumn.addView(command,cmdParams);
 
   LinearLayout quick=new LinearLayout(activity);quick.setOrientation(HORIZONTAL);quick.setGravity(Gravity.CENTER);
+  quickPane=quick;
   Button agendaQuick=button("Agenda",()->actions.onCommand("agenda hoy"),false);
   Button gmailQuick=button("Gmail",()->actions.onReadGmail(),false);
   Button devicesQuick=button("Dispositivos",()->select(GoroSection.DEVICES),false);
+  devicesQuick.setTextSize(10f);devicesQuick.setSingleLine(true);
   Button projectsQuick=button("Proyectos",()->select(GoroSection.EXPLORE),false);
   for(Button item:new Button[]{agendaQuick,gmailQuick,devicesQuick,projectsQuick}){
    LinearLayout.LayoutParams qp=new LinearLayout.LayoutParams(0,dp(42),1f);
@@ -191,6 +194,7 @@ public final class GoroDashboardView extends LinearLayout {
   quickParams.setMargins(dp(8),0,dp(8),dp(4));mainColumn.addView(quick,quickParams);
 
   LinearLayout controls=new LinearLayout(activity);
+  controlsPane=controls;
   controls.setGravity(Gravity.CENTER);
   talk=button("Micrófono · Conversación continua",()->actions.onVoiceSession(),true);
   controls.addView(talk,new LinearLayout.LayoutParams(0,dp(52),1f));
@@ -253,6 +257,12 @@ public final class GoroDashboardView extends LinearLayout {
   }
   settingsPanel.setVisibility(section==GoroSection.SETTINGS?VISIBLE:GONE);
   devicePanel.setVisibility(section==GoroSection.DEVICES?VISIBLE:GONE);
+  boolean utilityPage=section==GoroSection.SETTINGS||section==GoroSection.DEVICES;
+  heroPane.setVisibility(utilityPage?GONE:VISIBLE);
+  quickPane.setVisibility(utilityPage?GONE:VISIBLE);
+  command.setVisibility(utilityPage?GONE:VISIBLE);
+  controlsPane.setVisibility(utilityPage?GONE:VISIBLE);
+  if(mainScrollContainer!=null)mainScrollContainer.post(()->mainScrollContainer.scrollTo(0,0));
   switch(section){
    case HOME: output.setText("Conversá con GORO. Usá los accesos rápidos para Agenda, Gmail, Proyectos y Dispositivos.");break;
    case EXPLORE: output.setText("Explorar proyectos. Pedime que retomemos cualquiera de tus proyectos.");break;
@@ -268,9 +278,13 @@ public final class GoroDashboardView extends LinearLayout {
  public void showVoiceStatus(String value){
   String detail=value==null?"Voz no disponible":value;
   voiceValue.setText(detail);
-  state.setText(detail);
+  state.setText(detail.contains("falta API key")?"Configurá NVIDIA en Ajustes para conversar":
+      detail.contains("confirmó")?"Voz Diego disponible":"Voz pendiente de conexión · revisá Ajustes");
  }
- private void onAvatarStatus(String value){pendingAvatarStatus=value;if(state!=null)state.setText(value);}
+ private void onAvatarStatus(String value){
+  pendingAvatarStatus=value;
+  if(state!=null&&value!=null&&value.startsWith("Error"))state.setText("Robot 3D no disponible");
+ }
  public void showAvatarMood(GoroAvatarView.Mood mood){if(avatar!=null)avatar.setMood(mood);}
  public void avatarSpeak(String spoken,byte[] audio){if(avatar!=null)avatar.startSpeaking(spoken,audio);}
  public void showAssistantMessage(String value){
