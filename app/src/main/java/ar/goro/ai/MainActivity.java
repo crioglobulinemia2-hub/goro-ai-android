@@ -7,10 +7,7 @@ import android.location.Location;
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.os.Build;
-import android.speech.tts.UtteranceProgressListener;
 import ar.goro.ai.voice.ContinuousVoiceSession;
-import ar.goro.ai.voice.GoroVoiceSelector;
-import android.speech.tts.Voice;
 import ar.goro.ai.voice.ConversationState;
 import ar.goro.ai.memory.MemoryStore;
 import ar.goro.ai.memory.MemoryRecord;
@@ -42,7 +39,6 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import android.provider.AlarmClock;
 import android.speech.RecognizerIntent;
-import android.speech.tts.TextToSpeech;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.view.Gravity;
@@ -58,10 +54,6 @@ public class MainActivity extends Activity {
   private GoroZn02Controller zn02Controller;
   private static final int ZN02_BLE_PERMISSION_REQUEST=65;
   private EditText command;
-  private TextToSpeech tts;
-  private boolean voiceReady=false;
-  private boolean maleVoiceReady=false;
-  private String selectedGoroVoice="";
   private SharedPreferences memory;
   private MemoryStore memoryStore;
   private ContinuousVoiceSession voiceSession;
@@ -111,22 +103,7 @@ public class MainActivity extends Activity {
       public void onFinalText(String text){if(voiceSession!=null){voiceSession.pauseForResponse();} if(command!=null)command.setText(text);runCommand(text);}
       public void onPartialText(String text){if(command!=null)command.setText(text);}
       public void onError(String message){if(output!=null)output.setText(message);}
-      public void onUserSpeechStarted(){if(tts!=null)tts.stop();if(goroAudioPlayer!=null)goroAudioPlayer.stop();if(dashboard!=null)dashboard.showAvatarMood(GoroAvatarView.Mood.LISTENING);}
-    });
-    tts=new TextToSpeech(this, status -> {
-      voiceReady=status==TextToSpeech.SUCCESS;
-      maleVoiceReady=false;selectedGoroVoice="";
-      if(voiceReady) {
-        tts.setLanguage(new Locale("es","AR"));
-        Voice male=GoroVoiceSelector.select(tts.getVoices());
-        if(male!=null){tts.setVoice(male);tts.setSpeechRate(0.96f);tts.setPitch(0.92f);maleVoiceReady=true;selectedGoroVoice=male.getName();}
-        runOnUiThread(()->{if(dashboard!=null)dashboard.showVoiceStatus(speechGateway!=null?"NVIDIA Magpie · voz Diego · pendiente de prueba":"NVIDIA Magpie: falta API key · salida de voz deshabilitada");});
-        tts.setOnUtteranceProgressListener(new UtteranceProgressListener(){
-          public void onStart(String id){runOnUiThread(()->{if(state!=null)state.setText("GORO · Hablando");});}
-          public void onDone(String id){runOnUiThread(()->{if(state!=null)state.setText(voiceActive?"GORO · Escuchando":"GORO · Listo");if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();});}
-          public void onError(String id){runOnUiThread(()->{if(state!=null)state.setText("GORO · Voz no disponible");if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();});}
-        });
-      }
+      public void onUserSpeechStarted(){if(goroAudioPlayer!=null)goroAudioPlayer.stop();if(dashboard!=null)dashboard.showAvatarMood(GoroAvatarView.Mood.LISTENING);}
     });
     dashboard=new ar.goro.ai.ui.GoroDashboardView(this,new ar.goro.ai.ui.GoroDashboardView.Actions(){
       public void onCommand(String text){runCommand(text);}
@@ -510,7 +487,6 @@ public class MainActivity extends Activity {
     if(gmailGateway!=null)gmailGateway.close();
     if(weatherService!=null)weatherService.close();
     if(voiceSession!=null)voiceSession.destroy();
-    if(tts!=null){tts.stop();tts.shutdown();}
     super.onDestroy();
   }
 }
