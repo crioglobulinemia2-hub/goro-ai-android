@@ -2,6 +2,8 @@ package ar.goro.ai;
 
 import android.Manifest;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothManager;
+import android.bluetooth.BluetoothAdapter;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.os.Build;
@@ -21,6 +23,7 @@ import java.io.FileOutputStream;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import com.jieli.bluetooth.bean.BleScanMessage;
+import com.jieli.bluetooth.bean.BluetoothOption;
 import com.jieli.bluetooth.bean.base.BaseError;
 import com.jieli.bluetooth.bean.charging_case.ChargingCaseInfo;
 import com.jieli.bluetooth.bean.settings.v0.ScreenInfo;
@@ -45,7 +48,7 @@ public final class GoroZn02Controller {
  private final Context context;
  private final ExecutorService resourceExecutor=Executors.newSingleThreadExecutor();
  private boolean uploadingResource;
- private final RCSPController controller;
+ private RCSPController controller;
  private final Listener listener;
  private final Handler mainHandler=new Handler(Looper.getMainLooper());
  private final BTRcspEventCallback eventCallback;
@@ -74,7 +77,7 @@ public final class GoroZn02Controller {
  public GoroZn02Controller(Context context,Listener listener){
   this.context=context.getApplicationContext();
   this.listener=listener;
-  controller=RCSPController.getInstance();
+  controller=null;
   eventCallback=new BTRcspEventCallback(){
    @Override public void onDiscoveryStatus(boolean ble,boolean start){
     if(!ble)return;
@@ -161,7 +164,23 @@ public final class GoroZn02Controller {
  public synchronized void startScan(){
   if(closed){emit("Controlador ZN02 cerrado.");return;}
   if(neededPermissions().length>0){emit("Faltan permisos Bluetooth para conectar el ZN02.");return;}
-  if(!RCSPController.isInit()){emit("El SDK JieLi no está inicializado.");return;}
+  try{
+   BluetoothManager manager=(BluetoothManager)context.getSystemService(Context.BLUETOOTH_SERVICE);
+   BluetoothAdapter adapter=manager==null?null:manager.getAdapter();
+   if(adapter==null){emit("El dispositivo Android no tiene Bluetooth; GORO sigue funcionando sin ZN02.");return;}
+   if(!adapter.isEnabled()){emit("Bluetooth está apagado. Activá Bluetooth para conectar el ZN02.");return;}
+   if(!RCSPController.isInit()){
+    BluetoothOption option=BluetoothOption.createDefaultOption()
+      .setPriority(BluetoothOption.PREFER_BLE)
+      .setUseMultiDevice(false)
+      .setMandatoryUseBLE(true)
+      .setBleScanStrategy(BluetoothConstant.NONE_FILTER);
+    RCSPController.init(context,option);
+   }
+   controller=RCSPController.getInstance();
+   if(controller==null||!RCSPController.isInit()){emit("No se pudo inicializar el control Bluetooth del ZN02.");return;}
+  }catch(SecurityException error){emit("Android no autorizó el acceso Bluetooth del ZN02.");return;}
+   catch(RuntimeException error){emit("El SDK del ZN02 no pudo inicializarse. No se envió ningún comando.");return;}
   if(scanning){emit("La búsqueda ZNP ya está activa.");return;}
   target=null;connected=false;vendorProtocolVerified=false;
   controller.addBTRcspEventCallback(eventCallback);
@@ -291,8 +310,10 @@ public final class GoroZn02Controller {
  private void emit(String value){if(listener!=null&&!closed)mainHandler.post(()->{if(listener!=null&&!closed)listener.onStatus(value);});}
  public synchronized void close(){
   if(closed)return;closed=true;
-  if(scanning)controller.stopScan();
-  controller.removeBTRcspEventCallback(eventCallback);
+  if(controller!=null){
+   if(scanning)controller.stopScan();
+   controller.removeBTRcspEventCallback(eventCallback);
+  }
   if(caseOp!=null)caseOp.removeOnChargingCaseListener(caseListener);
   resourceExecutor.shutdownNow();
   scanning=false;connected=false;vendorProtocolVerified=false;target=null;caseOp=null;
