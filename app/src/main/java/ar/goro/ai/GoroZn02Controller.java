@@ -24,6 +24,15 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import com.jieli.bluetooth.bean.BleScanMessage;
 import com.jieli.bluetooth.bean.BluetoothOption;
+import com.jieli.bluetooth.bean.record.RecordParam;
+import com.jieli.bluetooth.bean.record.RecordState;
+import com.jieli.bluetooth.constant.Constants;
+import com.jieli.bluetooth.impl.rcsp.record.RecordOpImpl;
+import com.jieli.bluetooth.interfaces.rcsp.record.OnRecordStateCallback;
+import com.jieli.jl_audio_decode.opus.OpusManager;
+import com.jieli.jl_audio_decode.opus.model.OpusOption;
+import com.jieli.jl_audio_decode.callback.OnDecodeStreamCallback;
+import java.io.ByteArrayOutputStream;
 import com.jieli.bluetooth.bean.base.BaseError;
 import com.jieli.bluetooth.bean.charging_case.ChargingCaseInfo;
 import com.jieli.bluetooth.bean.settings.v0.ScreenInfo;
@@ -44,7 +53,7 @@ import java.util.List;
  * A device must identify itself as N02 before the controller will connect.
  */
 public final class GoroZn02Controller {
- public interface Listener {void onStatus(String status);}
+ public interface Listener { void onStatus(String status); default void onMicrophonePcm(byte[] pcm16Mono){} default void onAudioTarget(BluetoothDevice audioTarget){} }
  private final Context context;
  private final ExecutorService resourceExecutor=Executors.newSingleThreadExecutor();
  private boolean uploadingResource;
@@ -58,6 +67,16 @@ public final class GoroZn02Controller {
  private boolean connected;
  private volatile boolean vendorProtocolVerified=false;
  private boolean closed;
+ private final BluetoothBondSession bondSession;
+ private long connectionEpoch;
+ private long voiceEpoch;
+ private RecordOpImpl recorder;
+ private OpusManager decoder;
+ private OnRecordStateCallback recordCallback;
+ private ByteArrayOutputStream microphonePcm=new ByteArrayOutputStream();
+ private boolean recording;
+ private boolean draining;
+ private Runnable authPoll,authTimeout,voiceTimeout,drainTimeout,drainFinishTimeout;
  private final OnChargingCaseListener caseListener=new OnChargingCaseListener(){
   @Override public void onInit(BluetoothDevice device,int state){
    if(!isTarget(device))return;
@@ -77,6 +96,7 @@ public final class GoroZn02Controller {
  public GoroZn02Controller(Context context,Listener listener){
   this.context=context.getApplicationContext();
   this.listener=listener;
+  this.bondSession=new BluetoothBondSession(context);
   controller=null;
   eventCallback=new BTRcspEventCallback(){
    @Override public void onDiscoveryStatus(boolean ble,boolean start){
@@ -89,16 +109,12 @@ public final class GoroZn02Controller {
     String name=null;
     try{name=device.getName();}catch(SecurityException ignored){}
     ZnpDeviceProfile profile=ZnpDeviceProfile.detect(name);
-    if(profile.model!=ZnpDeviceProfile.Model.N02_CANDIDATE)return;
-    if(message!=null&&message.getDeviceType()!=JL_DeviceType.JL_DEVICE_TYPE_CHARGING_BIN){
-     emit("ZN02 identificado por nombre, pero el perfil RCSP no coincide con un estuche. No se conectó.");
-     return;
-    }
+    if(!profile.isCandidate())return;
     target=device;
     controller.stopScan();
     scanning=false;
     emit("El anuncio Bluetooth coincide con ZN02. Verificando el protocolo antes de habilitar controles…");
-    try{controller.connectDevice(device,BluetoothConstant.PROTOCOL_TYPE_BLE);}
+    try{controller.connectDevice(device);
     catch(RuntimeException error){emit("El SDK JieLi no pudo iniciar la conexión BLE RCSP: "+error.getClass().getSimpleName());}
    }
    @Override public void onConnection(BluetoothDevice device,int status){
@@ -171,10 +187,12 @@ public final class GoroZn02Controller {
    if(!adapter.isEnabled()){emit("Bluetooth está apagado. Activá Bluetooth para conectar el ZN02.");return;}
    if(!RCSPController.isInit()){
     BluetoothOption option=BluetoothOption.createDefaultOption()
-      .setPriority(BluetoothOption.PREFER_BLE)
-      .setUseMultiDevice(false)
-      .setMandatoryUseBLE(true)
-      .setBleScanStrategy(BluetoothConstant.NONE_FILTER);
+      .setUseMultiDevice(true)
+      .setPriority(0)
+      .setMandatoryUseBLE(false)
+      .setMtu(509)
+      .setUseDeviceAuth(true)
+      .setBleScanMode(2);
     RCSPController.init(context,option);
    }
    controller=RCSPController.getInstance();
