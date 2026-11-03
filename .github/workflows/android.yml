@@ -71,6 +71,11 @@ jobs:
           doc=json.loads(b[20:20+l])
           assert len(doc['skins'])>=1 and len(doc['animations'])>=6
           assert len(doc['meshes'][1]['extras']['targetNames'])==10
+          for animation in doc['animations']:
+            for sampler in animation['samplers']:
+              accessor=doc['accessors'][sampler['input']]
+              assert accessor['type']=='SCALAR' and 'min' in accessor and 'max' in accessor
+              assert accessor['min'][0]<=0 and accessor['max'][0]>=1.8
           for mesh in doc['meshes']:
             for primitive in mesh['primitives']:
               attrs=primitive['attributes']
