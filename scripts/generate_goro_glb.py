@@ -118,6 +118,39 @@ ellipsoid((0,1.67,0),(.30,.105,.205),"chest","matte_white")
 ellipsoid((0,.95,0),(.30,.23,.22),"pelvis","pearl_white")
 ellipsoid((0,1.72,.01),(.115,.155,.11),"neck","titanium")
 ellipsoid((0,1.15,.23),(.20,.12,.034),"spine","bronze")
+# Layered chest-edge light pipes, articulated armor seams and machined fasteners.
+for side in (-1,1):
+ tube([(side*.12,1.81,.182),(side*.29,1.72,.204),
+       (side*.34,1.52,.199),(side*.31,1.35,.203)],.007,"chest","optical_blue",edges=12)
+ tube([(side*.35,1.62,.126),(side*.38,1.46,.125),
+       (side*.34,1.30,.119)],.013,"chest","titanium",edges=12)
+ ellipsoid((side*.255,1.63,.236),(.027,.022,.013),"chest","graphite",16,10)
+ ellipsoid((side*.255,1.63,.247),(.010,.010,.005),"chest","optical_blue",14,9)
+ tube([(side*.27,1.26,.192),(side*.19,1.18,.229),
+       (side*.10,1.17,.258)],.012,"spine","titanium",edges=12)
+for radius,material,line in ((.20,"graphite",.012),(.174,"optical_blue",.010)):
+ ring=[(radius*math.cos(2*math.pi*i/40),
+        1.48+radius*.81*math.sin(2*math.pi*i/40),.306+line)
+       for i in range(41)]
+ tube(ring,.0065,"chest",material,edges=10)
+for x in (-.27,-.21,-.15,.15,.21,.27):
+ tube([(x,1.04,.212),(x,1.00,.229)],.008,"pelvis","graphite",edges=10)
+# Back plate, spine articulation and ventilated black graphite details.
+ellipsoid((0,1.38,-.252),(.265,.32,.045),"chest","titanium",30,18)
+for y in (1.20,1.28,1.36,1.44,1.52):
+ tube([(-.16,y,-.292),(.16,y,-.292)],.008,"chest","graphite",edges=10)
+# Embossed vector GORO logotype on the front armor, actual 3D geometry.
+word="GORO"
+stroke={
+ "G":[[(.43,.50),(.25,.53),(.09,.46),(.08,.25),(.26,.09),(.49,.12),(.49,.30),(.35,.30)]],
+ "O":[[(.11,.28),(.17,.47),(.48,.49),(.56,.27),(.47,.08),(.17,.07),(.11,.28)]],
+ "R":[[(.10,.07),(.10,.50),(.45,.50),(.54,.36),(.41,.27),(.11,.27)],
+      [(.34,.27),(.57,.07)]]
+}
+for j,letter in enumerate(word):
+ for line in stroke[letter]:
+  pts=[(-.135+j*.086+x*.061,1.25+y*.056,.286) for x,y in line]
+  tube(pts,.0045,"spine","optical_blue",edges=8)
 for side in ("left","right"):
  s=-1 if side=="left" else 1
  shoulder=G[f"{side}_shoulder"];elbow=G[f"{side}_elbow"];wrist=G[f"{side}_wrist"];hand=G[f"{side}_hand"]
@@ -126,6 +159,21 @@ for side in ("left","right"):
  ellipsoid(elbow,(.112,.114,.112),f"{side}_elbow","graphite")
  link(f"{side}_elbow",f"{side}_wrist",.112,f"{side}_elbow","titanium")
  ellipsoid(wrist,(.10,.09,.095),f"{side}_wrist","bronze")
+ ellipsoid((elbow[0],elbow[1],elbow[2]+.09),(.071,.071,.027),f"{side}_elbow","titanium",22,13)
+ ellipsoid((elbow[0],elbow[1],elbow[2]+.111),(.034,.035,.011),f"{side}_elbow","optical_blue",20,12)
+ # Recessed servo cooling channels and forearm optical trim.
+ tube([(shoulder[0]+s*.035,shoulder[1]-.14,shoulder[2]+.116),
+       (elbow[0]-s*.032,elbow[1]+.06,elbow[2]+.098)],
+       .011,f"{side}_shoulder","titanium",edges=11)
+ tube([(elbow[0]-s*.035,elbow[1]-.03,elbow[2]+.11),
+       (wrist[0]-s*.045,wrist[1]+.09,wrist[2]+.10)],
+       .011,f"{side}_elbow","optical_blue",edges=11)
+ for k in (0,1,2):
+  t=(k+1)/4
+  px=elbow[0]*(1-t)+wrist[0]*t
+  py=elbow[1]*(1-t)+wrist[1]*t
+  ellipsoid((px,py,elbow[2]+.119),(.025,.013,.009),
+            f"{side}_elbow","graphite",16,9)
  ellipsoid((hand[0],hand[1]-.06,hand[2]+.02),(.112,.105,.075),f"{side}_hand","pearl_white")
  for i in range(5):
   p=G[f"{side}_finger_{i}"]
@@ -137,6 +185,20 @@ for side in ("left","right"):
  link(f"{side}_knee",f"{side}_ankle",.145,f"{side}_knee","pearl_white")
  ellipsoid((ankle[0],ankle[1]+.035,ankle[2]),(.145,.14,.16),f"{side}_ankle","titanium")
  ellipsoid((ankle[0],.075,ankle[2]+.085),(.19,.075,.275),f"{side}_ankle","pearl_white")
+ # Fiber channel, rotating joint details and graphite sole.
+ ellipsoid((knee[0],knee[1],knee[2]+.132),(.072,.055,.026),
+           f"{side}_knee","titanium",20,12)
+ ellipsoid((knee[0],knee[1],knee[2]+.155),(.039,.034,.016),
+           f"{side}_knee","optical_blue",20,12)
+ tube([(knee[0]+s*.082,knee[1]-.13,knee[2]+.113),
+       (ankle[0]+s*.072,ankle[1]+.12,ankle[2]+.122)],
+       .0085,f"{side}_knee","optical_blue",edges=10)
+ ellipsoid((ankle[0],.026,ankle[2]+.087),(.197,.035,.280),
+           f"{side}_ankle","graphite",26,12)
+ for t in (-1,0,1):
+  tube([(ankle[0]+t*.052,.139,ankle[2]+.265),
+        (ankle[0]+t*.052,.145,ankle[2]+.308)],
+       .006,f"{side}_ankle","titanium",edges=9)
 
 # Helmet, face plate, antenna, side headphones and expressive optical face.
 head=G["head"];hy=head[1]
@@ -144,6 +206,15 @@ ellipsoid((0,hy,.02),(.36,.34,.30),"head","pearl_white",34,20)
 ellipsoid((0,hy-.005,.271),(.300,.243,.086),"head","graphite",34,20)
 ellipsoid((0,hy+.22,-.05),(.295,.055,.24),"head","titanium")
 ellipsoid((0,hy+.35,0),(.068,.052,.064),"head","optical_blue")
+# Precision visor bezels, temple vents and titanium head crown ribbons.
+bezel=[(.288*math.cos(2*math.pi*i/56),hy+.015+.228*math.sin(2*math.pi*i/56),.324)
+       for i in range(57)]
+tube(bezel,.009,"head","titanium",edges=12)
+for s in (-1,1):
+ for k in range(4):
+  y=hy-.135+k*.035
+  tube([(s*.257,y,.290),(s*.298,y+.011,.260)],.005,"head","bronze",edges=9)
+ tube([(s*.268,hy+.233,.201),(s*.32,hy+.135,.165)],.010,"head","optical_blue",edges=10)
 for s in (-1,1):
  ellipsoid((s*.347,hy+.02,.0),(.074,.13,.13),"head","titanium")
  ellipsoid((s*.393,hy+.025,.037),(.025,.088,.083),"head","optical_blue")
