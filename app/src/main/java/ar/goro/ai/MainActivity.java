@@ -214,6 +214,19 @@ public class MainActivity extends Activity {
     if(raw.isEmpty()) return;
     String text=raw.toLowerCase(new Locale("es","AR")).trim();
     if(text.equals("confirmar")||text.equals("confirmá")){confirmCalendarAction();return;}
+    Matcher emailNumber=Pattern.compile("^(?:(?:leeme|léeme|lee|leé|leer|abrí|abrir|mostrame|mostrar)\\s+)?(?:el\\s+)?(?:correo|mail|mensaje)(?:\\s+(?:n[uú]mero|nro))?\\s+(\\d{1,2})$").matcher(text);
+    if(emailNumber.matches()){
+      int number=Integer.parseInt(emailNumber.group(1));
+      boolean aloud=text.startsWith("lee")||text.startsWith("leé")||text.startsWith("léeme");
+      openGmailMessage(number,aloud);
+      return;
+    }
+    if(text.equals("gmail")||text.contains("mis correos")||text.contains("mis mails")
+       ||text.contains("bandeja de entrada")||text.contains("leer correos")
+       ||text.contains("leé los mails")||text.contains("últimos correos")){
+      readGmail();
+      return;
+    }
     if(text.equals("clima")||text.equals("clima ahora")||text.equals("clima actual")||text.equals("qué clima hace")||text.equals("que clima hace")||text.equals("tiempo")||text.equals("temperatura")||text.equals("clima de acá")||text.equals("clima de aca")){requestWeatherLocation(false);return;}
     if(text.equals("pronóstico")||text.equals("pronostico")||text.equals("pronóstico de tres días")||text.equals("pronostico de tres dias")){requestWeatherLocation(true);return;}
     if(text.equals("cancelar")||text.equals("cancelá")){pendingCalendarEvent=null;pendingCalendarDeleteId=null;say("Operación de agenda cancelada.");return;}
@@ -378,6 +391,25 @@ public class MainActivity extends Activity {
     gmailGateway.readInbox((text,error)->{
       if(dashboard!=null)dashboard.showGmailStatus(error==null?text:"Gmail · "+error);
       if(error==null&&output!=null)output.setText(text);
+    });
+  }
+  private void openGmailMessage(int number,boolean speakAloud){
+    if(gmailGateway==null){if(dashboard!=null)dashboard.showGmailStatus("Gmail no disponible");return;}
+    gmailGateway.readMessage(number,(message,error)->{
+      if(error!=null){
+        if(dashboard!=null)dashboard.showGmailStatus("Gmail · "+error);
+        if(output!=null)output.setText(error);
+        return;
+      }
+      if(dashboard!=null)dashboard.showGmailStatus(message);
+      if(output!=null)output.setText(message);
+      if(!speakAloud)return;
+      new AlertDialog.Builder(this)
+        .setTitle("Leer correo usando NVIDIA Diego")
+        .setMessage("El contenido del correo se enviará a NVIDIA para sintetizar la voz. Autorizás esta lectura?")
+        .setPositiveButton("Leer por voz",(dialog,which)->say(message.length()>1450?message.substring(0,1450):message))
+        .setNegativeButton("Solo en pantalla",null)
+        .show();
     });
   }
   private void chooseGoogleAccount(){
