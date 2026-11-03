@@ -7,8 +7,6 @@ import android.location.Location;
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.os.Build;
-import ar.goro.ai.voice.ContinuousVoiceSession;
-import ar.goro.ai.voice.ConversationState;
 import ar.goro.ai.memory.MemoryStore;
 import ar.goro.ai.memory.MemoryRecord;
 import ar.goro.ai.tools.AssistantCommandParser;
@@ -22,8 +20,9 @@ import ar.goro.ai.weather.DeviceLocationProvider;
 import ar.goro.ai.core.NemotronGateway;
 import ar.goro.ai.core.NvidiaCredentialStore;
 import ar.goro.ai.core.NemotronSpeechGateway;
-import ar.goro.ai.voice.GoroAudioPlayer;
-import ar.goro.ai.voice.GoroZn02AudioRouter;
+import ar.goro.ai.core.NemotronAsrGateway;
+import ar.goro.ai.voice.Z02Player;
+import android.bluetooth.BluetoothDevice;
 import ar.goro.ai.avatar.GoroAvatarView;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
@@ -59,7 +58,6 @@ public class MainActivity extends Activity {
   private EditText command;
   private SharedPreferences memory;
   private MemoryStore memoryStore;
-  private ContinuousVoiceSession voiceSession;
   private boolean voiceActive=false;
   private ReminderScheduler reminderScheduler;
   private DeviceCalendarGateway calendarGateway;
@@ -69,8 +67,10 @@ public class MainActivity extends Activity {
   private NvidiaCredentialStore nvidiaCredentialStore;
   private NemotronGateway nemotronGateway;
   private NemotronSpeechGateway speechGateway;
-  private GoroAudioPlayer goroAudioPlayer;
-  private GoroZn02AudioRouter zn02AudioRouter;
+  private NemotronAsrGateway asrGateway;
+  private Z02Player z02Player;
+  private String pendingSpeechText="";
+  private boolean pendingZn02Connection=false;
   private TextView calendarAccountLabel;
   private boolean pendingWeatherForecast=false;
   private CalendarEvent pendingCalendarEvent;
@@ -86,13 +86,42 @@ public class MainActivity extends Activity {
     reminderScheduler=new ReminderScheduler(this);
     weatherService=new WeatherService();
     locationProvider=new DeviceLocationProvider(this);
-    goroAudioPlayer=new GoroAudioPlayer(this);
-    zn02AudioRouter=new GoroZn02AudioRouter(this);
+    z02Player=new Z02Player(this,new Z02Player.Listener(){
+      public void onState(String value){
+        if(state!=null)state.setText("GORO · "+value);
+        if("Reproduciendo por Z02".equals(value)&&dashboard!=null)dashboard.avatarSpeak(pendingSpeechText,null);
+      }
+      public void onError(String error){
+        if(state!=null)state.setText("GORO · Audio Z02 no disponible");
+        if(output!=null)output.setText(output.getText()+"\n\n"+error);
+        if(dashboard!=null)dashboard.showAvatarMood(GoroAvatarView.Mood.ALERT);
+        if(voiceActive){voiceActive=false;if(dashboard!=null)dashboard.setVoiceActive(false);}
+      }
+      public void onCompleted(){
+        if(state!=null)state.setText(voiceActive?"GORO · Escuchando desde Z02":"GORO · Listo");
+        if(dashboard!=null)dashboard.showAvatarMood(voiceActive?GoroAvatarView.Mood.LISTENING:GoroAvatarView.Mood.IDLE);
+        if(voiceActive)startZ02Listening();
+      }
+    });
     nvidiaCredentialStore=new NvidiaCredentialStore(this);
-    try{String savedNvidiaKey=nvidiaCredentialStore.read();if(savedNvidiaKey!=null){nemotronGateway=new NemotronGateway(savedNvidiaKey);speechGateway=new NemotronSpeechGateway(savedNvidiaKey);}}catch(Exception credentialError){nvidiaCredentialStore.clear();}
+    try{
+      String savedNvidiaKey=nvidiaCredentialStore.read();
+      if(savedNvidiaKey!=null){
+        nemotronGateway=new NemotronGateway(savedNvidiaKey);
+        speechGateway=new NemotronSpeechGateway(savedNvidiaKey);
+        asrGateway=new NemotronAsrGateway(savedNvidiaKey);
+      }
+    }catch(Exception credentialError){nvidiaCredentialStore.clear();}
     calendarGateway=new DeviceCalendarGateway(this);
     gmailGateway=new GoroGmailGateway(this);
-    zn02Controller=new GoroZn02Controller(this,message->{if(dashboard!=null)dashboard.showDeviceStatus(message);});
+    zn02Controller=new GoroZn02Controller(this,new GoroZn02Controller.Listener(){
+      public void onStatus(String message){if(dashboard!=null)dashboard.showDeviceStatus(message);}
+      public void onMicrophonePcm(byte[] pcm){handleZ02Pcm(pcm);}
+      public void onAudioTarget(BluetoothDevice audioTarget){
+        try{z02Player.setTarget(audioTarget.getAddress(),audioTarget.getName());}
+        catch(SecurityException error){if(dashboard!=null)dashboard.showDeviceStatus("Android no autorizó identificar la salida de audio Z02.");}
+      }
+    });
     zn02GattInspector=new GoroZn02GattInspector(this,message->{
       if(dashboard!=null){
         String route=zn02AudioRouter!=null&&zn02AudioRouter.isActive()
@@ -102,20 +131,6 @@ public class MainActivity extends Activity {
       }
     });
     memoryStore.migrateLegacy(memory);
-    voiceSession=new ContinuousVoiceSession(this,new ContinuousVoiceSession.Listener(){
-      public void onState(ConversationState s){
-        if(state!=null)state.setText("GORO • "+s.name());
-        if(dashboard!=null){
-          if(s.name().equals("LISTENING"))dashboard.showAvatarMood(GoroAvatarView.Mood.LISTENING);
-          else if(s.name().equals("PROCESSING"))dashboard.showAvatarMood(GoroAvatarView.Mood.THINKING);
-          else if(s.name().equals("IDLE"))dashboard.showAvatarMood(GoroAvatarView.Mood.IDLE);
-        }
-      }
-      public void onFinalText(String text){if(voiceSession!=null){voiceSession.pauseForResponse();} if(command!=null)command.setText(text);runCommand(text);}
-      public void onPartialText(String text){if(command!=null)command.setText(text);}
-      public void onError(String message){if(output!=null)output.setText(message);}
-      public void onUserSpeechStarted(){if(goroAudioPlayer!=null)goroAudioPlayer.stop();if(dashboard!=null)dashboard.showAvatarMood(GoroAvatarView.Mood.LISTENING);}
-    });
     dashboard=new ar.goro.ai.ui.GoroDashboardView(this,new ar.goro.ai.ui.GoroDashboardView.Actions(){
       public void onCommand(String text){runCommand(text);}
       public void onVoiceSession(){
