@@ -221,6 +221,11 @@ public class MainActivity extends Activity {
       openGmailMessage(number,aloud);
       return;
     }
+    Matcher gmailSearch=Pattern.compile("^(?:busc[aá]|buscar|encontr[aá]|encontrar) (?:en )?(?:gmail|correos|mails|emails)(?: (?:sobre|con|de))? (.+)$").matcher(text);
+    if(gmailSearch.matches()){
+      searchGmail(gmailSearch.group(1));
+      return;
+    }
     if(text.equals("gmail")||text.contains("mis correos")||text.contains("mis mails")
        ||text.contains("bandeja de entrada")||text.contains("leer correos")
        ||text.contains("leé los mails")||text.contains("últimos correos")){
@@ -389,6 +394,15 @@ public class MainActivity extends Activity {
     String[] missing=zn02Controller.neededPermissions();
     if(missing.length>0){requestPermissions(missing,ZN02_BLE_PERMISSION_REQUEST);return;}
     zn02Controller.startScan();
+  }
+  private void searchGmail(String query){
+    if(gmailGateway==null){if(dashboard!=null)dashboard.showGmailStatus("Gmail no disponible");return;}
+    if(dashboard!=null)dashboard.showGmailStatus("Buscando correos con autorización Google…");
+    gmailGateway.searchInbox(query,(text,error)->{
+      String result=error==null?text:"Gmail · "+error;
+      if(dashboard!=null)dashboard.showGmailStatus(result);
+      if(output!=null)output.setText(result);
+    });
   }
   private void readGmail(){
     if(gmailGateway==null){if(dashboard!=null)dashboard.showGmailStatus("Gmail no disponible");return;}
