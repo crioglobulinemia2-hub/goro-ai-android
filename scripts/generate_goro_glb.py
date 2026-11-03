@@ -47,12 +47,14 @@ for name,parent,pos in JOINTS:
  G[name]=tuple(origin[i]+pos[i] for i in range(3))
 
 MAT={
- "pearl_white":((.84,.91,.95,1),.53,.22,(0,0,0)),
- "titanium":((.44,.57,.65,1),.81,.19,(0,0,0)),
- "graphite":((.024,.057,.083,1),.42,.29,(0,0,0)),
- "optical_blue":((.05,.53,.98,1),.28,.18,(0.0,.51,.9)),
- "bronze":((.60,.36,.21,1),.69,.27,(0,0,0)),
- "matte_white":((.67,.78,.82,1),.26,.38,(0,0,0)),
+ # Preserve titanium highlights, but maintain diffuse response on devices
+ # without a prefiltered reflection cubemap. Pure metal rendered almost black.
+ "pearl_white":((.94,.97,1.0,1),.08,.31,(.060,.070,.083)),
+ "titanium":((.67,.78,.89,1),.16,.37,(.037,.050,.064)),
+ "graphite":((.055,.10,.15,1),.12,.46,(.008,.014,.021)),
+ "optical_blue":((.09,.65,1.0,1),.04,.25,(.04,.59,.99)),
+ "bronze":((.68,.43,.30,1),.20,.42,(.035,.020,.013)),
+ "matte_white":((.80,.90,.97,1),.05,.52,(.055,.065,.075)),
 }
 PARTS={k:{"p":[],"n":[],"j":[],"w":[],"idx":[]} for k in MAT}
 FACE={"p":[],"n":[],"j":[],"w":[],"idx":[],"groups":[],"xrest":[]}
