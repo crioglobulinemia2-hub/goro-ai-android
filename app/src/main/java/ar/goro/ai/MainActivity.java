@@ -38,6 +38,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import android.provider.AlarmClock;
+import android.provider.Settings;
 import android.speech.RecognizerIntent;
 import android.graphics.Color;
 import android.graphics.Typeface;
@@ -400,11 +401,26 @@ public class MainActivity extends Activity {
     pendingZn02Inspection=false;zn02GattInspector.scan();
   }
   private void connectZn02(){
-    pendingZn02Inspection=false;
-    if(zn02Controller==null){say("El controlador ZN02 no está disponible.");return;}
-    String[] missing=zn02Controller.neededPermissions();
-    if(missing.length>0){requestPermissions(missing,ZN02_BLE_PERMISSION_REQUEST);return;}
-    zn02Controller.startScan();
+    pendingZn02Inspection=true;
+    if(dashboard!=null)dashboard.showDeviceStatus("Abrí los ajustes Bluetooth de Android y emparejá ZNP Z02. GORO no usa el controlador de estuches JieLi para este dispositivo.");
+    try{
+      startActivity(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS));
+    }catch(ActivityNotFoundException error){
+      pendingZn02Inspection=false;
+      if(dashboard!=null)dashboard.showDeviceStatus("Android no ofrece la pantalla de ajustes Bluetooth.");
+    }
+  }
+  @Override protected void onResume(){
+    super.onResume();
+    if(zn02AudioRouter!=null&&dashboard!=null){
+      String audio=zn02AudioRouter.activate();
+      dashboard.showDeviceStatus(audio);
+    }
+    if(pendingZn02Inspection&&zn02GattInspector!=null){
+      String[] missing=zn02GattInspector.neededPermissions();
+      if(missing.length>0)requestPermissions(missing,ZN02_BLE_PERMISSION_REQUEST);
+      else{pendingZn02Inspection=false;zn02GattInspector.scan();}
+    }
   }
   private void searchGmail(String query){
     if(gmailGateway==null){if(dashboard!=null)dashboard.showGmailStatus("Gmail no disponible");return;}
@@ -523,11 +539,13 @@ public class MainActivity extends Activity {
   @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results){
     super.onRequestPermissionsResult(request,permissions,results);
     if(request==ZN02_BLE_PERMISSION_REQUEST){
-      if(zn02Controller!=null&&zn02Controller.neededPermissions().length==0){
-        if(pendingZn02Inspection&&zn02GattInspector!=null)zn02GattInspector.scan();
-        else zn02Controller.startScan();
-      }else if(dashboard!=null)dashboard.showDeviceStatus("Permisos Bluetooth denegados. El ZN02 no se conectó.");
-      pendingZn02Inspection=false;
+      if(zn02GattInspector!=null&&zn02GattInspector.neededPermissions().length==0){
+        pendingZn02Inspection=false;
+        zn02GattInspector.scan();
+      }else if(dashboard!=null){
+        pendingZn02Inspection=false;
+        dashboard.showDeviceStatus("Permisos Bluetooth denegados. ZNP Z02 no fue inspeccionado.");
+      }
       return;
     }
     if(results.length==0)return;
