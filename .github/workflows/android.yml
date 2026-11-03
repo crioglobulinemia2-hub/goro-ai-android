@@ -171,17 +171,7 @@ jobs:
           profile: pixel_2
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -wipe-data -camera-back none
-          script: |
-            set +e
-            gradle --no-daemon connectedDebugAndroidTest
-            code=$?
-            mkdir -p build
-            adb logcat -d -v threadtime -t 8000 > build/goro-emulator-logcat.txt 2>&1 || true
-            if [ "$code" -ne 0 ]; then
-              echo "Android test failed; surfacing recent fatal exception traces"
-              grep -E -A 45 -B 5 'FATAL EXCEPTION|Fatal signal|AndroidRuntime|Abort message|JNI DETECTED ERROR|Caused by:' build/goro-emulator-logcat.txt | tail -n 450 || true
-            fi
-            exit "$code"
+          script: bash scripts/run_emulator_smoke.sh
       - name: Upload Android instrumentation reports
         if: always()
         uses: actions/upload-artifact@v4
