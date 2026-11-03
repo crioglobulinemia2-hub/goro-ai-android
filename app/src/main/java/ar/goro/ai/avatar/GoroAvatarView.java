@@ -11,6 +11,8 @@ import android.widget.TextView;
 import com.google.android.filament.Engine;
 import com.google.android.filament.RenderableManager;
 import com.google.android.filament.LightManager;
+import com.google.android.filament.IndirectLight;
+import com.google.android.filament.Camera;
 import com.google.android.filament.EntityManager;
 import com.google.android.filament.View;
 import com.google.android.filament.android.UiHelper;
@@ -37,6 +39,7 @@ public final class GoroAvatarView extends FrameLayout {
  private Engine engine;
  private int sunEntity=0;
  private int fillEntity=0;
+ private IndirectLight ambientLight;
  private boolean morphErrorReported=false;
  private int faceEntity=0;
  private boolean framePosted=false;
@@ -64,6 +67,13 @@ public final class GoroAvatarView extends FrameLayout {
     animator.updateBoneMatrices();
    }
    applyExpression(frameTimeNanos);
+   // Consistent full-height framing for wide tablet and portrait layouts.
+   if(surface!=null&&surface.getHeight()>0&&surface.getWidth()>0){
+    double aspect=(double)surface.getWidth()/(double)surface.getHeight();
+    double halfHeight=1.90;
+    current.getCamera().setProjection(Camera.Projection.ORTHO,
+        -halfHeight*aspect,halfHeight*aspect,-halfHeight,halfHeight,.05,60.0);
+   }
    current.render(frameTimeNanos);
    postFrame();
   }
@@ -108,7 +118,9 @@ public final class GoroAvatarView extends FrameLayout {
    viewer.getView().setAntiAliasing(View.AntiAliasing.FXAA);
    viewer.loadModelGlb(ByteBuffer.wrap(bytes));
    viewer.transformToUnitCube(new Float3(0f,0f,0f));
-   viewer.getCamera().lookAt(0.0,0.0,4.2,0.0,0.0,0.0,0.0,1.0,0.0);
+   // Position between normalized and raw-space model centers so both fits
+   // remain visible until the asset bounding box is fully resolved.
+   viewer.getCamera().lookAt(0.0,.65,8.0,0.0,.65,0.0,0.0,1.0,0.0);
    FilamentAsset asset=viewer.getAsset();
    if(asset!=null)faceEntity=asset.getFirstEntityByName("GORO_Face_Morphs");
    sunEntity=EntityManager.get().create();
@@ -125,6 +137,12 @@ public final class GoroAvatarView extends FrameLayout {
        .direction(.65f,-.40f,.42f)
        .build(engine,fillEntity);
    viewer.getScene().addEntity(fillEntity);
+   // The robot's previous high-metallic materials looked black without IBL.
+   ambientLight=new IndirectLight.Builder()
+       .irradiance(1,new float[]{.86f,.91f,1.0f})
+       .intensity(26000f)
+       .build(engine);
+   viewer.getScene().setIndirectLight(ambientLight);
    moodStartedNanos=0;
    status("GORO 3D · Esqueleto y expresiones cargados.");
   }catch(Throwable error){
@@ -260,6 +278,11 @@ public final class GoroAvatarView extends FrameLayout {
     if(fillEntity!=0){viewer.getScene().removeEntity(fillEntity);engine.destroyEntity(fillEntity);}
    }catch(RuntimeException ignored){}
   }
+  if(viewer!=null&&engine!=null&&ambientLight!=null){
+   try{viewer.getScene().setIndirectLight(null);engine.destroyIndirectLight(ambientLight);}
+   catch(RuntimeException ignored){}
+  }
+  ambientLight=null;
   sunEntity=0;fillEntity=0;faceEntity=0;viewer=null;engine=null;moodStartedNanos=0;
   super.onDetachedFromWindow();
  }
