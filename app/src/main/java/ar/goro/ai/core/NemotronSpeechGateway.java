@@ -53,9 +53,8 @@ public final class NemotronSpeechGateway {
      String detail=new String(response,StandardCharsets.UTF_8);
      throw new IllegalStateException("NVIDIA Speech "+status+": "+(detail.length()>220?detail.substring(0,220):detail));
     }
-    if(response.length<44||response[0]!='R'||response[1]!='I'||response[2]!='F'||response[3]!='F'||
-       response[8]!='W'||response[9]!='A'||response[10]!='V'||response[11]!='E')
-      throw new IllegalStateException("NVIDIA Speech devolvió un audio WAV inválido");
+    NvidiaWavValidator.Info info=NvidiaWavValidator.inspect(response);
+    if(info.durationMs<100)throw new IllegalStateException("La síntesis NVIDIA devolvió menos de 100 ms de audio");
     wav=response;
    }catch(Exception e){error=e.getMessage()==null?"Error de síntesis NVIDIA":e.getMessage();}
    finally{if(connection!=null)connection.disconnect();}
