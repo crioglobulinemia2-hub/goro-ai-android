@@ -64,6 +64,7 @@ public final class GoroDashboardView extends LinearLayout {
  private final TextView weatherValue;
  private final TextView devicesValue;
  private final TextView nvidiaValue;
+ private final TextView voiceValue;
  private final TextView gmailValue;
  private final TextView sectionValue;
  private final TextView clock;
@@ -203,6 +204,7 @@ public final class GoroDashboardView extends LinearLayout {
   agendaValue=text("Sin consultar. Vinculá tu cuenta Google.",14,false,palette.text);
   devicesValue=text("ZN02 · Sin conexión verificada.",14,false,palette.text);
   nvidiaValue=text("NVIDIA NIM: sin configurar",14,false,palette.text);
+  voiceValue=text("Magpie Diego: sin conexión verificada.",14,false,palette.text);
   gmailValue=text("Gmail: sin autorización OAuth.",14,false,palette.text);
 
   LinearLayout weatherCard=card("CLIMA LOCAL",weatherValue);
@@ -220,6 +222,7 @@ public final class GoroDashboardView extends LinearLayout {
   tools.addView(card("GMAIL · CORREOS",gmailValue),cardParams());
   tools.addView(button("Autorizar y leer Gmail",()->actions.onReadGmail(),false),new LinearLayout.LayoutParams(-1,dp(46)));
   tools.addView(card("INTELIGENCIA NEMOTRON",nvidiaValue),cardParams());
+  tools.addView(card("VOZ NVIDIA · DIEGO",voiceValue),cardParams());
   tools.addView(button("Configurar clave NVIDIA",()->actions.onConfigureNvidia(),false),new LinearLayout.LayoutParams(-1,dp(44)));
   tools.addView(button("Probar conexión Nemotron",()->actions.onTestNvidia(),false),new LinearLayout.LayoutParams(-1,dp(44)));
   tools.addView(card("DISPOSITIVOS",devicesValue),cardParams());
@@ -273,7 +276,11 @@ public final class GoroDashboardView extends LinearLayout {
  public void showWeather(String value){weatherValue.setText(value==null?"Sin datos.":value);}
  public void showDeviceStatus(String value){devicesValue.setText(value==null?"Sin datos de dispositivo.":value);}
  public void setVoiceActive(boolean active){talk.setText(active?"Detener conversación":"Micrófono · Conversación continua");}
- public void showVoiceStatus(String value){state.setText(value==null?"Voz no disponible":value);}
+ public void showVoiceStatus(String value){
+  String detail=value==null?"Voz no disponible":value;
+  voiceValue.setText(detail);
+  state.setText(detail);
+ }
  private void onAvatarStatus(String value){pendingAvatarStatus=value;if(state!=null)state.setText(value);}
  public void showAvatarMood(GoroAvatarView.Mood mood){if(avatar!=null)avatar.setMood(mood);}
  public void avatarSpeak(String spoken,byte[] audio){if(avatar!=null)avatar.startSpeaking(spoken,audio);}
