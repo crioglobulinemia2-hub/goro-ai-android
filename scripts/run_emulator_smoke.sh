@@ -13,6 +13,12 @@ if adb get-state >/dev/null 2>&1; then
   adb install -r app/build/outputs/apk/debug/app-debug.apk     > build/goro-emulator-install.txt 2>&1
   INSTALL_STATUS=$?
   if [ "$INSTALL_STATUS" -eq 0 ]; then
+    # Reinstallation after instrumentation clears its permission grants.
+    # Grant only permissions declared by this test app so UI evidence shows
+    # the actual screen instead of an Android runtime permission dialog.
+    for permission in BLUETOOTH_SCAN BLUETOOTH_CONNECT RECORD_AUDIO ACCESS_FINE_LOCATION ACCESS_COARSE_LOCATION; do
+      adb shell pm grant ar.goro.ai.personal "android.permission.$permission" >/dev/null 2>&1 || true
+    done
     adb shell am force-stop ar.goro.ai.personal >/dev/null 2>&1 || true
     adb shell am start -W -n ar.goro.ai.personal/ar.goro.ai.MainActivity       > build/goro-emulator-launch.txt 2>&1
     START_STATUS=$?

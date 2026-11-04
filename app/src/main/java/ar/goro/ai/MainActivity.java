@@ -113,6 +113,7 @@ public class MainActivity extends Activity {
     });
     nvidiaCredentialStore=new NvidiaCredentialStore(this);
     try{
+      ar.goro.ai.core.PersonalNvidiaSetup.importIfPresent(this,nvidiaCredentialStore);
       String savedNvidiaKey=nvidiaCredentialStore.read();
       if(savedNvidiaKey!=null){
         nemotronGateway=new NemotronGateway(savedNvidiaKey);

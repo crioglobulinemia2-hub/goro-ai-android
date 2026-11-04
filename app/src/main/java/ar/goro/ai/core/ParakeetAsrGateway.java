@@ -74,10 +74,7 @@ public final class ParakeetAsrGateway {
         .withInterceptors(MetadataUtils.newAttachHeadersInterceptor(headers))
         .withDeadlineAfter(35,TimeUnit.SECONDS);
     RecognizeResponse response=requestContext.call(()->stub.recognize(request));
-    if(response.getResultsCount()>0
-        &&response.getResults(0).getAlternativesCount()>0){
-      transcript=response.getResults(0).getAlternatives(0).getTranscript().trim();
-    }
+    transcript=transcriptOf(response);
     if(transcript==null||transcript.isEmpty())
       throw new IllegalStateException("Parakeet no detectó palabras en el audio recibido.");
    }catch(StatusRuntimeException e){
@@ -90,6 +87,17 @@ public final class ParakeetAsrGateway {
    final String text=transcript,problem=error;
    main.post(()->{if(!closed&&generation.get()==requestGeneration)callback.completed(text,problem);});
   });
+ }
+ static String transcriptOf(RecognizeResponse response){
+  StringBuilder text=new StringBuilder();
+  for(nvidia.riva.asr.SpeechRecognitionResult result:response.getResultsList()){
+   if(result.getAlternativesCount()==0)continue;
+   String segment=result.getAlternatives(0).getTranscript().trim();
+   if(segment.isEmpty())continue;
+   if(text.length()>0)text.append(' ');
+   text.append(segment);
+  }
+  return text.toString();
  }
  public void cancelPending(){generation.incrementAndGet();io.grpc.Context.CancellableContext context=activeContext;if(context!=null)context.cancel(null);}
  public void close(){
