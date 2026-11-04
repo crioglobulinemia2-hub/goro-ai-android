@@ -98,6 +98,23 @@ public class GoroDashboardViewTest {
   assertEquals(1,calls.gmail);
   assertEquals(2,calls.nvidia);
  }
+ @Test public void fullReplySurvivesNavigationAndRemainsReadable(){
+  Activity activity=Robolectric.buildActivity(Activity.class).setup().get();
+  GoroDashboardView dashboard=new GoroDashboardView(activity,new Calls(),null,false);
+  activity.setContentView(dashboard);
+  String reply="Una respuesta larga que debe seguir disponible al volver de Ajustes.";
+  dashboard.output.setText(reply);
+  findButton(dashboard,"Ajustes").performClick();
+  findButton(dashboard,"Conversar").performClick();
+  assertEquals(reply,dashboard.output.getText().toString());
+  android.widget.TextView bubble=findText(dashboard,reply);
+  // The output is first in the page tree only after the home bubble.
+  assertNotNull(bubble);
+  assertEquals("Abrir respuesta completa de Goro",bubble.getContentDescription());
+  bubble.performClick();
+  assertEquals(View.VISIBLE,dashboard.output.getVisibility());
+  assertTrue(dashboard.output.isTextSelectable());
+ }
  @Test public void buttonsHaveVisiblePressedStateAndRestoreOnCancel(){
   Activity activity=Robolectric.buildActivity(Activity.class).setup().get();
   GoroDashboardView dashboard=new GoroDashboardView(activity,new Calls(),null,false);

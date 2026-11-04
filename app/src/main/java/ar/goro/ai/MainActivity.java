@@ -385,7 +385,7 @@ public class MainActivity extends Activity {
     input.setHint("nvapi-…");
     input.setPadding(36,24,36,24);
     new AlertDialog.Builder(this).setTitle("Conectar NVIDIA Nemotron")
-      .setMessage("La clave se cifra con Android Keystore y se guarda solo en este dispositivo. No se incluye en la APK ni en GitHub.")
+      .setMessage("La clave se cifra con Android Keystore y se guarda solo en este dispositivo. No se publica en GitHub. Una edición personal puede traerla preconfigurada.")
       .setView(input)
       .setNegativeButton("Cancelar",null)
       .setPositiveButton("Guardar y probar",(dialog,which)->{

@@ -10,14 +10,27 @@ android {
         applicationId 'ar.goro.ai.personal'
         minSdk 26
         targetSdk 35
-        versionCode 3
-        versionName '1.1.0-z02-voice'
+        versionCode 4
+        versionName '1.2.0'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+    }
+    signingConfigs {
+        ownerRelease {
+            def privateStore = System.getenv('GORO_SIGN_STORE_FILE')
+            if (privateStore) {
+                storeFile file(privateStore)
+                storePassword System.getenv('GORO_SIGN_STORE_PASSWORD')
+                keyAlias System.getenv('GORO_SIGN_KEY_ALIAS')
+                keyPassword System.getenv('GORO_SIGN_KEY_PASSWORD')
+                storeType 'PKCS12'
+            }
+        }
     }
     buildTypes {
         release {
-            // Installable sideload build. Replace with the owner's private release keystore before store distribution.
-            signingConfig signingConfigs.debug
+            // A public CI build remains unsigned. Personal releases use the
+            // owner's stable certificate, never an ephemeral debug key.
+            if (System.getenv('GORO_SIGN_STORE_FILE')) signingConfig signingConfigs.ownerRelease
             minifyEnabled false
         }
     }

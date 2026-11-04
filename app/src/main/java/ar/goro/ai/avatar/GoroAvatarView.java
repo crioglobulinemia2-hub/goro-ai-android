@@ -18,7 +18,7 @@ import com.google.android.filament.View;
 import com.google.android.filament.android.UiHelper;
 import com.google.android.filament.gltfio.FilamentAsset;
 import com.google.android.filament.utils.ModelViewer;
-import com.google.android.filament.utils.Float3;
+import com.google.android.filament.utils.KTX1Loader;
 import com.google.android.filament.utils.Utils;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
@@ -40,6 +40,7 @@ public final class GoroAvatarView extends FrameLayout {
  private int sunEntity=0;
  private int fillEntity=0;
  private IndirectLight ambientLight;
+ private double frameHalfHeight=1.30,frameHalfWidth=.75;
  private boolean morphErrorReported=false;
  private int faceEntity=0;
  private boolean framePosted=false;
@@ -70,7 +71,7 @@ public final class GoroAvatarView extends FrameLayout {
    // Consistent full-height framing for wide tablet and portrait layouts.
    if(surface!=null&&surface.getHeight()>0&&surface.getWidth()>0){
     double aspect=(double)surface.getWidth()/(double)surface.getHeight();
-    double halfHeight=1.30;
+    double halfHeight=Math.max(frameHalfHeight,frameHalfWidth/aspect);
     current.getCamera().setProjection(Camera.Projection.ORTHO,
         -halfHeight*aspect,halfHeight*aspect,-halfHeight,halfHeight,.05,60.0);
    }
@@ -119,17 +120,23 @@ public final class GoroAvatarView extends FrameLayout {
    com.google.android.filament.Renderer.ClearOptions clearOptions=new com.google.android.filament.Renderer.ClearOptions();
    // Filament clear colors are linear; display-space gray values made the
    // approved dark stage look washed out after tone mapping.
-   clearOptions.clearColor=new float[]{0.003f,0.009f,0.018f,1.0f};
+   clearOptions.clearColor=new float[]{0.0009f,0.0037f,0.0086f,1.0f};
    clearOptions.clear=true;
    clearOptions.discard=true;
    viewer.getRenderer().setClearOptions(clearOptions);
    viewer.loadModelGlb(ByteBuffer.wrap(bytes));
-   viewer.transformToUnitCube(new Float3(0f,0f,0f));
-   // Position between normalized and raw-space model centers so both fits
-   // remain visible until the asset bounding box is fully resolved.
-   viewer.getCamera().lookAt(0.0,.65,8.0,0.0,.65,0.0,0.0,1.0,0.0);
+   viewer.clearRootTransform();
    FilamentAsset asset=viewer.getAsset();
-   if(asset!=null)faceEntity=asset.getFirstEntityByName("GORO_Face_Morphs");
+   if(asset!=null){
+    faceEntity=asset.getFirstEntityByName("GORO_Face_Morphs");
+    float[] center=asset.getBoundingBox().getCenter();
+    float[] extent=asset.getBoundingBox().getHalfExtent();
+    frameHalfHeight=extent[1]*1.10;
+    frameHalfWidth=extent[0]*1.15;
+    viewer.getCamera().lookAt(center[0],center[1],8.0,center[0],center[1],0.0,0.0,1.0,0.0);
+   }
+   // ModelViewer supplies a default sun; use only GORO's controlled lighting.
+   viewer.getScene().removeEntity(viewer.getLight());
    sunEntity=EntityManager.get().create();
    new LightManager.Builder(LightManager.Type.DIRECTIONAL)
        .color(1f,.96f,.90f)
@@ -144,12 +151,18 @@ public final class GoroAvatarView extends FrameLayout {
        .direction(.65f,-.40f,.42f)
        .build(engine,fillEntity);
    viewer.getScene().addEntity(fillEntity);
-   // The robot's previous high-metallic materials looked black without IBL.
-   ambientLight=new IndirectLight.Builder()
-       .irradiance(1,new float[]{.86f,.91f,1.0f})
-       .intensity(26000f)
-       .build(engine);
-   viewer.getScene().setIndirectLight(ambientLight);
+   try(InputStream lighting=getContext().getAssets().open("goro/studio_ibl.ktx");
+       ByteArrayOutputStream data=new ByteArrayOutputStream()){
+    byte[] buffer=new byte[16384];int count;
+    while((count=lighting.read(buffer))!=-1)data.write(buffer,0,count);
+    KTX1Loader.IndirectLightBundle bundle=KTX1Loader.INSTANCE.createIndirectLight(
+        engine,ByteBuffer.wrap(data.toByteArray()),new KTX1Loader.Options());
+    ambientLight=bundle.getIndirectLight();
+    if(ambientLight==null)throw new IllegalStateException("Studio lighting could not be loaded");
+    ambientLight.setIntensity(16000f);
+    viewer.setIndirectLightCubemap(bundle.getCubemap());
+    viewer.getScene().setIndirectLight(ambientLight);
+   }
    moodStartedNanos=0;
    status("GORO 3D · Esqueleto y expresiones cargados.");
   }catch(Throwable error){
