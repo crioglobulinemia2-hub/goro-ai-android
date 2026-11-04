@@ -431,7 +431,21 @@ public class MainActivity extends Activity {
     if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: procesando…");
     output.setText("GORO está consultando Nemotron…");
     if(dashboard!=null)dashboard.showAvatarMood(GoroAvatarView.Mood.THINKING);
-    nemotronGateway.request("goro-main",text,(reply,error)->{
+    String prompt=text;
+    try{
+      java.util.List<MemoryRecord> saved=memoryStore.recent(8);
+      if(!saved.isEmpty()){
+        StringBuilder context=new StringBuilder("MEMORIA PERSISTENTE DEL USUARIO (guardada localmente en este dispositivo). Usala como contexto cuando sea pertinente; no inventes recuerdos ni la repitas sin necesidad.\n");
+        for(MemoryRecord record:saved){
+          String fact=record.content==null?"":record.content.trim();
+          if(fact.isEmpty())continue;
+          if(context.length()+fact.length()>1800)break;
+          context.append("- ").append(fact).append("\n");
+        }
+        if(context.length()>100)prompt=context+"\nMENSAJE ACTUAL DEL USUARIO:\n"+text;
+      }
+    }catch(Exception ignored){}
+    nemotronGateway.request("goro-main",prompt,(reply,error)->{
       if(error!=null){if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: error · "+error);say("La consulta a Nemotron falló. "+error);}
       else{if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: conectado");say(reply);}
     });
