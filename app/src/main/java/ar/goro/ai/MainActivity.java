@@ -67,7 +67,7 @@ public class MainActivity extends Activity {
   private NvidiaCredentialStore nvidiaCredentialStore;
   private NemotronGateway nemotronGateway;
   private NemotronSpeechGateway speechGateway;
-  private NemotronAsrGateway asrGateway;
+  private ParakeetAsrGateway asrGateway;
   private Z02Player z02Player;
   private String pendingSpeechText="";
   private byte[] pendingSpeechWav;
@@ -110,7 +110,7 @@ public class MainActivity extends Activity {
       if(savedNvidiaKey!=null){
         nemotronGateway=new NemotronGateway(savedNvidiaKey);
         speechGateway=new NemotronSpeechGateway(savedNvidiaKey);
-        asrGateway=new NemotronAsrGateway(savedNvidiaKey);
+        asrGateway=new ParakeetAsrGateway(savedNvidiaKey);
       }
     }catch(Exception credentialError){nvidiaCredentialStore.clear();}
     calendarGateway=new DeviceCalendarGateway(this);
@@ -392,7 +392,7 @@ public class MainActivity extends Activity {
         if(asrGateway!=null)asrGateway.close();
         nemotronGateway=new NemotronGateway(key);
         speechGateway=new NemotronSpeechGateway(key);
-        asrGateway=new NemotronAsrGateway(key);
+        asrGateway=new ParakeetAsrGateway(key);
         if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: clave cifrada · verificando…");
         if(dashboard!=null)dashboard.showVoiceStatus("Magpie Diego: consultando catálogo NVIDIA…");
         speechGateway.verifyDiego((ready,detail)->{
