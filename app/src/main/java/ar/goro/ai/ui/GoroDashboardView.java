@@ -218,6 +218,7 @@ public final class GoroDashboardView extends LinearLayout {
   devicePanel.addView(button("Conectar ZNP Z02",()->actions.onConnectZn02(),true),new LinearLayout.LayoutParams(-1,dp(46)));
   devicePanel.addView(text("Audio bidireccional: verificando micrófono RCSP y salida A2DP",12,false,palette.muted),new LinearLayout.LayoutParams(-1,dp(42)));
   devicePanel.addView(text("Conversación manos libres automática cuando Z02 y NVIDIA estén conectados",12,false,palette.muted),new LinearLayout.LayoutParams(-1,dp(42)));
+  devicePanel.addView(button("Instalar animación GORO en visor Z02",()->actions.onInstallGoroAnimation(),false),new LinearLayout.LayoutParams(-1,dp(46)));
   devicePanel.setVisibility(GONE);
   mainColumn.addView(devicePanel,new LinearLayout.LayoutParams(-1,-2));
 
