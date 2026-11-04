@@ -264,7 +264,7 @@ public final class GoroDashboardView extends LinearLayout {
   controlsPane.setVisibility(utilityPage?GONE:VISIBLE);
   if(mainScrollContainer!=null)mainScrollContainer.post(()->mainScrollContainer.scrollTo(0,0));
   switch(section){
-   case HOME: output.setText("Conversá con GORO. Usá los accesos rápidos para Agenda, Gmail, Proyectos y Dispositivos.");break;
+   case HOME: output.setText("GORO IA · Conversación manos libres por ZNP Z02. La conexión se inicia automáticamente.");break;
    case EXPLORE: output.setText("Explorar proyectos. Pedime que retomemos cualquiera de tus proyectos.");break;
    case DEVICES: output.setText("ZNP Z02. GORO busca el dispositivo, autentica RCSP y prepara el micrófono y el audio Bluetooth.");break;
    case AUTOMATIONS: output.setText("Automatizaciones. Pedime recordatorios, alarmas o temporizadores en lenguaje natural.");actions.onReminders();break;
