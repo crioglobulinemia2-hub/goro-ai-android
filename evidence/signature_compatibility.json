@@ -1,0 +1,16 @@
+{
+  "verified_date": "2026-11-04",
+  "application_id": "ar.goro.ai.personal",
+  "recovered_1_1_0_signature_valid": true,
+  "stable_1_2_0_signature_valid": true,
+  "recovered_1_1_0_certificate_sha256": "81ed6978c3af615fe6f346354d0c3528bbfe4c080c07a229c9227a94110b2b06",
+  "stable_1_2_0_certificate_sha256": "8702426c72ebf740f3055daaf0df591feeddcf0f76918e8b5abf5acc2189ec10",
+  "can_update_recovered_1_1_0_with_stable_key": false,
+  "installed_device_certificate_verified": false,
+  "limitations": [
+    "Both APK signatures were checked with Android apksigner verify --print-certs.",
+    "Package identifiers and versions were checked with Android aapt dump badging.",
+    "No device is attached. The installed APK and its certificate remain unknown.",
+    "No package rename, uninstall, data deletion or signature rotation was performed."
+  ]
+}

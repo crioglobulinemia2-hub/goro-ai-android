@@ -1,0 +1,23 @@
+{
+  "evidence_kind": "recovered_service_response_and_audio",
+  "service_test_date": "2026-11-04",
+  "magpie_authenticated": true,
+  "diego_voice_id": true,
+  "wav_header_valid": true,
+  "playback_device_confirmed": false,
+  "parakeet_transcription_verified": false,
+  "http_status": 200,
+  "voice": "Magpie-Multilingual.ES-US.Diego",
+  "sample_rate_hz": 22050,
+  "channels": 1,
+  "bits_per_sample": 16,
+  "limitations": [
+    "Saved synthesis response and PCM WAV; no playback on the physical Z02 was verified.",
+    "The recorded Parakeet attempt was blocked by HTTP 403 at the development proxy.",
+    "Android code uses the Spanish Parakeet function and language documented by NVIDIA."
+  ],
+  "recognition_api_reference": "https://build.nvidia.com/nvidia/parakeet-ctc-0_6b-es/api",
+  "frames": 116736,
+  "duration_seconds": 5.294149659863946,
+  "audio_sha256": "b3b0d0dfc9a4f183657a8318ffc24e192215f613727eb100bd10ee08726bad42"
+}

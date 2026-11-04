@@ -2,6 +2,18 @@
 
 La aplicación todavía no cumple la entrega final solicitada. Esta revisión continúa la rama `fix/goro-z02-native-audio-bridge`, sin reemplazarla por una aplicación genérica nueva.
 
+## Continuación del 4 de noviembre, 18:50 ART
+
+- Se recuperó el árbol de PR #3 (`006da605`) y se verificó que las correcciones del micrófono Z02 y la energía labial están integradas. Los dos trabajos de CI de ese commit terminaron correctamente en el run `41896996796`.
+- Se corrigió un error visible: `showVoiceStatus` convertía tanto un fallo de Parakeet como una comprobación exitosa en «Comprobando voz Diego». Ahora muestra el resultado recibido y mantiene el texto completo accesible.
+- El inicio o cierre de captura del micrófono ya no borra el diagnóstico de los servicios de voz en Ajustes. Dos pruebas de regresión cubren fallo, éxito, navegación y cambios de captura.
+- Validación local del cambio: 151 pruebas JVM/Robolectric aprobadas, 0 fallos; compilación release e integridad ZIP correctas. Las 7 pruebas Python del avatar también aprobaron. No se repitió la instrumentación Android después de este último cambio de estado visual.
+- Se conservaron en `evidence/` los hechos comprobables de las respuestas guardadas de Nemotron y Diego, el hash del WAV y la incompatibilidad entre certificados. Los archivos no incluyen claves ni audio privado. La síntesis guardada se inspeccionó como PCM mono de 16 bits a 22.050 Hz.
+- TRELLIS mostraba un enlace a un GLB exportado. Dos intentos con los controles documentados del navegador agotaron el tiempo, y la recuperación HTTP devolvió 403. No se obtuvo ni se validó ese GLB localmente; tampoco se verificaron su esqueleto, expresiones o fidelidad visual.
+- ADB no muestra dispositivos conectados. No se verificaron la conversación física Z02, el consentimiento/lectura Gmail dentro de la aplicación ni el certificado de la aplicación instalada. La configuración OAuth realizada en la sesión anterior no equivale a esas pruebas.
+
+El control de entrega continúa en `release_ready_12_of_12: false`. La APK compilada en este tramo es interna, sin firma y sin configuración NVIDIA personal; no se presenta como entrega final.
+
 ## Cambios implementados
 
 - Las respuestas largas se dividen por oraciones para sintetizar todo el texto con Diego y reproducirlo secuencialmente por Z02.

@@ -132,8 +132,13 @@ public final class GoroDashboardView extends LinearLayout {
  public void showAgenda(String value){String t=value==null?"Agenda sin consultar":value;agendaValue.setText(t);agenda.setText(t.replace('\n',' '));}
  public void showWeather(String value){weather.setText(value==null?"Clima sin consultar":value);}
  public void showDeviceStatus(String value){devicesValue.setText(value==null?"Sin datos del dispositivo.":value);}
- public void setVoiceActive(boolean active){conversationStatus.setText(active?"Te escucho desde Z02":"Z02 · esperando conexión automática");conversationStatus.setTextColor(active?CYAN:MUTED);microphone.setAlpha(active?1f:.72f);voiceValue.setText(active?"Micrófono Z02 activo · conversación manos libres":"Micrófono Z02 · esperando conexión automática");}
- public void showVoiceStatus(String value){voiceValue.setText(value==null?"Voz sin conexión":value);state.setText(value!=null&&value.contains("confirmó")?"Diego disponible":value!=null&&value.contains("falta API key")?"Configurá NVIDIA en Ajustes":"Comprobando voz Diego");}
+ public void setVoiceActive(boolean active){conversationStatus.setText(active?"Te escucho desde Z02":"Z02 · esperando conexión automática");conversationStatus.setTextColor(active?CYAN:MUTED);microphone.setAlpha(active?1f:.72f);}
+ public void showVoiceStatus(String value){
+  String status=value==null||value.trim().isEmpty()?"Voz sin conexión":value.trim();
+  // Preserve the service result when microphone capture starts or stops.
+  // A failed or completed probe must never look like a check still in progress.
+  voiceValue.setText(status);state.setText(status);state.setContentDescription(status);
+ }
  public void showNvidiaStatus(String value){nvidiaValue.setText(value==null?"Sin estado de NVIDIA":value);}
  public void showGmailStatus(String value){gmailValue.setText(value==null?"Gmail sin conexión":value);}
  public void showAssistantMessage(String value){if(value==null||value.trim().isEmpty())return;speechBubble.setText(value.trim().replace('\n',' '));}

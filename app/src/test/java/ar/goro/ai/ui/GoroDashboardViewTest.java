@@ -132,4 +132,45 @@ public class GoroDashboardViewTest {
   assertTrue(button.isClickable());
   assertTrue(button.isFocusable());
  }
+ @Test public void recognitionFailureRemainsVisibleAcrossMicrophoneAndNavigationChanges(){
+  Activity activity=Robolectric.buildActivity(Activity.class).setup().get();
+  GoroDashboardView dashboard=new GoroDashboardView(activity,new Calls(),null,false);
+  activity.setContentView(dashboard);
+  String failure="Parakeet no completó la comprobación: UNAVAILABLE";
+  dashboard.showVoiceStatus(failure);
+  dashboard.setVoiceActive(false);
+  findButton(dashboard,"Ajustes").performClick();
+  assertEquals(failure,dashboard.state.getText().toString());
+  assertEquals(failure,dashboard.state.getContentDescription().toString());
+  assertNotNull(findVisibleText(dashboard,failure));
+  dashboard.setVoiceActive(true);
+  assertNotNull(findVisibleText(dashboard,failure));
+  findButton(dashboard,"Conversar").performClick();
+  assertTrue(dashboard.state.isShown());
+  assertEquals(failure,dashboard.state.getText().toString());
+ }
+ @Test public void completedSpeechCheckDoesNotReturnToCheckingOrDisappearAfterCapture(){
+  Activity activity=Robolectric.buildActivity(Activity.class).setup().get();
+  GoroDashboardView dashboard=new GoroDashboardView(activity,new Calls(),null,false);
+  activity.setContentView(dashboard);
+  String success="Diego y Parakeet verificados con una frase de diagnóstico.";
+  dashboard.showVoiceStatus(success);
+  dashboard.setVoiceActive(true);
+  dashboard.setVoiceActive(false);
+  assertEquals(success,dashboard.state.getText().toString());
+  findButton(dashboard,"Ajustes").performClick();
+  assertNotNull(findVisibleText(dashboard,success));
+ }
+ private android.widget.TextView findVisibleText(View root,String label){
+  if(!root.isShown())return null;
+  if(root instanceof android.widget.TextView && label.contentEquals(((android.widget.TextView)root).getText()))return (android.widget.TextView)root;
+  if(root instanceof ViewGroup){
+   ViewGroup group=(ViewGroup)root;
+   for(int i=0;i<group.getChildCount();i++){
+    android.widget.TextView found=findVisibleText(group.getChildAt(i),label);
+    if(found!=null)return found;
+   }
+  }
+  return null;
+ }
 }
