@@ -179,11 +179,9 @@ public class MainActivity extends Activity {
         else requestCalendarPermissions();
       }
       public void onUnlinkAccount(){
-        calendarGateway.unlinkGoogleAccount();
-        gmailGateway.setSelectedAccount(null);
+        setGoogleAccount(null);
         dashboard.showGmailStatus("Gmail · cuenta desvinculada");
         calendarAccountLabel.setText("Cuenta Google: sin vincular");
-        lastCalendarEvents.clear();pendingCalendarEvent=null;pendingCalendarDeleteId=null;
         say("Cuenta desvinculada. No se eliminaron eventos.");
       }
       public void onWeather(){requestWeatherLocation(false);}
@@ -218,8 +216,8 @@ public class MainActivity extends Activity {
       return;
     }
     if(request==GOOGLE_ACCOUNT_REQUEST){
-      if(result==RESULT_OK&&data!=null){String email=data.getStringExtra(AccountManager.KEY_ACCOUNT_NAME);String type=data.getStringExtra(AccountManager.KEY_ACCOUNT_TYPE);if(email==null||!"com.google".equals(type)){say("No se seleccionó una cuenta Google válida.");return;}try{calendarGateway.setSelectedGoogleAccount(email);gmailGateway.setSelectedAccount(email);dashboard.showGmailStatus("Gmail · cuenta seleccionada: "+email+" · requiere autorización");calendarAccountLabel.setText("Google Calendar: "+email);say("Cuenta "+email+" seleccionada para GORO. Ahora autorizá el acceso al calendario.");requestCalendarPermissions();}catch(Exception e){say("No pude vincular esa cuenta Google.");}}
-      else say("Vinculación de Gmail cancelada.");
+      if(result==RESULT_OK&&data!=null){String email=data.getStringExtra(AccountManager.KEY_ACCOUNT_NAME);String type=data.getStringExtra(AccountManager.KEY_ACCOUNT_TYPE);if(email==null||!"com.google".equals(type)){say("No se seleccionó una cuenta Google válida.");return;}try{setGoogleAccount(email);dashboard.showGmailStatus("Gmail · cuenta seleccionada: "+email+" · requiere autorización");calendarAccountLabel.setText("Calendario Android · "+email);say("Cuenta "+email+" seleccionada para GORO. Ahora autorizá el acceso al calendario.");requestCalendarPermissions();}catch(Exception e){say("No pude seleccionar esa cuenta Google.");}}
+      else say("Selección de cuenta Google cancelada.");
     }
   }
   private void say(String message) {
@@ -634,11 +632,25 @@ public class MainActivity extends Activity {
         .show();
     });
   }
+  private void setGoogleAccount(String email){
+    String previous=calendarGateway.selectedGoogleAccount();
+    if(email==null)calendarGateway.unlinkGoogleAccount();else calendarGateway.setSelectedGoogleAccount(email);
+    if(gmailGateway!=null)gmailGateway.setSelectedAccount(email);
+    if(!java.util.Objects.equals(previous,calendarGateway.selectedGoogleAccount())){
+      lastCalendarEvents.clear();pendingCalendarEvent=null;pendingCalendarDeleteId=null;
+      if(dashboard!=null)dashboard.showAgenda(email==null?"Seleccioná una cuenta Google para consultar su calendario.":"Cuenta del calendario cambiada. Consultá nuevamente la agenda.");
+    }
+  }
+  private String calendarSelectionStatus(){
+    String account=calendarGateway.selectedGoogleAccount();
+    return account==null?"Primero seleccioná una cuenta Google para el calendario.":
+      "Calendario de Android habilitado para "+account+". La sincronización con Google depende de Android.";
+  }
   private void chooseGoogleAccount(){
     try{Intent picker=AccountManager.newChooseAccountIntent(null,null,new String[]{"com.google"},null,null,null,null);startActivityForResult(picker,GOOGLE_ACCOUNT_REQUEST);}
     catch(Exception e){say("Android no pudo abrir el selector de cuentas Google.");}
   }
-  private void requestCalendarPermissions(){if(checkSelfPermission(Manifest.permission.READ_CALENDAR)!=PackageManager.PERMISSION_GRANTED||checkSelfPermission(Manifest.permission.WRITE_CALENDAR)!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{Manifest.permission.READ_CALENDAR,Manifest.permission.WRITE_CALENDAR},CALENDAR_PERMISSION_REQUEST);else say("Google Calendar vinculado a "+calendarGateway.selectedGoogleAccount()+".");}
+  private void requestCalendarPermissions(){if(checkSelfPermission(Manifest.permission.READ_CALENDAR)!=PackageManager.PERMISSION_GRANTED||checkSelfPermission(Manifest.permission.WRITE_CALENDAR)!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{Manifest.permission.READ_CALENDAR,Manifest.permission.WRITE_CALENDAR},CALENDAR_PERMISSION_REQUEST);else say(calendarSelectionStatus());}
   private void requestWeatherLocation(boolean forecast){pendingWeatherForecast=forecast;if(locationProvider.hasPermission()){if(forecast)showForecastHere();else showWeatherHere();return;}requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION},LOCATION_PERMISSION_REQUEST);}
   private void showWeatherHere(){say("Obteniendo tu ubicación GPS para consultar el clima.");locationProvider.current((location,error)->{if(error!=null||location==null){say(error==null?"No pude determinar tu ubicación.":error);return;}weatherService.current(location.getLatitude(),location.getLongitude(),(weather,problem)->{if(problem!=null||weather==null){say(problem==null?"Clima no disponible.":problem);return;}String report="En tu ubicación actual: "+Math.round(weather.temperature)+" "+weather.temperatureUnit+", viento "+Math.round(weather.wind)+" "+weather.windUnit+". "+weatherDescription(weather.code)+".";if(dashboard!=null)dashboard.showWeather(report);say(report);});});}
   private void showForecastHere(){say("Obteniendo tu ubicación GPS para preparar el pronóstico.");locationProvider.current((location,error)->{if(error!=null||location==null){say(error==null?"No pude determinar tu ubicación.":error);return;}weatherService.forecast(location.getLatitude(),location.getLongitude(),3,(days,problem)->{if(problem!=null||days==null){if(dashboard!=null)dashboard.showWeather(problem==null?"Pronóstico no disponible.":problem);say(problem==null?"Pronóstico no disponible.":problem);return;}StringBuilder b=new StringBuilder("Pronóstico de tres días para tu ubicación: ");for(WeatherService.ForecastDay d:days)b.append(d.date).append(", mínima ").append(Math.round(d.min)).append(" y máxima ").append(Math.round(d.max)).append(" grados, probabilidad de lluvia ").append(d.precipitationChance).append(" por ciento. ");if(dashboard!=null)dashboard.showWeather(b.toString());say(b.toString());});});}
@@ -670,12 +682,12 @@ public class MainActivity extends Activity {
     if(commandText.contains("semana")){startDate=today.with(java.time.DayOfWeek.MONDAY);}else if(commandText.contains("mañana")){startDate=today.plusDays(1);}else{startDate=today;}
     LocalDate endDate=commandText.contains("semana")?startDate.plusDays(7):startDate.plusDays(1);
     String min=startDate.atStartOfDay(zone).toOffsetDateTime().toString();String max=endDate.atStartOfDay(zone).toOffsetDateTime().toString();
-    say("Consultando tu calendario.");
+    say("Consultando el calendario de tu cuenta en este dispositivo.");
     calendarGateway.list("",min,max,(events,error)->{
       if(error!=null||events==null){if(dashboard!=null)dashboard.showAgenda(error==null?"No pude consultar la agenda.":error);say(error==null?"No pude consultar Google Calendar.":error);return;}
       if(events.isEmpty()){if(dashboard!=null)dashboard.showAgenda("No hay eventos en ese período.");lastCalendarEvents.clear();say("No tenés eventos en ese período.");return;}
       lastCalendarEvents.clear();lastCalendarEvents.addAll(events);if(dashboard!=null){StringBuilder overview=new StringBuilder();for(CalendarEvent e:events)overview.append(e.title).append(" · ").append(e.start).append("\n");dashboard.showAgenda(overview.toString());}
-      StringBuilder b=new StringBuilder("Tenés ").append(events.size()).append(" eventos: ");
+      StringBuilder b=new StringBuilder("En el calendario del dispositivo tenés ").append(events.size()).append(" eventos: ");
       for(int i=0;i<events.size();i++){CalendarEvent e=events.get(i);b.append("Número ").append(i+1).append(": ").append(e.title).append(", ").append(e.start).append(". ");}
       say(b.toString());
     });
@@ -708,8 +720,8 @@ public class MainActivity extends Activity {
     try{int index=Integer.parseInt(m.group(1))-1;if(index<0||index>=lastCalendarEvents.size())throw new IllegalArgumentException();CalendarEvent old=lastCalendarEvents.get(index);ZoneId zone=ZoneId.systemDefault();String day=m.group(2).toLowerCase(new Locale("es","AR"));LocalDate date=day.equals("hoy")?LocalDate.now(zone):day.equals("mañana")?LocalDate.now(zone).plusDays(1):LocalDate.parse(day.substring(3).trim());int hour=Integer.parseInt(m.group(3)),minute=Integer.parseInt(m.group(4)),duration=m.group(5)==null?60:Integer.parseInt(m.group(5));if(hour>23||minute>59||duration<1||duration>1440)throw new IllegalArgumentException();ZonedDateTime start=ZonedDateTime.of(date,LocalTime.of(hour,minute),zone);pendingCalendarEvent=new CalendarEvent(old.id,old.title,start.toOffsetDateTime().toString(),start.plusMinutes(duration).toOffsetDateTime().toString(),zone.getId(),old.description);pendingCalendarDeleteId=null;say("Voy a reprogramar "+old.title+" para "+date+" a las "+String.format(Locale.ROOT,"%02d:%02d",hour,minute)+". Decí confirmar o cancelar.");}catch(Exception e){say("Número de evento, fecha u horario inválido. Consultá primero la agenda.");}
   }
   private void confirmCalendarAction(){
-    if(pendingCalendarEvent!=null){CalendarEvent event=pendingCalendarEvent;pendingCalendarEvent=null;if(event.id!=null&&!event.id.isEmpty()){calendarGateway.update(event,(updated,error)->say(error==null&&updated!=null?"Evento reprogramado: "+updated.title+".":error==null?"No se pudo confirmar la actualización.":error));}else{calendarGateway.create(event,(created,error)->say(error==null&&created!=null?"Evento creado en Google Calendar: "+created.title+".":error==null?"No se pudo confirmar la creación.":error));}return;}
-    if(pendingCalendarDeleteId!=null){String id=pendingCalendarDeleteId;pendingCalendarDeleteId=null;calendarGateway.delete(id,(ok,error)->say(Boolean.TRUE.equals(ok)?"Evento eliminado de Google Calendar.":error==null?"No se pudo confirmar la eliminación.":error));return;}
+    if(pendingCalendarEvent!=null){CalendarEvent event=pendingCalendarEvent;pendingCalendarEvent=null;if(event.id!=null&&!event.id.isEmpty()){calendarGateway.update(event,(updated,error)->say(error==null&&updated!=null?"Evento actualizado en el calendario del dispositivo: "+updated.title+". La sincronización con Google depende de Android.":error==null?"No se pudo confirmar la actualización.":error));}else{calendarGateway.create(event,(created,error)->say(error==null&&created!=null?"Evento guardado en el calendario del dispositivo: "+created.title+". La sincronización con Google depende de Android.":error==null?"No se pudo confirmar la creación.":error));}return;}
+    if(pendingCalendarDeleteId!=null){String id=pendingCalendarDeleteId;pendingCalendarDeleteId=null;calendarGateway.delete(id,(ok,error)->say(Boolean.TRUE.equals(ok)?"Evento eliminado del calendario del dispositivo. La sincronización con Google depende de Android.":error==null?"No se pudo confirmar la eliminación.":error));return;}
     say("No hay ninguna operación de calendario pendiente.");
   }
   @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results){
@@ -737,7 +749,7 @@ public class MainActivity extends Activity {
     if(results.length==0)return;
     if(request==CALENDAR_PERMISSION_REQUEST){
       boolean granted=checkSelfPermission(Manifest.permission.READ_CALENDAR)==PackageManager.PERMISSION_GRANTED&&checkSelfPermission(Manifest.permission.WRITE_CALENDAR)==PackageManager.PERMISSION_GRANTED;
-      say(granted?"Google Calendar vinculado a "+calendarGateway.selectedGoogleAccount()+".":"El calendario necesita permisos de lectura y escritura; no se modificó ningún evento.");
+      say(granted?calendarSelectionStatus():"El calendario necesita permisos de lectura y escritura; no se modificó ningún evento.");
     }else if(request==LOCATION_PERMISSION_REQUEST){
       if(locationProvider.hasPermission()){if(pendingWeatherForecast)showForecastHere();else showWeatherHere();}
       else say("No se concedió permiso de ubicación. No consulté una ubicación aproximada ni inventé tu clima.");
