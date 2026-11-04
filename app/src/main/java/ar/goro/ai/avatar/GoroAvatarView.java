@@ -116,8 +116,11 @@ public final class GoroAvatarView extends FrameLayout {
    helper.setMediaOverlay(true);
    viewer=new ModelViewer(surface,engine,helper,null);
    viewer.getView().setAntiAliasing(View.AntiAliasing.FXAA);
-   viewer.getView().setBlendMode(com.google.android.filament.BlendMode.TRANSLUCENT);
-   viewer.getRenderer().setClearOptions(new com.google.android.filament.Renderer.ClearOptions(0.0,0.0,0.0,0.0,0,true,true));
+   com.google.android.filament.Renderer.ClearOptions clearOptions=new com.google.android.filament.Renderer.ClearOptions();
+   clearOptions.setClearColor(0.0,0.0,0.0,0.0);
+   clearOptions.setClear(true);
+   clearOptions.setDiscard(true);
+   viewer.getRenderer().setClearOptions(clearOptions);
    viewer.loadModelGlb(ByteBuffer.wrap(bytes));
    viewer.transformToUnitCube(new Float3(0f,0f,0f));
    // Position between normalized and raw-space model centers so both fits
