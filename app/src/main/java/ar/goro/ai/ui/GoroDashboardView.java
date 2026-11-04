@@ -159,7 +159,7 @@ public final class GoroDashboardView extends LinearLayout {
   sp.setMargins(dp(12),dp(2),dp(8),0);
   mainColumn.addView(state,sp);
 
-  output=text("GORO IA · Conversación por ZNP Z02. Conectá el dispositivo y autorizá NVIDIA en Ajustes.",16,false,palette.text);
+  output=text("GORO IA · Conversación manos libres por ZNP Z02. La conexión se inicia automáticamente.",16,false,palette.text);
   output.setPadding(dp(14),dp(12),dp(14),dp(12));
   output.setBackground(gradient(palette.surface,palette.surfaceElevated,dp(15)));
   LinearLayout.LayoutParams op=new LinearLayout.LayoutParams(-1,-2);
@@ -206,7 +206,7 @@ public final class GoroDashboardView extends LinearLayout {
 
   weatherValue=text("Sin consultar. Usar ubicación GPS.",14,false,palette.text);
   agendaValue=text("Sin consultar. Vinculá tu cuenta Google.",14,false,palette.text);
-  devicesValue=text("ZNP Z02 · Sin conexión verificada.",14,false,palette.text);
+  devicesValue=text("ZNP Z02 · Conexión automática pendiente.",14,false,palette.text);
   nvidiaValue=text("NVIDIA NIM: sin configurar",14,false,palette.text);
   voiceValue=text("Magpie Diego: sin conexión verificada.",14,false,palette.text);
   gmailValue=text("Gmail: sin autorización OAuth.",14,false,palette.text);
