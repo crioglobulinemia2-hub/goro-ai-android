@@ -112,13 +112,12 @@ public final class GoroAvatarView extends FrameLayout {
    engine=Engine.create(Engine.Backend.VULKAN);
    if(engine==null)throw new IllegalStateException("Vulkan is not available");
    UiHelper helper=new UiHelper(UiHelper.ContextErrorPolicy.DONT_CHECK);
-   helper.setOpaque(false);
-   helper.setMediaOverlay(true);
+   helper.setOpaque(true);
    viewer=new ModelViewer(surface,engine,helper,null);
    viewer.getView().setAntiAliasing(View.AntiAliasing.FXAA);
-   viewer.getView().setBlendMode(View.BlendMode.TRANSLUCENT);
+   viewer.getView().setBlendMode(View.BlendMode.OPAQUE);
    com.google.android.filament.Renderer.ClearOptions clearOptions=new com.google.android.filament.Renderer.ClearOptions();
-   clearOptions.clearColor=new float[]{0.0f,0.0f,0.0f,0.0f};
+   clearOptions.clearColor=new float[]{0.145f,0.173f,0.204f,1.0f};
    clearOptions.clear=true;
    clearOptions.discard=true;
    viewer.getRenderer().setClearOptions(clearOptions);
