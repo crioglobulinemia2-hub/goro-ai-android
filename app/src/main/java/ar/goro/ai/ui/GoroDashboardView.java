@@ -56,6 +56,12 @@ public final class GoroDashboardView extends LinearLayout {
  public GoroDashboardView(Activity a,Actions actions,String account,boolean enableAvatar){
   super(a);activity=a;this.actions=actions;tablet=getResources().getConfiguration().smallestScreenWidthDp>=600;
   setOrientation(VERTICAL);setBackgroundColor(BG);setPadding(dp(tablet?24:12),dp(5),dp(tablet?24:12),dp(8));
+  final int baseLeft=getPaddingLeft(),baseTop=getPaddingTop(),baseRight=getPaddingRight(),baseBottom=getPaddingBottom();
+  androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(this,(v,insets)->{
+   androidx.core.graphics.Insets bars=insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars()|androidx.core.view.WindowInsetsCompat.Type.displayCutout());
+   v.setPadding(baseLeft+bars.left,baseTop+bars.top,baseRight+bars.right,baseBottom+bars.bottom);
+   return insets;
+  });
   LinearLayout header=new LinearLayout(a);header.setGravity(Gravity.CENTER_VERTICAL);
   back=iconButton("","menu",()->{if(selected!=GoroSection.HOME||showTranscript)select(GoroSection.HOME);else select(GoroSection.SETTINGS);},false,22);
   back.setContentDescription("Menú y volver");header.addView(back,new LinearLayout.LayoutParams(dp(46),dp(46)));

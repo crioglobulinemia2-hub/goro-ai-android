@@ -19,6 +19,8 @@ import com.google.android.filament.android.UiHelper;
 import com.google.android.filament.gltfio.FilamentAsset;
 import com.google.android.filament.utils.ModelViewer;
 import com.google.android.filament.utils.KTX1Loader;
+import com.google.android.filament.utils.Manipulator;
+import com.google.android.filament.utils.Float3;
 import com.google.android.filament.utils.Utils;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
@@ -114,7 +116,13 @@ public final class GoroAvatarView extends FrameLayout {
    if(engine==null)throw new IllegalStateException("Vulkan is not available");
    UiHelper helper=new UiHelper(UiHelper.ContextErrorPolicy.DONT_CHECK);
    helper.setOpaque(true);
-   viewer=new ModelViewer(surface,engine,helper,null);
+   // A null argument creates ModelViewer's default orbit controller, which
+   // overwrites Camera.lookAt every frame. Supply the centered camera explicitly.
+   Manipulator cameraControl=new Manipulator.Builder()
+       .targetPosition(0f,0f,0f).orbitHomePosition(0f,0f,8f)
+       .viewport(1,1).orbitSpeed(0f,0f).zoomSpeed(0f).panning(false)
+       .build(Manipulator.Mode.ORBIT);
+   viewer=new ModelViewer(surface,engine,helper,cameraControl);
    viewer.getView().setAntiAliasing(View.AntiAliasing.FXAA);
    viewer.getView().setBlendMode(View.BlendMode.OPAQUE);
    com.google.android.filament.Renderer.ClearOptions clearOptions=new com.google.android.filament.Renderer.ClearOptions();
@@ -125,15 +133,14 @@ public final class GoroAvatarView extends FrameLayout {
    clearOptions.discard=true;
    viewer.getRenderer().setClearOptions(clearOptions);
    viewer.loadModelGlb(ByteBuffer.wrap(bytes));
-   viewer.clearRootTransform();
+   viewer.transformToUnitCube(new Float3(0f,0f,0f));
    FilamentAsset asset=viewer.getAsset();
    if(asset!=null){
     faceEntity=asset.getFirstEntityByName("GORO_Face_Morphs");
-    float[] center=asset.getBoundingBox().getCenter();
     float[] extent=asset.getBoundingBox().getHalfExtent();
-    frameHalfHeight=extent[1]*1.10;
-    frameHalfWidth=extent[0]*1.15;
-    viewer.getCamera().lookAt(center[0],center[1],8.0,center[0],center[1],0.0,0.0,1.0,0.0);
+    double scale=1.0/Math.max(extent[0],Math.max(extent[1],extent[2]));
+    frameHalfHeight=extent[1]*scale*1.10;
+    frameHalfWidth=extent[0]*scale*1.15;
    }
    // ModelViewer supplies a default sun; use only GORO's controlled lighting.
    viewer.getScene().removeEntity(viewer.getLight());
