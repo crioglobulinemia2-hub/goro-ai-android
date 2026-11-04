@@ -53,7 +53,7 @@ import java.util.List;
  * A device must identify itself as N02 before the controller will connect.
  */
 public final class GoroZn02Controller {
- public interface Listener { void onStatus(String status); default void onMicrophonePcm(byte[] pcm16Mono){} default void onAudioTarget(BluetoothDevice audioTarget){} }
+ public interface Listener { void onStatus(String status); default void onMicrophonePcm(byte[] pcm16Mono){} default void onAudioTarget(BluetoothDevice audioTarget){} default void onMicrophoneStarted(){} default void onMicrophoneIdle(){} default void onMicrophoneError(String error){} }
  private final Context context;
  private final ExecutorService resourceExecutor=Executors.newSingleThreadExecutor();
  private boolean uploadingResource;
@@ -280,7 +280,7 @@ public final class GoroZn02Controller {
      if(closed||epoch!=connectionEpoch||capture!=voiceEpoch||!recording)return;
      try{
       op.startRecord(device,new RecordParam(Constants.AUDIO_TYPE_OPUS,RecordParam.SAMPLE_RATE_16K,RecordParam.VAD_WAY_DEVICE),new OnRcspActionCallback<Boolean>(){
-       @Override public void onSuccess(BluetoothDevice d,Boolean ok){mainHandler.post(()->{if(epoch==connectionEpoch&&capture==voiceEpoch&&recording){if(Boolean.TRUE.equals(ok))emit("Micrófono Z02 activo. Esperando voz…");else abortVoice("El Z02 rechazó la captura de micrófono.");}});}
+       @Override public void onSuccess(BluetoothDevice d,Boolean ok){mainHandler.post(()->{if(epoch==connectionEpoch&&capture==voiceEpoch&&recording){if(Boolean.TRUE.equals(ok)){emit("Micrófono Z02 activo. Esperando voz…");listener.onMicrophoneStarted();}else abortVoice("El Z02 rechazó la captura de micrófono.");}});}
        @Override public void onError(BluetoothDevice d,BaseError error){mainHandler.post(()->{if(epoch==connectionEpoch&&capture==voiceEpoch)abortVoice("El Z02 rechazó la captura: "+error.getMessage());});}
       });
      }catch(Exception error){abortVoice("No se pudo iniciar el micrófono Z02: "+error.getClass().getSimpleName());}
@@ -323,13 +323,13 @@ public final class GoroZn02Controller {
   if(!draining)return;
   if(drainTimeout!=null)mainHandler.removeCallbacks(drainTimeout);
   byte[] pcm=microphonePcm.toByteArray();releaseVoice();
-  if(pcm.length==0)emit("El micrófono Z02 no entregó audio decodificado.");
+  if(pcm.length==0){emit("Z02 sin palabras en este turno; retomando escucha.");listener.onMicrophoneIdle();}
   else{emit("Captura del micrófono Z02 recibida ("+pcm.length+" bytes PCM).");listener.onMicrophonePcm(pcm);}
  }
  private void abortVoice(String message){
   BluetoothDevice device=target;RecordOpImpl op=recorder;releaseVoice();
   if(device!=null&&op!=null)try{op.stopRecord(device,RecordState.REASON_STOP,null);}catch(Exception ignored){}
-  emit(message);
+  emit(message);listener.onMicrophoneError(message);
  }
  private void releaseVoice(){
   ++voiceEpoch;recording=false;draining=false;

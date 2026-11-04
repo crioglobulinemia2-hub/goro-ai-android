@@ -50,10 +50,10 @@ public final class Z02Player {
   return named.size()==1?named:Collections.emptyList();
  }
  public void playWav(byte[] wav){
+  stop();
   try{
    NvidiaWavValidator.Info info=NvidiaWavValidator.inspect(wav);
    byte[] pcm=Arrays.copyOfRange(wav,info.dataOffset,info.dataOffset+info.dataLength);
-   stop();
    waitForOutput(pcm,info.sampleRate,info.channels,0);
   }catch(Exception error){emitError("El WAV de Magpie no es reproducible: "+error.getMessage());}
  }
@@ -62,10 +62,11 @@ public final class Z02Player {
   List<AudioDeviceInfo> devices=outputs();
   if(devices.size()==1){play(pcm,rate,channels,devices.get(0).getId());return;}
   if(attempt>=30){emitError("El Z02 no presentó una salida A2DP única después de 15 segundos. No se reprodujo por la tablet.");return;}
-  pendingStart=()->waitForOutput(pcm,rate,channels,attempt+1);
+  final long request=sequence;
+  pendingStart=()->{if(sequence==request)waitForOutput(pcm,rate,channels,attempt+1);};
   main.postDelayed(pendingStart,500);
  }
- private void emitStateText(String value){main.post(()->{if(listener!=null)listener.onState(value);});}
+ private void emitStateText(String value){final long request=sequence;main.post(()->{if(sequence==request&&listener!=null)listener.onState(value);});}
  public void play(byte[] pcm,int rate,int channels,int targetId){
   stop();
   Playback session=new Playback(++sequence);active=session;
@@ -147,9 +148,10 @@ public final class Z02Player {
   session.running.set(false);
   main.post(()->{if(active==session){active=null;if(listener!=null)listener.onError(message);}});
  }
- private void emitError(String message){main.post(()->{if(listener!=null)listener.onError(message);});}
+ private void emitError(String message){final long request=sequence;main.post(()->{if(sequence==request&&listener!=null)listener.onError(message);});}
  private void emitState(Playback session,String state){main.post(()->{if(active==session&&listener!=null)listener.onState(state);});}
  public void stop(){
+  sequence++;
   if(pendingStart!=null)main.removeCallbacks(pendingStart);
   pendingStart=null;
   Playback old=active;active=null;
