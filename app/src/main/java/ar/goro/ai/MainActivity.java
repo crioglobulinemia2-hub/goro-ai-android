@@ -53,7 +53,6 @@ public class MainActivity extends Activity {
   private GoroZn02GattInspector zn02GattInspector;
   private boolean pendingZn02Inspection=false;
   private static final int ZN02_BLE_PERMISSION_REQUEST=65;
-  private EditText command;
   private SharedPreferences memory;
   private MemoryStore memoryStore;
   private boolean voiceActive=false;
@@ -174,7 +173,6 @@ public class MainActivity extends Activity {
     },calendarGateway.selectedGoogleAccount());
     output=dashboard.output;
     state=dashboard.state;
-    command=dashboard.command;
     calendarAccountLabel=dashboard.accountLabel;
     dashboard.showNvidiaStatus(nemotronGateway==null?"NVIDIA NIM: requiere API key":"NVIDIA NIM: clave guardada · sin prueba de conexión");
     dashboard.showVoiceStatus(speechGateway!=null?"NVIDIA Magpie · voz Diego · pendiente de prueba":"NVIDIA Magpie: falta API key · salida de voz deshabilitada");
@@ -245,7 +243,6 @@ public class MainActivity extends Activity {
         if(output!=null)output.setText("No pude reconocer la frase del Z02: "+(error==null?"audio sin transcripción":error));
         startZ02Listening();return;
       }
-      if(command!=null)command.setText(transcript);
       runCommand(transcript);
     });
   }
