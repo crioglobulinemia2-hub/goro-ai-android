@@ -435,14 +435,17 @@ public class MainActivity extends Activity {
     try{
       java.util.List<MemoryRecord> saved=memoryStore.recent(8);
       if(!saved.isEmpty()){
-        StringBuilder context=new StringBuilder("MEMORIA PERSISTENTE DEL USUARIO (guardada localmente en este dispositivo). Usala como contexto cuando sea pertinente; no inventes recuerdos ni la repitas sin necesidad.\n");
+        StringBuilder context=new StringBuilder("MEMORIA PERSISTENTE DEL USUARIO (guardada localmente). Usala solo cuando sea pertinente; no inventes recuerdos ni la repitas sin necesidad.\n");
+        int budget=Math.max(0,3800-text.length()-context.length()-40);
         for(MemoryRecord record:saved){
           String fact=record.content==null?"":record.content.trim();
           if(fact.isEmpty())continue;
-          if(context.length()+fact.length()>1800)break;
+          if(fact.length()>budget)continue;
           context.append("- ").append(fact).append("\n");
+          budget-=fact.length()+3;
+          if(budget<=0)break;
         }
-        if(context.length()>100)prompt=context+"\nMENSAJE ACTUAL DEL USUARIO:\n"+text;
+        if(context.length()>140)prompt=context+"\nMENSAJE ACTUAL DEL USUARIO:\n"+text;
       }
     }catch(Exception ignored){}
     nemotronGateway.request("goro-main",prompt,(reply,error)->{
