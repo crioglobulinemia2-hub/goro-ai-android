@@ -2,6 +2,20 @@
 
 La aplicación todavía no cumple la entrega final solicitada. Esta revisión continúa la rama `fix/goro-z02-native-audio-bridge`, sin reemplazarla por una aplicación genérica nueva.
 
+## Continuación del 4 de noviembre, 22:51 UTC
+
+La última versión de código comprobada es `95bba1e2f2c76f1ec6db1be5f6ea7aa6cd623add`, árbol `6c35a3eab440903188e5e5f8edb25b8c1347b318`. Los dos trabajos de [CI 41928049938](https://github.com/crioglobulinemia2-hub/goro-ai-android/actions/runs/41928049938) terminaron correctamente: 170 pruebas JVM/Robolectric, 7 pruebas Python del avatar y 3 pruebas instrumentales en Android API 36. Se compilaron debug y release sin firma; pasaron integridad ZIP, manifiesto, control de credenciales y firma debug.
+
+- Gmail vuelve a la escucha tras resultados, errores o cancelación de lectura solicitada por voz. La lectura consentida ya no recorta el mensaje a 1.450 caracteres.
+- Repetir «Conectar» no desarma una sesión Bluetooth activa, y un reintento tardío no interrumpe una captura existente.
+- «Agenda reunión mañana a las 15:30» prepara creación y confirmación, conservando «agenda mañana» como consulta.
+- El inicio muestra ambiente y tarjetas de clima, agenda y dispositivo con datos de los servicios. El robot sigue siendo procedural y no equivale al personaje aprobado.
+- El render se pausa cuando queda oculto, mantiene una sola cadena de cuadros y reutiliza dos buffers faciales. El fork mínimo de ModelViewer 1.70 conserva licencia/procedencia y pasa los flags de transparencia que la implementación original omitía. Java y Kotlin usan JVM 17.
+- Una prueba instrumental compara píxeles con el avatar oculto/visible para comprobar transparencia y dibujo del robot. El artefacto `GoroAI-emulator-test-reports` incluye capturas reales en teléfono y tablet. Los tiempos del emulador por software no certifican fluidez ni consumo en el dispositivo físico.
+- Gemini y Nemotron respondieron consultas técnicas generales sin código privado ni credenciales. Las indicaciones relevantes se contrastaron con la fuente y el bytecode de Filament.
+
+El control de entrega continúa en `false`. No hay Android físico conectado. Continúan sin verificar el reconocimiento Parakeet y la conversación completa Z02, la autorización y lectura Gmail desde la aplicación, la firma instalada y el personaje definitivo de TRELLIS. Las pruebas guardadas de Nemotron y Diego se conservan sin presentarlas como una conversación física completa. No se entrega la APK de CI como versión personal final.
+
 ## Continuación del 4 de noviembre, 18:50 ART
 
 - Se recuperó el árbol de PR #3 (`006da605`) y se verificó que las correcciones del micrófono Z02 y la energía labial están integradas. Los dos trabajos de CI de ese commit terminaron correctamente en el run `41896996796`.
