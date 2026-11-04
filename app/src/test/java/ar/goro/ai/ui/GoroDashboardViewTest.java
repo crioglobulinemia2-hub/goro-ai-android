@@ -161,6 +161,25 @@ public class GoroDashboardViewTest {
   findButton(dashboard,"Ajustes").performClick();
   assertNotNull(findVisibleText(dashboard,success));
  }
+ @Test public void homeOverviewDisplaysActualUpdatesAndKeepsActionsAvailable(){
+  Activity activity=Robolectric.buildActivity(Activity.class).setup().get();
+  Calls calls=new Calls();
+  GoroDashboardView dashboard=new GoroDashboardView(activity,calls,null,false);
+  activity.setContentView(dashboard);
+  String agenda="14:30 Reunión\n16:00 Llamada";
+  dashboard.showAgenda(agenda);
+  dashboard.showWeather("18 °C · Parcialmente nublado");
+  dashboard.showDeviceStatus("Z02 desconectado");
+  assertNotNull(findVisibleText(dashboard,agenda));
+  android.widget.TextView climate=findVisibleText(dashboard,"18 °C · Parcialmente nublado");
+  assertNotNull(climate);
+  assertNotNull(findVisibleText(dashboard,"Z02 desconectado"));
+  ((View)climate.getParent()).performClick();
+  assertEquals(1,calls.weather);
+  ((View)findVisibleText(dashboard,agenda).getParent()).performClick();
+  assertEquals(1,calls.commands);
+  assertNotNull(findVisibleText(dashboard,agenda));
+ }
  private android.widget.TextView findVisibleText(View root,String label){
   if(!root.isShown())return null;
   if(root instanceof android.widget.TextView && label.contentEquals(((android.widget.TextView)root).getText()))return (android.widget.TextView)root;

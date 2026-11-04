@@ -59,4 +59,14 @@ public class Z02VoiceRetryTest {
   set("speechInProgress",true);call("startZ02Listening");assertTrue((Boolean)get("voiceActive"));
   set("speechInProgress",false);call("startZ02Listening");assertFalse((Boolean)get("voiceActive"));
  }
+ @Test public void pendingRetryCannotEndAnAlreadyRunningOrDrainingCapture()throws Exception{
+  GoroZn02Controller controller=(GoroZn02Controller)get("zn02Controller");
+  Field recording=GoroZn02Controller.class.getDeclaredField("recording");recording.setAccessible(true);
+  Field draining=GoroZn02Controller.class.getDeclaredField("draining");draining.setAccessible(true);
+  recording.setBoolean(controller,true);call("scheduleZ02ListenRetry");advance();
+  assertTrue((Boolean)get("voiceActive"));assertTrue(recording.getBoolean(controller));
+  recording.setBoolean(controller,false);draining.setBoolean(controller,true);
+  call("scheduleZ02ListenRetry");advance();
+  assertTrue((Boolean)get("voiceActive"));assertTrue(draining.getBoolean(controller));
+ }
 }

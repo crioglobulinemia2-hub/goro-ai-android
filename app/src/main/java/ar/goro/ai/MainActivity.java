@@ -264,6 +264,7 @@ public class MainActivity extends Activity {
   private void startZ02Listening(){
     if(!foreground||!voiceActive||speechInProgress||zn02Controller==null)return;
     cancelVoiceRetry();
+    if(zn02Controller.isVoiceCaptureActive())return;
     if(!zn02Controller.startVoice()){
       voiceActive=false;
       if(dashboard!=null)dashboard.setVoiceActive(false);
@@ -308,10 +309,13 @@ public class MainActivity extends Activity {
         if(output!=null)output.setText("No pude reconocer la frase del Z02: "+(error==null?"audio sin transcripción":error));
         startZ02Listening();return;
       }
-      runCommand(transcript);
+      runCommand(transcript,true);
     });
   }
   private void runCommand(String raw) {
+    runCommand(raw,false);
+  }
+  private void runCommand(String raw,boolean fromVoice) {
     if(raw.isEmpty()) return;
     String text=raw.toLowerCase(new Locale("es","AR")).trim();
     if(text.equals("confirmar")||text.equals("confirmá")){confirmCalendarAction();return;}
@@ -319,18 +323,18 @@ public class MainActivity extends Activity {
     if(emailNumber.matches()){
       int number=Integer.parseInt(emailNumber.group(1));
       boolean aloud=text.startsWith("lee")||text.startsWith("leé")||text.startsWith("léeme");
-      openGmailMessage(number,aloud);
+      openGmailMessage(number,aloud,fromVoice);
       return;
     }
     Matcher gmailSearch=Pattern.compile("^(?:busc[aá]|buscar|encontr[aá]|encontrar) (?:en )?(?:gmail|correos|mails|emails)(?: (?:sobre|con|de))? (.+)$").matcher(text);
     if(gmailSearch.matches()){
-      searchGmail(gmailSearch.group(1));
+      searchGmail(gmailSearch.group(1),fromVoice);
       return;
     }
     if(text.equals("gmail")||text.contains("mis correos")||text.contains("mis mails")
        ||text.contains("bandeja de entrada")||text.contains("leer correos")
        ||text.contains("leé los mails")||text.contains("últimos correos")){
-      readGmail();
+      readGmail(fromVoice);
       return;
     }
     if(text.equals("clima")||text.equals("clima ahora")||text.equals("clima actual")||text.equals("qué clima hace")||text.equals("que clima hace")||text.equals("tiempo")||text.equals("temperatura")||text.equals("clima de acá")||text.equals("clima de aca")){requestWeatherLocation(false);return;}
@@ -596,41 +600,56 @@ public class MainActivity extends Activity {
       else{pendingZn02Inspection=false;zn02GattInspector.scan();}
     }
   }
-  private void searchGmail(String query){
-    if(gmailGateway==null){if(dashboard!=null)dashboard.showGmailStatus("Gmail no disponible");return;}
+  private void searchGmail(String query,boolean fromVoice){
+    final long generation=speechGeneration;
+    if(gmailGateway==null){if(dashboard!=null)dashboard.showGmailStatus("Gmail no disponible");resumeVoiceAfterScreenResult(generation,fromVoice);return;}
     if(dashboard!=null)dashboard.showGmailStatus("Buscando correos con autorización Google…");
     gmailGateway.searchInbox(query,(text,error)->{
       String result=error==null?text:"Gmail · "+error;
       if(dashboard!=null)dashboard.showGmailStatus(result);
       if(output!=null)output.setText(result);
+      resumeVoiceAfterScreenResult(generation,fromVoice);
     });
   }
   private void readGmail(){
-    if(gmailGateway==null){if(dashboard!=null)dashboard.showGmailStatus("Gmail no disponible");return;}
+    readGmail(false);
+  }
+  private void readGmail(boolean fromVoice){
+    final long generation=speechGeneration;
+    if(gmailGateway==null){if(dashboard!=null)dashboard.showGmailStatus("Gmail no disponible");resumeVoiceAfterScreenResult(generation,fromVoice);return;}
     if(dashboard!=null)dashboard.showGmailStatus("Solicitando autorización Gmail…");
     gmailGateway.readInbox((text,error)->{
       if(dashboard!=null)dashboard.showGmailStatus(error==null?text:"Gmail · "+error);
       if(error==null&&output!=null)output.setText(text);
+      resumeVoiceAfterScreenResult(generation,fromVoice);
     });
   }
-  private void openGmailMessage(int number,boolean speakAloud){
-    if(gmailGateway==null){if(dashboard!=null)dashboard.showGmailStatus("Gmail no disponible");return;}
+  private void openGmailMessage(int number,boolean speakAloud,boolean fromVoice){
+    final long generation=speechGeneration;
+    if(gmailGateway==null){if(dashboard!=null)dashboard.showGmailStatus("Gmail no disponible");resumeVoiceAfterScreenResult(generation,fromVoice);return;}
     gmailGateway.readMessage(number,(message,error)->{
       if(error!=null){
         if(dashboard!=null)dashboard.showGmailStatus("Gmail · "+error);
         if(output!=null)output.setText(error);
+        resumeVoiceAfterScreenResult(generation,fromVoice);
         return;
       }
       if(dashboard!=null)dashboard.showGmailStatus(message);
       if(output!=null)output.setText(message);
-      if(!speakAloud)return;
+      if(!speakAloud){resumeVoiceAfterScreenResult(generation,fromVoice);return;}
       new AlertDialog.Builder(this)
         .setTitle("Leer correo usando NVIDIA Diego")
         .setMessage("El contenido del correo se enviará a NVIDIA para sintetizar la voz. Autorizás esta lectura?")
-        .setPositiveButton("Leer por voz",(dialog,which)->say(message.length()>1450?message.substring(0,1450):message))
+        .setPositiveButton("Leer por voz",(dialog,which)->{if(foreground&&generation==speechGeneration)say(message);})
         .setNegativeButton("Solo en pantalla",null)
+        .setOnDismissListener(dialog->resumeVoiceAfterScreenResult(generation,fromVoice))
         .show();
     });
+  }
+  private void resumeVoiceAfterScreenResult(long generation,boolean fromVoice){
+    // Screen-only Gmail results do not enter TTS completion. Keep the same
+    // hands-free conversation alive without disclosing mail to NVIDIA.
+    if(fromVoice&&generation==speechGeneration)scheduleZ02ListenRetry();
   }
   private void setGoogleAccount(String email){
     String previous=calendarGateway.selectedGoogleAccount();

@@ -15,6 +15,8 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
+import ar.goro.ai.R;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -43,7 +45,7 @@ public final class GoroDashboardView extends LinearLayout {
  private final FrameLayout body,home;
  private final ScrollView pages;
  private final LinearLayout pageContent,navigation;
- private final TextView title,clock,date,weather,agenda,speechBubble,conversationStatus;
+ private final TextView title,clock,date,weather,agenda,homeDevices,speechBubble,conversationStatus;
  private final TextView agendaValue,gmailValue,devicesValue,nvidiaValue,voiceValue;
  private final Button back,microphone;
  private final LinearLayout agendaPanel,gmailPanel,devicePanel,settingsPanel,explorePanel,automationPanel;
@@ -72,22 +74,29 @@ public final class GoroDashboardView extends LinearLayout {
   View line=new View(a);line.setBackground(new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,new int[]{0x002bd8ff,0x905cb8ef,0x002bd8ff}));addView(line,new LinearLayout.LayoutParams(-1,dp(1)));
   body=new FrameLayout(a);addView(body,new LinearLayout.LayoutParams(-1,0,1));
   home=new FrameLayout(a);body.addView(home,new FrameLayout.LayoutParams(-1,-1));
+  ImageView room=new ImageView(a);room.setImageResource(R.drawable.goro_room);room.setScaleType(ImageView.ScaleType.CENTER_CROP);room.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+  home.addView(room,new FrameLayout.LayoutParams(-1,-1));
+  View sceneShade=new View(a);sceneShade.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,new int[]{0x20241a10,0x00180f09,0xe6030c17}));sceneShade.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);home.addView(sceneShade,new FrameLayout.LayoutParams(-1,-1));
   avatarStage=new FrameLayout(a);
-  FrameLayout.LayoutParams stageParams=new FrameLayout.LayoutParams(-1,-1);stageParams.setMargins(0,dp(88),0,dp(112));home.addView(avatarStage,stageParams);
+  FrameLayout.LayoutParams stageParams=new FrameLayout.LayoutParams(-1,-1);stageParams.setMargins(0,dp(36),dp(tablet?214:92),dp(124));home.addView(avatarStage,stageParams);
   state=text("Preparando conexiones",11,false,MUTED);state.setGravity(Gravity.CENTER);state.setMaxLines(1);state.setEllipsize(TextUtils.TruncateAt.END);
   avatar=enableAvatar?new GoroAvatarView(a,this::onAvatarStatus):null;
   if(avatar!=null)avatarStage.addView(avatar,new FrameLayout.LayoutParams(-1,-1));
-  LinearLayout widgets=new LinearLayout(a);widgets.setGravity(Gravity.CENTER_VERTICAL);
-  weather=text("Clima local\nConsultar ubicación",13,false,TEXT);weather.setCompoundDrawables(new GoroIcon("sun",CYAN,dp(27)),null,null,null);weather.setCompoundDrawablePadding(dp(10));weather.setMaxLines(3);weather.setEllipsize(TextUtils.TruncateAt.END);weather.setPadding(dp(13),dp(10),dp(10),dp(10));weather.setBackground(glass(16));weather.setOnClickListener(v->actions.onWeather());
-  widgets.addView(weather,new LinearLayout.LayoutParams(0,-1,1));
-  LinearLayout timeCard=new LinearLayout(a);timeCard.setOrientation(VERTICAL);timeCard.setGravity(Gravity.CENTER);timeCard.setPadding(dp(15),dp(5),dp(15),dp(5));timeCard.setBackground(glass(16));
-  date=text("",11,false,MUTED);date.setGravity(Gravity.CENTER);clock=text("",30,true,TEXT);clock.setGravity(Gravity.CENTER);timeCard.addView(date);timeCard.addView(clock);
-  LinearLayout.LayoutParams timeParams=new LinearLayout.LayoutParams(dp(tablet?158:128),-1);timeParams.setMargins(dp(10),0,0,0);widgets.addView(timeCard,timeParams);
-  FrameLayout.LayoutParams widgetsParams=new FrameLayout.LayoutParams(-1,dp(79),Gravity.TOP);widgetsParams.setMargins(dp(2),dp(10),dp(2),0);home.addView(widgets,widgetsParams);
-  speechBubble=text("Hola Matías.\nEstoy preparando tus conexiones.",13,false,TEXT);speechBubble.setPadding(dp(14),dp(12),dp(14),dp(12));speechBubble.setMaxLines(4);speechBubble.setEllipsize(TextUtils.TruncateAt.END);speechBubble.setBackground(glass(16));speechBubble.setElevation(dp(7));speechBubble.setContentDescription("Abrir respuesta completa de Goro");speechBubble.setOnClickListener(v->openTranscript());
-  FrameLayout.LayoutParams bubbleParams=new FrameLayout.LayoutParams(dp(tablet?215:156),-2,Gravity.RIGHT|Gravity.BOTTOM);bubbleParams.setMargins(dp(8),0,dp(4),dp(165));home.addView(speechBubble,bubbleParams);
-  agenda=text("Tu agenda · consultar",11,false,MUTED);agenda.setMaxLines(1);agenda.setEllipsize(TextUtils.TruncateAt.END);agenda.setGravity(Gravity.CENTER);agenda.setOnClickListener(v->{select(GoroSection.AGENDA);actions.onCommand("agenda hoy");});
-  FrameLayout.LayoutParams agendaParams=new FrameLayout.LayoutParams(-1,dp(24),Gravity.BOTTOM);agendaParams.bottomMargin=dp(119);home.addView(agenda,agendaParams);
+  LinearLayout timeCard=new LinearLayout(a);timeCard.setOrientation(VERTICAL);timeCard.setGravity(Gravity.CENTER);timeCard.setPadding(dp(12),dp(6),dp(12),dp(6));timeCard.setBackground(sceneGlass());
+  date=text("",10,false,0xffe1d6c5);date.setGravity(Gravity.CENTER);clock=text("",25,true,TEXT);clock.setGravity(Gravity.CENTER);timeCard.addView(date);timeCard.addView(clock);
+  FrameLayout.LayoutParams timeParams=new FrameLayout.LayoutParams(dp(tablet?144:112),dp(61),Gravity.LEFT|Gravity.TOP);timeParams.setMargins(dp(12),dp(14),0,0);home.addView(timeCard,timeParams);
+  weather=text("Clima local\nConsultar ubicación",tablet?15:12,false,TEXT);weather.setMaxLines(5);weather.setEllipsize(TextUtils.TruncateAt.END);
+  agenda=text("Tu agenda · consultar",tablet?14:12,false,TEXT);agenda.setMaxLines(5);agenda.setEllipsize(TextUtils.TruncateAt.END);
+  homeDevices=text("Z02 · esperando conexión",tablet?14:12,false,TEXT);homeDevices.setMaxLines(5);homeDevices.setEllipsize(TextUtils.TruncateAt.END);
+  ScrollView overview=new ScrollView(a);overview.setVerticalScrollBarEnabled(false);overview.setClipToPadding(false);
+  LinearLayout overviewCards=new LinearLayout(a);overviewCards.setOrientation(VERTICAL);overviewCards.setPadding(0,0,0,dp(8));overview.addView(overviewCards);
+  overviewCards.addView(homeCard("CLIMA",weather,"sun",()->actions.onWeather()));
+  overviewCards.addView(homeCard("AGENDA DE HOY",agenda,"agenda",()->{select(GoroSection.AGENDA);actions.onCommand("agenda hoy");}));
+  overviewCards.addView(homeCard("DISPOSITIVOS",homeDevices,"devices",()->select(GoroSection.DEVICES)));
+  FrameLayout.LayoutParams overviewParams=new FrameLayout.LayoutParams(dp(tablet?228:136),-1,Gravity.RIGHT|Gravity.TOP);overviewParams.setMargins(0,dp(14),dp(10),dp(138));home.addView(overview,overviewParams);
+  speechBubble=text("Hola Matías.\nEstoy preparando tus conexiones.",tablet?15:13,false,0xff28251f);speechBubble.setPadding(dp(14),dp(12),dp(14),dp(12));speechBubble.setMaxLines(4);speechBubble.setEllipsize(TextUtils.TruncateAt.END);
+  GradientDrawable bubbleBackground=new GradientDrawable(GradientDrawable.Orientation.TL_BR,new int[]{0xfaf7f2e7,0xf0e7dfd1});bubbleBackground.setCornerRadius(dp(16));speechBubble.setBackground(bubbleBackground);speechBubble.setElevation(dp(7));speechBubble.setContentDescription("Abrir respuesta completa de Goro");speechBubble.setOnClickListener(v->openTranscript());
+  FrameLayout.LayoutParams bubbleParams=new FrameLayout.LayoutParams(dp(tablet?270:174),-2,Gravity.LEFT|Gravity.BOTTOM);bubbleParams.setMargins(dp(12),0,0,dp(144));home.addView(speechBubble,bubbleParams);
   LinearLayout lower=new LinearLayout(a);lower.setOrientation(VERTICAL);
   LinearLayout quick=new LinearLayout(a);quick.setGravity(Gravity.CENTER_VERTICAL);
   quick.addView(quick("Agenda","agenda",()->{select(GoroSection.AGENDA);actions.onCommand("agenda hoy");}),quickParams());
@@ -129,9 +138,9 @@ public final class GoroDashboardView extends LinearLayout {
   }
   pages.post(()->pages.scrollTo(0,0));
  }
- public void showAgenda(String value){String t=value==null?"Agenda sin consultar":value;agendaValue.setText(t);agenda.setText(t.replace('\n',' '));}
+ public void showAgenda(String value){String t=value==null?"Agenda sin consultar":value;agendaValue.setText(t);agenda.setText(t);}
  public void showWeather(String value){weather.setText(value==null?"Clima sin consultar":value);}
- public void showDeviceStatus(String value){devicesValue.setText(value==null?"Sin datos del dispositivo.":value);}
+ public void showDeviceStatus(String value){String status=value==null?"Sin datos del dispositivo.":value;devicesValue.setText(status);homeDevices.setText(status);}
  public void setVoiceActive(boolean active){conversationStatus.setText(active?"Te escucho desde Z02":"Z02 · esperando conexión automática");conversationStatus.setTextColor(active?CYAN:MUTED);microphone.setAlpha(active?1f:.72f);}
  public void showVoiceStatus(String value){
   String status=value==null||value.trim().isEmpty()?"Voz sin conexión":value.trim();
@@ -152,6 +161,13 @@ public final class GoroDashboardView extends LinearLayout {
  private Button quick(String label,String icon,Runnable action){Button b=iconButton(label,icon,action,false,25);b.setTextSize(label.equals("Dispositivos")?8:10);return b;}
  private LinearLayout.LayoutParams quickParams(){LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(65),1);p.setMargins(dp(2),0,dp(2),0);return p;}
  private Button iconButton(String label,String icon,Runnable action,boolean primary,int iconSize){Button b=new Button(activity);b.setText(label);b.setAllCaps(false);b.setTextSize(10);b.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));b.setTextColor(TEXT);b.setGravity(Gravity.CENTER);b.setMinWidth(0);b.setMinimumWidth(0);b.setMinHeight(dp(44));b.setPadding(dp(5),dp(7),dp(5),dp(5));b.setCompoundDrawables(null,new GoroIcon(icon,primary?CYAN:TEXT,dp(iconSize)),null,null);b.setCompoundDrawablePadding(dp(5));b.setBackground(ripple(0xee0b2035,0xee051222,14,EDGE));b.setElevation(dp(2));b.setContentDescription(label);b.setOnTouchListener((v,event)->{if(event.getActionMasked()==MotionEvent.ACTION_DOWN){v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);v.animate().cancel();v.setScaleX(.965f);v.setScaleY(.965f);}else if(event.getActionMasked()==MotionEvent.ACTION_UP||event.getActionMasked()==MotionEvent.ACTION_CANCEL){v.animate().scaleX(1).scaleY(1).setDuration(125).start();}return false;});b.setOnClickListener(v->action.run());return b;}
+ private LinearLayout homeCard(String label,TextView value,String icon,Runnable action){
+  LinearLayout card=new LinearLayout(activity);card.setOrientation(VERTICAL);card.setPadding(dp(12),dp(12),dp(12),dp(13));card.setBackground(sceneGlass());card.setElevation(dp(3));
+  TextView heading=text(label,tablet?11:9,true,0xffe6decf);heading.setLetterSpacing(.06f);heading.setCompoundDrawables(new GoroIcon(icon,0xffe2c993,dp(tablet?20:17)),null,null,null);heading.setCompoundDrawablePadding(dp(7));
+  LinearLayout.LayoutParams headingParams=new LinearLayout.LayoutParams(-1,-2);headingParams.bottomMargin=dp(9);card.addView(heading,headingParams);card.addView(value,new LinearLayout.LayoutParams(-1,-2));
+  LinearLayout.LayoutParams cardParams=new LinearLayout.LayoutParams(-1,-2);cardParams.bottomMargin=dp(9);card.setLayoutParams(cardParams);card.setMinimumHeight(dp(82));card.setFocusable(true);card.setOnClickListener(v->action.run());return card;
+ }
+ private GradientDrawable sceneGlass(){GradientDrawable d=new GradientDrawable(GradientDrawable.Orientation.TL_BR,new int[]{0xe041423d,0xde262b2b});d.setCornerRadius(dp(17));d.setStroke(dp(1),0x66e5d5b9);return d;}
  private GradientDrawable glass(int radius){GradientDrawable d=new GradientDrawable(GradientDrawable.Orientation.TL_BR,new int[]{SURFACE,0xee061424});d.setCornerRadius(dp(radius));d.setStroke(dp(1),EDGE);return d;}
  private RippleDrawable ripple(int a,int b,int radius,int edge){GradientDrawable bg=new GradientDrawable(GradientDrawable.Orientation.TL_BR,new int[]{a,b});bg.setCornerRadius(dp(radius));bg.setStroke(dp(1),edge);GradientDrawable mask=new GradientDrawable();mask.setColor(Color.WHITE);mask.setCornerRadius(dp(radius));return new RippleDrawable(ColorStateList.valueOf(0x552bd8ff),bg,mask);}
  private TextView text(String label,int size,boolean bold,int color){TextView t=new TextView(activity);t.setText(label);t.setTextSize(size);t.setTextColor(color);t.setTypeface(Typeface.create(bold?"sans-serif-medium":"sans-serif",Typeface.NORMAL));t.setGravity(Gravity.CENTER_VERTICAL);t.setIncludeFontPadding(false);return t;}

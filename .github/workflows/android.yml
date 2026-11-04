@@ -178,6 +178,7 @@ jobs:
             app/build/outputs/androidTest-results/connected/**/*.xml
             build/goro-emulator-logcat.txt
             build/goro-emulator-ui.png
+            build/goro-emulator-tablet.png
             build/goro-emulator-gfxinfo.txt
           if-no-files-found: warn
 

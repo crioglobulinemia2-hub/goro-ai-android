@@ -64,6 +64,21 @@ public class Z02ConnectionStatusTest {
    assertEquals(notifications,listener.notifications);
   }finally{controller.close();}
  }
+ @Test public void reconnectButtonPreservesAnOpenLinkAndItsCapture()throws Exception{
+  Listener listener=new Listener();GoroZn02Controller controller=new GoroZn02Controller(RuntimeEnvironment.getApplication(),listener);
+  try{
+   BluetoothDevice device=BluetoothAdapter.getDefaultAdapter().getRemoteDevice("12:34:56:78:90:AB");
+   field("target").set(controller,device);field("connected").setBoolean(controller,true);
+   field("recording").setBoolean(controller,true);
+   long epoch=field("connectionEpoch").getLong(controller);
+   controller.startScan();shadowOf(Looper.getMainLooper()).idle();
+   assertSame(device,field("target").get(controller));
+   assertTrue(field("connected").getBoolean(controller));
+   assertTrue(controller.isVoiceCaptureActive());
+   assertEquals(epoch,field("connectionEpoch").getLong(controller));
+   assertEquals("El Z02 ya tiene una sesión Bluetooth abierta.",listener.last);
+  }finally{controller.close();}
+ }
  @Test public void oldDisconnectCannotStopANewerConnection()throws Exception{
   Listener listener=new Listener();GoroZn02Controller controller=new GoroZn02Controller(RuntimeEnvironment.getApplication(),listener);
   try{

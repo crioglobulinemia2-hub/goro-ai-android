@@ -168,6 +168,7 @@ public final class GoroZn02Controller {
  }
  public synchronized void startScan(){
   if(closed){emit("Controlador ZN02 cerrado.");return;}
+  if(connected&&target!=null){emit("El Z02 ya tiene una sesión Bluetooth abierta.");return;}
   if(neededPermissions().length>0){emit("Faltan permisos Bluetooth para conectar el ZN02.");return;}
   try{
    BluetoothManager manager=(BluetoothManager)context.getSystemService(Context.BLUETOOTH_SERVICE);
@@ -265,6 +266,7 @@ public final class GoroZn02Controller {
    },this::emit);
   }catch(Exception error){emit("No se pudo resolver el perfil de audio Z02: "+error.getClass().getSimpleName());}
  }
+ public synchronized boolean isVoiceCaptureActive(){return recording||draining;}
  public synchronized boolean startVoice(){
   if(closed||!connected||target==null||recording||draining||controller==null){emit("El micrófono Z02 no está listo o ya hay una captura activa.");return false;}
   if(!controller.getRcspOp().isRcspInit(target)||!controller.getRcspOp().isDeviceAuthPass(target)){emit("La sesión RCSP del Z02 dejó de estar autenticada.");return false;}

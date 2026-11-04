@@ -23,12 +23,21 @@ final class AvatarMorphMap {
  }
 
  boolean isComplete(){return complete;}
+ int targetCount(){return targetCount;}
 
  float[] map(float[] canonical){
+  float[] result=new float[targetCount];
+  mapInto(canonical,result);
+  return result;
+ }
+
+ /** Reuse the render thread's output buffer, including clearing extra targets. */
+ void mapInto(float[] canonical,float[] result){
   if(!complete)throw new IllegalStateException("Incomplete named facial targets");
   if(canonical.length!=indices.length)throw new IllegalArgumentException("Unexpected expression count");
-  float[] result=new float[targetCount];
+  if(result.length!=targetCount)throw new IllegalArgumentException("Unexpected target count");
+  if(canonical==result)throw new IllegalArgumentException("Expression and target buffers must be separate");
+  java.util.Arrays.fill(result,0f);
   for(int i=0;i<indices.length;i++)result[indices[i]]=canonical[i];
-  return result;
  }
 }

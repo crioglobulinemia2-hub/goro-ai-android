@@ -5,7 +5,7 @@ import android.graphics.Color;
 import android.os.SystemClock;
 import android.view.Choreographer;
 import android.view.MotionEvent;
-import android.view.SurfaceView;
+import android.view.TextureView;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 import com.google.android.filament.Engine;
@@ -17,7 +17,7 @@ import com.google.android.filament.EntityManager;
 import com.google.android.filament.View;
 import com.google.android.filament.android.UiHelper;
 import com.google.android.filament.gltfio.FilamentAsset;
-import com.google.android.filament.utils.ModelViewer;
+import com.google.android.filament.utils.GoroModelViewer;
 import com.google.android.filament.utils.KTX1Loader;
 import com.google.android.filament.utils.Manipulator;
 import com.google.android.filament.utils.Float3;
@@ -36,8 +36,8 @@ public final class GoroAvatarView extends FrameLayout {
  public enum Mood {IDLE,LISTENING,THINKING,SPEAKING,CONFIRMING,ALERT}
  private static final String ASSET_PATH="goro/goro_rigged.glb";
  private final StatusListener statusListener;
- private SurfaceView surface;
- private ModelViewer viewer;
+ private TextureView surface;
+ private GoroModelViewer viewer;
  private Engine engine;
  private int sunEntity=0;
  private int fillEntity=0;
@@ -46,7 +46,8 @@ public final class GoroAvatarView extends FrameLayout {
  private boolean morphErrorReported=false;
  private int faceEntity=0;
  private AvatarMorphMap faceMorphMap;
- private boolean framePosted=false;
+ private final float[] expressionWeights=new float[10];
+ private float[] mappedMorphWeights;
  private Mood mood=Mood.IDLE;
  private long moodStartedNanos=0;
  private AvatarAnimationCatalog animationCatalog;
@@ -56,11 +57,14 @@ public final class GoroAvatarView extends FrameLayout {
  private AvatarSpeechEnvelope speechEnvelope;
  private boolean speechHasAudio=false;
  private final VisemeEstimator visemes=new VisemeEstimator();
- private final Choreographer.FrameCallback frameCallback=new Choreographer.FrameCallback(){
-  @Override public void doFrame(long frameTimeNanos){
-   framePosted=false;
-   ModelViewer current=viewer;
-   if(current==null||!isAttachedToWindow())return;
+ private final Choreographer.FrameCallback frameCallback=time->this.frameLoop.onFrame(time);
+ private final AvatarFrameLoop frameLoop=new AvatarFrameLoop(new AvatarFrameLoop.Scheduler(){
+  public void post(){Choreographer.getInstance().postFrameCallback(frameCallback);}
+  public void remove(){Choreographer.getInstance().removeFrameCallback(frameCallback);}
+ },this::renderFrame);
+ private void renderFrame(long frameTimeNanos){
+   GoroModelViewer current=viewer;
+   if(current==null||!isAttachedToWindow()||!isShown()||getWindowVisibility()!=VISIBLE)return;
    com.google.android.filament.gltfio.Animator animator=current.getAnimator();
    if(animator!=null){
     if(animationCatalog==null){
@@ -90,9 +94,7 @@ public final class GoroAvatarView extends FrameLayout {
         -halfHeight*aspect,halfHeight*aspect,-halfHeight,halfHeight,.05,60.0);
    }
    current.render(frameTimeNanos);
-   postFrame();
-  }
- };
+ }
  public GoroAvatarView(Context context,StatusListener listener){
   super(context);
   this.statusListener=listener;
@@ -111,10 +113,12 @@ public final class GoroAvatarView extends FrameLayout {
    status("No se encontró el robot 3D de GORO.");
    return;
   }
-  surface=new SurfaceView(getContext());
+  // TextureView participates in the normal view hierarchy, so the room stays
+  // behind the transparent robot and dialogue/cards can be drawn above it.
+  surface=new TextureView(getContext());
+  surface.setOpaque(false);
   surface.setFocusable(false);
   surface.setFocusableInTouchMode(false);
-  surface.setBackgroundColor(Color.TRANSPARENT);
   addView(surface,new FrameLayout.LayoutParams(-1,-1));
   surface.setOnTouchListener((v,event)->{
    if(viewer!=null){viewer.onTouchEvent(event);return true;}
@@ -127,20 +131,18 @@ public final class GoroAvatarView extends FrameLayout {
    engine=Engine.create(Engine.Backend.VULKAN);
    if(engine==null)throw new IllegalStateException("Vulkan is not available");
    UiHelper helper=new UiHelper(UiHelper.ContextErrorPolicy.DONT_CHECK);
-   helper.setOpaque(true);
-   // A null argument creates ModelViewer's default orbit controller, which
+   helper.setOpaque(false);
+   // A null argument creates GoroModelViewer's default orbit controller, which
    // overwrites Camera.lookAt every frame. Supply the centered camera explicitly.
    Manipulator cameraControl=new Manipulator.Builder()
        .targetPosition(0f,0f,0f).orbitHomePosition(0f,0f,8f)
        .viewport(1,1).orbitSpeed(0f,0f).zoomSpeed(0f).panning(false)
        .build(Manipulator.Mode.ORBIT);
-   viewer=new ModelViewer(surface,engine,helper,cameraControl);
+   viewer=new GoroModelViewer(surface,engine,helper,cameraControl);
    viewer.getView().setAntiAliasing(View.AntiAliasing.FXAA);
-   viewer.getView().setBlendMode(View.BlendMode.OPAQUE);
+   viewer.getView().setBlendMode(View.BlendMode.TRANSLUCENT);
    com.google.android.filament.Renderer.ClearOptions clearOptions=new com.google.android.filament.Renderer.ClearOptions();
-   // Filament clear colors are linear; display-space gray values made the
-   // approved dark stage look washed out after tone mapping.
-   clearOptions.clearColor=new float[]{0.0009f,0.0037f,0.0086f,1.0f};
+   clearOptions.clearColor=new float[]{0f,0f,0f,0f};
    clearOptions.clear=true;
    clearOptions.discard=true;
    viewer.getRenderer().setClearOptions(clearOptions);
@@ -149,13 +151,16 @@ public final class GoroAvatarView extends FrameLayout {
    FilamentAsset asset=viewer.getAsset();
    if(asset!=null){
     faceEntity=asset.getFirstEntityByName("GORO_Face_Morphs");
-    if(faceEntity!=0)faceMorphMap=new AvatarMorphMap(asset.getMorphTargetNames(faceEntity));
+    if(faceEntity!=0){
+     faceMorphMap=new AvatarMorphMap(asset.getMorphTargetNames(faceEntity));
+     mappedMorphWeights=new float[faceMorphMap.targetCount()];
+    }
     float[] extent=asset.getBoundingBox().getHalfExtent();
     double scale=1.0/Math.max(extent[0],Math.max(extent[1],extent[2]));
     frameHalfHeight=extent[1]*scale*1.10;
     frameHalfWidth=extent[0]*scale*1.15;
    }
-   // ModelViewer supplies a default sun; use only GORO's controlled lighting.
+   // GoroModelViewer supplies a default sun; use only GORO's controlled lighting.
    viewer.getScene().removeEntity(viewer.getLight());
    sunEntity=EntityManager.get().create();
    new LightManager.Builder(LightManager.Type.DIRECTIONAL)
@@ -225,7 +230,8 @@ public final class GoroAvatarView extends FrameLayout {
   RenderableManager renderables=engine.getRenderableManager();
   int instance=renderables.getInstance(faceEntity);
   if(instance==0)return;
-  float[] weights=new float[10];
+  float[] weights=expressionWeights;
+  java.util.Arrays.fill(weights,0f);
   // Blink events are time-based, never a static screen sprite.
   float phase=(SystemClock.uptimeMillis()%4300)/4300f;
   float blink=Math.max(0f,1f-Math.abs(phase-.70f)/.025f);
@@ -254,7 +260,10 @@ public final class GoroAvatarView extends FrameLayout {
     for(int i=0;i<6;i++)weights[i]*=speechWeight;
    }
   }
-  try{renderables.setMorphWeights(instance,faceMorphMap.map(weights),0);}
+  try{
+   faceMorphMap.mapInto(weights,mappedMorphWeights);
+   renderables.setMorphWeights(instance,mappedMorphWeights,0);
+  }
   catch(RuntimeException unsupported){
    if(!morphErrorReported){morphErrorReported=true;status("El dispositivo no admite morph targets de GORO.");}
   }
@@ -271,14 +280,21 @@ public final class GoroAvatarView extends FrameLayout {
   }
  }
  private void status(String value){if(statusListener!=null)statusListener.onStatus(value);}
- private void postFrame(){
-  if(!framePosted&&viewer!=null&&isAttachedToWindow()){
-   framePosted=true;Choreographer.getInstance().postFrameCallback(frameCallback);
-  }
+ private void updateFrameLoop(){
+  // Android can dispatch visibility callbacks while the superclass constructor
+  // is still running, before this field is initialized.
+  if(frameLoop!=null)frameLoop.setActive(viewer!=null&&isAttachedToWindow()
+      &&isShown()&&getWindowVisibility()==VISIBLE);
  }
- @Override protected void onAttachedToWindow(){super.onAttachedToWindow();postFrame();}
+ @Override protected void onAttachedToWindow(){super.onAttachedToWindow();updateFrameLoop();}
+ @Override protected void onVisibilityChanged(android.view.View changedView,int visibility){
+  super.onVisibilityChanged(changedView,visibility);updateFrameLoop();
+ }
+ @Override protected void onWindowVisibilityChanged(int visibility){
+  super.onWindowVisibilityChanged(visibility);updateFrameLoop();
+ }
  @Override protected void onDetachedFromWindow(){
-  Choreographer.getInstance().removeFrameCallback(frameCallback);framePosted=false;
+  frameLoop.setActive(false);
   if(viewer!=null&&engine!=null){
    try{
     if(sunEntity!=0){viewer.getScene().removeEntity(sunEntity);engine.destroyEntity(sunEntity);}
@@ -290,7 +306,7 @@ public final class GoroAvatarView extends FrameLayout {
    catch(RuntimeException ignored){}
   }
   ambientLight=null;
-  sunEntity=0;fillEntity=0;faceEntity=0;faceMorphMap=null;viewer=null;engine=null;moodStartedNanos=0;animationCatalog=null;
+  sunEntity=0;fillEntity=0;faceEntity=0;faceMorphMap=null;mappedMorphWeights=null;viewer=null;engine=null;moodStartedNanos=0;animationCatalog=null;
   super.onDetachedFromWindow();
  }
 }

@@ -27,6 +27,16 @@ if adb get-state >/dev/null 2>&1; then
     test -s build/goro-emulator-ui.png || rm -f build/goro-emulator-ui.png
     adb shell dumpsys gfxinfo ar.goro.ai.personal       > build/goro-emulator-gfxinfo.txt 2>&1 || true
     adb shell dumpsys activity activities       > build/goro-emulator-activities.txt 2>&1 || true
+    # Capture the same APK at Tab A8-like landscape geometry as well.
+    adb shell wm size 1920x1200 >/dev/null 2>&1
+    adb shell wm density 240 >/dev/null 2>&1
+    adb shell am force-stop ar.goro.ai.personal >/dev/null 2>&1
+    adb shell am start -W -n ar.goro.ai.personal/ar.goro.ai.MainActivity > build/goro-emulator-tablet-launch.txt 2>&1
+    sleep 4
+    adb exec-out screencap -p > build/goro-emulator-tablet.png 2>/dev/null || true
+    test -s build/goro-emulator-tablet.png || rm -f build/goro-emulator-tablet.png
+    adb shell wm size reset >/dev/null 2>&1
+    adb shell wm density reset >/dev/null 2>&1
     if [ "$START_STATUS" -ne 0 ]; then
       echo "GORO launch command failed after reinstall."
       RESULT=1
