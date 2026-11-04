@@ -119,7 +119,7 @@ public final class GoroZn02Controller {
    }
    @Override public void onConnection(BluetoothDevice device,int status){
     if(!isTarget(device))return;
-    if(status==StateCode.CONNECTION_OK){
+    if(status==StateCode.CONNECTION_OK||status==StateCode.CONNECTION_CONNECTED){
      connected=true;vendorProtocolVerified=false;
      emit("Enlace BLE Z02 abierto. Verificando autenticación RCSP…");
      verifyAuthenticated(device);
@@ -159,7 +159,8 @@ public final class GoroZn02Controller {
       .setMandatoryUseBLE(false)
       .setMtu(509)
       .setUseDeviceAuth(true)
-      .setBleScanMode(2);
+      .setBleScanMode(2)
+      .setReconnect(false);
     RCSPController.init(context,option);
    }
    controller=RCSPController.getInstance();
