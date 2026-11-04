@@ -5,9 +5,12 @@ import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.LooperMode;
+import org.robolectric.annotation.Config;
 import static org.robolectric.Shadows.shadowOf;
 import static org.junit.Assert.*;
 
+// Explicitly exercise the application's minimum and target SDKs, never SDK 21 fallback.
+@Config(sdk={26,35})
 @RunWith(RobolectricTestRunner.class)
 @LooperMode(LooperMode.Mode.PAUSED)
 public class Z02PlayerCallbackTest {
