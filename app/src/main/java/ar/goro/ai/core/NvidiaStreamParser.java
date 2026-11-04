@@ -37,6 +37,14 @@ public final class NvidiaStreamParser {
   JsonArray choices=root.getAsJsonArray("choices");
   if(choices==null||choices.isEmpty())return "";
   JsonObject choice=choices.get(0).getAsJsonObject();
+  JsonElement finish=choice.get("finish_reason");
+  if(finish!=null&&!finish.isJsonNull()){
+   String reason=finish.getAsString();
+   if("length".equals(reason))
+    throw new IllegalStateException("NVIDIA alcanzó el límite de respuesta; no se recibió una respuesta completa");
+   if(!"stop".equals(reason))
+    throw new IllegalStateException("NVIDIA no completó la respuesta: "+reason);
+  }
   JsonElement deltaElement=choice.get("delta");
   if(deltaElement==null||deltaElement.isJsonNull())return "";
   JsonObject delta=deltaElement.getAsJsonObject();

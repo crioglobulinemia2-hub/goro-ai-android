@@ -27,6 +27,9 @@ public final class ParakeetAsrGateway {
  private final String apiKey;
  private final ManagedChannel channel;
  private final ExecutorService executor=Executors.newSingleThreadExecutor();
+ private volatile boolean closed;
+ private final java.util.concurrent.atomic.AtomicLong generation=new java.util.concurrent.atomic.AtomicLong();
+ private volatile io.grpc.Context.CancellableContext activeContext;
  private final Handler main=new Handler(Looper.getMainLooper());
  public ParakeetAsrGateway(String apiKey){
   if(apiKey==null||!apiKey.startsWith("nvapi-"))throw new IllegalArgumentException("NVIDIA NIM API key required");
@@ -40,10 +43,17 @@ public final class ParakeetAsrGateway {
    callback.completed(null,"El audio del micrófono Z02 no tiene formato PCM16 mono a 16 kHz.");
    return;
   }
+  if(closed)return;
+  cancelPending();
+  long requestGeneration=generation.get();
   byte[] audio=pcm16Mono.clone();
   executor.execute(()->{
+   if(closed||generation.get()!=requestGeneration)return;
    String transcript=null,error=null;
+   io.grpc.Context.CancellableContext requestContext=io.grpc.Context.current().withCancellation();
+   activeContext=requestContext;
    try{
+    if(closed||generation.get()!=requestGeneration)return;
     RecognitionConfig config=RecognitionConfig.newBuilder()
       .setEncoding(AudioEncoding.LINEAR_PCM)
       .setSampleRateHertz(sampleRate)
@@ -63,7 +73,7 @@ public final class ParakeetAsrGateway {
       RivaSpeechRecognitionGrpc.newBlockingStub(channel)
         .withInterceptors(MetadataUtils.newAttachHeadersInterceptor(headers))
         .withDeadlineAfter(35,TimeUnit.SECONDS);
-    RecognizeResponse response=stub.recognize(request);
+    RecognizeResponse response=requestContext.call(()->stub.recognize(request));
     if(response.getResultsCount()>0
         &&response.getResults(0).getAlternativesCount()>0){
       transcript=response.getResults(0).getAlternatives(0).getTranscript().trim();
@@ -76,11 +86,14 @@ public final class ParakeetAsrGateway {
    }catch(Exception e){
     error=e.getMessage()==null?"Error de reconocimiento NVIDIA Parakeet":e.getMessage();
    }
+   finally{requestContext.cancel(null);if(activeContext==requestContext)activeContext=null;}
    final String text=transcript,problem=error;
-   main.post(()->callback.completed(text,problem));
+   main.post(()->{if(!closed&&generation.get()==requestGeneration)callback.completed(text,problem);});
   });
  }
+ public void cancelPending(){generation.incrementAndGet();io.grpc.Context.CancellableContext context=activeContext;if(context!=null)context.cancel(null);}
  public void close(){
+  closed=true;cancelPending();main.removeCallbacksAndMessages(null);
   executor.shutdownNow();
   channel.shutdownNow();
  }

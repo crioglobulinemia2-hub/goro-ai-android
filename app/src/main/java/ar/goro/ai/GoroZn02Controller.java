@@ -301,6 +301,10 @@ public final class GoroZn02Controller {
    emit("Abriendo micrófono del Z02…");return true;
   }catch(Exception error){abortVoice("Audio Z02 no disponible: "+error.getClass().getSimpleName());return false;}
  }
+ public synchronized void cancelVoice(){
+  BluetoothDevice device=target;RecordOpImpl op=recorder;releaseVoice();
+  if(device!=null&&op!=null)try{op.stopRecord(device,RecordState.REASON_STOP,null);}catch(Exception ignored){}
+ }
  public synchronized void stopVoice(){
   if(!recording)return;
   recording=false;draining=true;

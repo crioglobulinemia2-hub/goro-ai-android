@@ -73,6 +73,10 @@ public final class GoroDashboardView extends LinearLayout {
  private final LinearLayout navigation;
  private final LinearLayout settingsPanel;
  private final LinearLayout devicePanel;
+ private final LinearLayout agendaPanel,gmailPanel;
+ private TextView homeWeather,homeAgenda;
+ private final android.os.Handler clockHandler=new android.os.Handler(android.os.Looper.getMainLooper());
+ private final Runnable clockTick=new Runnable(){public void run(){clock.setText(new SimpleDateFormat("HH:mm · EEE dd MMM",new Locale("es","AR")).format(new Date()));clockHandler.postDelayed(this,1000);}};
  private LinearLayout heroPane,quickPane,controlsPane;
  private ScrollView mainScrollContainer;
  private GoroTheme palette;
@@ -138,7 +142,7 @@ public final class GoroDashboardView extends LinearLayout {
   avatar=enableAvatar?new GoroAvatarView(activity,this::onAvatarStatus):null;
   if(avatar!=null)avatarStage.addView(avatar,new FrameLayout.LayoutParams(-1,-1));
   else{TextView testStage=text("Avatar renderer disabled in JVM test",13,false,palette.muted);testStage.setGravity(Gravity.CENTER);avatarStage.addView(testStage,new FrameLayout.LayoutParams(-1,-1));}
-  speechBubble=text("GORO · Escuchando y listo para responder",tablet?14:12,true,palette.text);
+  speechBubble=text("Hola Matías. Estoy preparando tus conexiones.",tablet?14:12,true,palette.text);
   speechBubble.setGravity(Gravity.CENTER_VERTICAL);
   speechBubble.setMaxLines(3);
   speechBubble.setPadding(dp(12),dp(10),dp(12),dp(10));
@@ -166,8 +170,8 @@ public final class GoroDashboardView extends LinearLayout {
 
   LinearLayout quick=new LinearLayout(activity);quick.setOrientation(HORIZONTAL);quick.setGravity(Gravity.CENTER);
   quickPane=quick;
-  Button agendaQuick=button("Agenda",()->actions.onCommand("agenda hoy"),false);
-  Button gmailQuick=button("Gmail",()->actions.onReadGmail(),false);
+  Button agendaQuick=button("Agenda",()->{select(GoroSection.AGENDA);actions.onCommand("agenda hoy");},false);
+  Button gmailQuick=button("Gmail",()->{select(GoroSection.GMAIL);actions.onReadGmail();},false);
   Button devicesQuick=button("Dispositivos",()->select(GoroSection.DEVICES),false);
   devicesQuick.setTextSize(10f);devicesQuick.setSingleLine(true);
   Button projectsQuick=button("Proyectos",()->select(GoroSection.EXPLORE),false);
@@ -198,14 +202,37 @@ public final class GoroDashboardView extends LinearLayout {
   gmailValue=text("Gmail: sin autorización OAuth.",14,false,palette.text);
   accountLabel=text(account==null?"Google Calendar: sin vincular":"Calendar · "+account,12,false,palette.muted);
 
+  LinearLayout liveCards=new LinearLayout(activity);liveCards.setOrientation(HORIZONTAL);
+  homeWeather=text("Clima local\nTocá para consultar",tablet?14:12,false,palette.text);
+  homeAgenda=text("Tu agenda\nTocá para consultar",tablet?14:12,false,palette.text);
+  for(TextView value:new TextView[]{homeWeather,homeAgenda}){
+   value.setPadding(dp(12),dp(8),dp(12),dp(8));
+   value.setBackground(gradient(palette.surface,palette.surfaceElevated,dp(14)));
+   value.setMaxLines(3);value.setEllipsize(android.text.TextUtils.TruncateAt.END);
+   LinearLayout.LayoutParams vp=new LinearLayout.LayoutParams(0,dp(66),1f);vp.setMargins(dp(3),0,dp(3),0);
+   liveCards.addView(value,vp);
+  }
+  homeWeather.setOnClickListener(v->actions.onWeather());
+  homeAgenda.setOnClickListener(v->{select(GoroSection.AGENDA);actions.onCommand("agenda hoy");});
+  hero.addView(liveCards,0,new LinearLayout.LayoutParams(-1,dp(70)));
+  agendaPanel=new LinearLayout(activity);agendaPanel.setOrientation(VERTICAL);
+  agendaPanel.addView(card("TU AGENDA",agendaValue),cardParams());
+  agendaPanel.addView(button("Consultar agenda de hoy",()->actions.onCommand("agenda hoy"),false));
+  agendaPanel.addView(button("Consultar agenda de mañana",()->actions.onCommand("agenda mañana"),false));
+  mainColumn.addView(agendaPanel);agendaPanel.setVisibility(GONE);
+  gmailPanel=new LinearLayout(activity);gmailPanel.setOrientation(VERTICAL);
+  gmailPanel.addView(card("TU CORREO",gmailValue),cardParams());
+  gmailPanel.addView(button("Actualizar bandeja",()->actions.onReadGmail(),false));
+  mainColumn.addView(gmailPanel);gmailPanel.setVisibility(GONE);
+
   settingsPanel=new LinearLayout(activity);settingsPanel.setOrientation(VERTICAL);
   settingsPanel.addView(accountLabel,new LinearLayout.LayoutParams(-1,dp(32)));
-  settingsPanel.addView(card("CUENTA GOOGLE",agendaValue),cardParams());
+
   settingsPanel.addView(button("Vincular cuenta Google",()->actions.onLinkAccount(),false),new LinearLayout.LayoutParams(-1,dp(42)));
   settingsPanel.addView(button("Autorizar Calendar",()->actions.onCalendarPermission(),false),new LinearLayout.LayoutParams(-1,dp(42)));
   settingsPanel.addView(button("Autorizar Gmail",()->actions.onReadGmail(),false),new LinearLayout.LayoutParams(-1,dp(42)));
   settingsPanel.addView(card("NVIDIA NEMOTRON",nvidiaValue),cardParams());
-  settingsPanel.addView(card("GMAIL",gmailValue),cardParams());
+
   settingsPanel.addView(card("MAGPIE DIEGO",voiceValue),cardParams());
   settingsPanel.addView(button("Configurar NVIDIA",()->actions.onConfigureNvidia(),false),new LinearLayout.LayoutParams(-1,dp(42)));
   settingsPanel.addView(button("Verificar NVIDIA",()->actions.onTestNvidia(),false),new LinearLayout.LayoutParams(-1,dp(42)));
@@ -244,21 +271,25 @@ public final class GoroDashboardView extends LinearLayout {
   }
   settingsPanel.setVisibility(section==GoroSection.SETTINGS?VISIBLE:GONE);
   devicePanel.setVisibility(section==GoroSection.DEVICES?VISIBLE:GONE);
-  boolean utilityPage=section==GoroSection.SETTINGS||section==GoroSection.DEVICES;
+  agendaPanel.setVisibility(section==GoroSection.AGENDA?VISIBLE:GONE);
+  gmailPanel.setVisibility(section==GoroSection.GMAIL?VISIBLE:GONE);
+  boolean utilityPage=section==GoroSection.SETTINGS||section==GoroSection.DEVICES||section==GoroSection.AGENDA||section==GoroSection.GMAIL;
   heroPane.setVisibility(utilityPage?GONE:VISIBLE);
   quickPane.setVisibility(utilityPage?GONE:VISIBLE);
   controlsPane.setVisibility(utilityPage?GONE:VISIBLE);
   if(mainScrollContainer!=null)mainScrollContainer.post(()->mainScrollContainer.scrollTo(0,0));
   switch(section){
-   case HOME: output.setText("GORO IA · Conversación manos libres por ZNP Z02. La conexión se inicia automáticamente.");break;
+   case HOME: break;
+   case AGENDA: output.setText("Tu agenda de la cuenta Google vinculada.");break;
+   case GMAIL: output.setText("Consultá tus correos con la cuenta que autorizaste.");break;
    case EXPLORE: output.setText("Explorar proyectos. Pedime que retomemos cualquiera de tus proyectos.");break;
    case DEVICES: output.setText("ZNP Z02. GORO busca el dispositivo, autentica RCSP y prepara el micrófono y el audio Bluetooth.");break;
    case AUTOMATIONS: output.setText("Automatizaciones. Pedime recordatorios, alarmas o temporizadores en lenguaje natural.");actions.onReminders();break;
    case SETTINGS: output.setText("Ajustes y conexiones. Configurá las cuentas y servicios que quieras vincular.");break;
   }
  }
- public void showAgenda(String value){agendaValue.setText(value==null?"Sin datos.":value);}
- public void showWeather(String value){weatherValue.setText(value==null?"Sin datos.":value);}
+ public void showAgenda(String value){agendaValue.setText(value==null?"Sin datos.":value);homeAgenda.setText(value==null?"Agenda sin consultar":value);}
+ public void showWeather(String value){weatherValue.setText(value==null?"Sin datos.":value);homeWeather.setText(value==null?"Clima sin consultar":value);}
  public void showDeviceStatus(String value){devicesValue.setText(value==null?"Sin datos de dispositivo.":value);}
  public void setVoiceActive(boolean active){
   String status=active?"Micrófono Z02 activo · conversación manos libres":"Micrófono Z02 · esperando conexión automática";
@@ -346,6 +377,8 @@ public final class GoroDashboardView extends LinearLayout {
   b.setOnClickListener(v->click.run());
   return b;
  }
+ @Override protected void onAttachedToWindow(){super.onAttachedToWindow();clockHandler.post(clockTick);}
+ @Override protected void onDetachedFromWindow(){clockHandler.removeCallbacks(clockTick);super.onDetachedFromWindow();}
  public int navigationItemCount(){return navigation.getChildCount();}
 
  private TextView text(String label,int size,boolean strong,int color){

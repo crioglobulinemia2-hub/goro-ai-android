@@ -34,7 +34,7 @@ public final class NemotronGateway implements ModelGateway {
    "Si una capacidad no está conectada, decilo sin simular que ejecutaste algo. "+
    "No afirmes haber encendido el ZNP ni modificado eventos sin confirmación de la aplicación.";
  private final String apiKey;
- private final ExecutorService executor=Executors.newSingleThreadExecutor();
+ private final HttpRequestScope requests=new HttpRequestScope();
  private final Handler main=new Handler(Looper.getMainLooper());
  private final Map<String,ArrayDeque<JSONObject>> histories=new HashMap<>();
  public NemotronGateway(String apiKey){
@@ -56,7 +56,7 @@ public final class NemotronGateway implements ModelGateway {
   if(callback==null)throw new IllegalArgumentException("callback required");
   if(userText==null||userText.trim().isEmpty()){callback.completed(null,"Empty request");return;}
   if(userText.length()>4000){callback.completed(null,"Request too long");return;}
-  executor.execute(()->{
+  requests.submit(ticket->{
    HttpURLConnection connection=null;String reply=null,error=null;
    try{
     JSONArray messages=new JSONArray();
@@ -79,9 +79,11 @@ public final class NemotronGateway implements ModelGateway {
     JSONObject payload=new JSONObject();
     payload.put("model",MODEL);payload.put("messages",messages);
     payload.put("temperature",1.0);payload.put("top_p",0.95);
-    payload.put("max_tokens",2048);payload.put("seed",42);
+    payload.put("max_tokens",4096);payload.put("seed",42);
     payload.put("stream",true);
+    payload.put("chat_template_kwargs",new JSONObject().put("enable_thinking",false));
     connection=(HttpURLConnection)new URL(ENDPOINT).openConnection();
+    ticket.attach(connection);
     connection.setRequestMethod("POST");connection.setConnectTimeout(15000);
     connection.setReadTimeout(90000);connection.setDoOutput(true);
     connection.setRequestProperty("Authorization","Bearer "+apiKey);
@@ -101,7 +103,7 @@ public final class NemotronGateway implements ModelGateway {
     NvidiaStreamParser parser=new NvidiaStreamParser();
     try(BufferedReader reader=new BufferedReader(new InputStreamReader(connection.getInputStream(),StandardCharsets.UTF_8))){
      String line;
-     while((line=reader.readLine())!=null){
+     while(ticket.current()&&(line=reader.readLine())!=null){
       if(!line.startsWith("data:"))continue;
       String piece=parser.accept(line);
       if(!piece.isEmpty()){
@@ -112,10 +114,12 @@ public final class NemotronGateway implements ModelGateway {
       if(parser.isDone())break;
      }
     }
-    if(!parser.isDone()&&parser.hasAnswer())
+    if(!ticket.current())return;
+    if(!parser.isDone())
       throw new IllegalStateException("NVIDIA streaming response ended before completion");
     reply=accumulated.toString().trim();
     if(reply.isEmpty())throw new IllegalStateException("NVIDIA returned no answer content");
+    if(!ticket.current())return;
     synchronized(history){
      history.addLast(user);
      history.addLast(new JSONObject().put("role","assistant").put("content",reply));
@@ -124,9 +128,9 @@ public final class NemotronGateway implements ModelGateway {
    }catch(Exception e){
     String raw=e.getMessage()==null?"Connection failed":e.getMessage();
     error=raw.length()>240?raw.substring(0,240):raw;
-   }finally{if(connection!=null)connection.disconnect();}
+   }finally{if(connection!=null){ticket.detach(connection);connection.disconnect();}}
    final String result=reply,problem=error;
-   main.post(()->callback.completed(result,problem));
+   main.post(()->{if(ticket.current())callback.completed(result,problem);});
   });
  }
  private static byte[] readBounded(InputStream stream,int limit)throws Exception{
@@ -137,5 +141,6 @@ public final class NemotronGateway implements ModelGateway {
    return out.toByteArray();
   }
  }
- public void close(){executor.shutdownNow();synchronized(histories){histories.clear();}}
+ public void cancelPending(){requests.cancel();}
+ public void close(){requests.close();main.removeCallbacksAndMessages(null);synchronized(histories){histories.clear();}}
 }

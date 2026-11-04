@@ -22,7 +22,7 @@ public final class NemotronSpeechGateway {
  public static final String VOICES_ENDPOINT=
    "https://877104f7-e885-42b9-8de8-f6e4c6303969.invocation.api.nvcf.nvidia.com/v1/audio/list_voices";
  private final String apiKey;
- private final ExecutorService executor=Executors.newSingleThreadExecutor();
+ private final HttpRequestScope requests=new HttpRequestScope();
  private final Handler main=new Handler(Looper.getMainLooper());
  public NemotronSpeechGateway(String apiKey){
   if(apiKey==null||!apiKey.startsWith("nvapi-"))throw new IllegalArgumentException("NVIDIA NIM API key required");
@@ -31,10 +31,11 @@ public final class NemotronSpeechGateway {
  /** Check the actual remote voice catalogue, not merely the local string constant. */
  public void verifyDiego(AvailabilityCallback callback){
   if(callback==null)throw new IllegalArgumentException("callback required");
-  executor.execute(()->{
+  requests.submit(ticket->{
    HttpURLConnection connection=null;boolean found=false;String detail=null;
    try{
     connection=(HttpURLConnection)new URL(VOICES_ENDPOINT).openConnection();
+    ticket.attach(connection);
     connection.setRequestMethod("GET");
     connection.setConnectTimeout(12000);connection.setReadTimeout(20000);
     connection.setRequestProperty("Authorization","Bearer "+apiKey);
@@ -42,25 +43,26 @@ public final class NemotronSpeechGateway {
     int status=connection.getResponseCode();
     if(status!=200)throw new IllegalStateException("Catálogo de voces NVIDIA HTTP "+status);
     String response=new String(readBounded(connection.getInputStream(),256*1024),StandardCharsets.UTF_8);
-    found=response.toLowerCase(java.util.Locale.ROOT).contains(VOICE.toLowerCase(java.util.Locale.ROOT));
+    found=NvidiaVoiceCatalog.contains(response,VOICE);
     detail=found?"NVIDIA confirmó Magpie Diego en su catálogo.":
       "NVIDIA respondió, pero no anunció la voz Diego solicitada.";
    }catch(Exception e){
     detail="No se pudo verificar Magpie Diego: "+(e.getMessage()==null?e.getClass().getSimpleName():e.getMessage());
-   }finally{if(connection!=null)connection.disconnect();}
+   }finally{if(connection!=null){ticket.detach(connection);connection.disconnect();}}
    final boolean available=found;final String result=detail;
-   main.post(()->callback.completed(available,result));
+   main.post(()->{if(ticket.current())callback.completed(available,result);});
   });
  }
  public void synthesize(String text,Callback callback){
   if(callback==null)throw new IllegalArgumentException("callback required");
   if(text==null||text.trim().isEmpty()){callback.completed(null,"Texto vacío");return;}
   if(text.length()>1800){callback.completed(null,"Texto demasiado largo para una sola síntesis");return;}
-  executor.execute(()->{
+  requests.submit(ticket->{
    HttpURLConnection connection=null;byte[] wav=null;String error=null;
    String boundary="----GORO"+UUID.randomUUID().toString().replace("-","");
    try{
     connection=(HttpURLConnection)new URL(ENDPOINT).openConnection();
+    ticket.attach(connection);
     connection.setRequestMethod("POST");connection.setConnectTimeout(15000);connection.setReadTimeout(60000);
     connection.setDoOutput(true);connection.setRequestProperty("Authorization","Bearer "+apiKey);
     connection.setRequestProperty("Content-Type","multipart/form-data; boundary="+boundary);
@@ -84,9 +86,9 @@ public final class NemotronSpeechGateway {
     if(info.durationMs<100)throw new IllegalStateException("La síntesis NVIDIA devolvió menos de 100 ms de audio");
     wav=response;
    }catch(Exception e){error=e.getMessage()==null?"Error de síntesis NVIDIA":e.getMessage();}
-   finally{if(connection!=null)connection.disconnect();}
+   finally{if(connection!=null){ticket.detach(connection);connection.disconnect();}}
    final byte[] audio=wav;final String problem=error;
-   main.post(()->callback.completed(audio,problem));
+   main.post(()->{if(ticket.current())callback.completed(audio,problem);});
   });
  }
  private static void field(OutputStream out,String boundary,String name,String value)throws Exception{
@@ -103,5 +105,6 @@ public final class NemotronSpeechGateway {
    return out.toByteArray();
   }
  }
- public void close(){executor.shutdownNow();}
+ public void cancelPending(){requests.cancel();}
+ public void close(){requests.close();main.removeCallbacksAndMessages(null);}
 }

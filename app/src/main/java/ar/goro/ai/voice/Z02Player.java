@@ -82,7 +82,8 @@ public final class Z02Player {
    AudioManager.OnAudioFocusChangeListener focus=change->{
     if(change!=AudioManager.AUDIOFOCUS_GAIN){session.running.set(false);if(session.track!=null)try{session.track.setVolume(0f);}catch(Exception ignored){}}
    };
-   boolean focused=false;
+   boolean focused=false, completed=false;
+   String playbackError=null;
    try{
     @SuppressWarnings("deprecation")
     int focusResult=audio.requestAudioFocus(focus,AudioManager.STREAM_MUSIC,AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
@@ -129,14 +130,17 @@ public final class Z02Player {
      SystemClock.sleep(10);
     if(!session.running.get()||(track.getPlaybackHeadPosition()&0xffffffffL)<frames)
      throw new IllegalStateException("Audio interrumpido antes de completar.");
-    main.post(()->{if(active==session){active=null;if(listener!=null)listener.onCompleted();}});
-   }catch(Exception error){fail(session,error.getMessage()==null?"Falló la reproducción por Z02.":error.getMessage());}
+    completed=true;
+   }catch(Exception error){playbackError=error.getMessage()==null?"Falló la reproducción por Z02.":error.getMessage();}
    finally{
     session.running.set(false);
     if(track!=null){try{track.setVolume(0f);}catch(Exception ignored){}try{track.pause();}catch(Exception ignored){}try{track.flush();}catch(Exception ignored){}try{track.release();}catch(Exception ignored){}}
     session.track=null;
     if(focused){@SuppressWarnings("deprecation") boolean ignored=audio.abandonAudioFocus(focus)==AudioManager.AUDIOFOCUS_REQUEST_GRANTED;}
    }
+   // Only advance the queue after both the track and its audio focus are released.
+   final boolean finished=completed;final String problem=playbackError;
+   main.post(()->{if(active!=session)return;active=null;if(listener!=null){if(finished)listener.onCompleted();else listener.onError(problem==null?"Audio interrumpido.":problem);}});
   },"GORO-Z02-A2DP").start();
  }
  private void fail(Playback session,String message){

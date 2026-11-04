@@ -4,6 +4,17 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 public class NvidiaStreamParserTest {
+ @Test public void refusesTruncatedReplyBeforeDone(){
+  NvidiaStreamParser stream=new NvidiaStreamParser();
+  stream.accept("data: {\"choices\":[{\"delta\":{\"content\":\"Una respuesta\"}}]}");
+  try{stream.accept("data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"length\"}]}");fail("Truncation cannot be success");}
+  catch(IllegalStateException expected){assertTrue(expected.getMessage().contains("límite"));}
+ }
+ @Test public void acceptsStopThenDone(){
+  NvidiaStreamParser stream=new NvidiaStreamParser();
+  assertEquals("Listo",stream.accept("data: {\"choices\":[{\"delta\":{\"content\":\"Listo\"},\"finish_reason\":\"stop\"}]}"));
+  assertFalse(stream.isDone());stream.accept("data: [DONE]");assertTrue(stream.isDone());
+ }
  @Test public void readsContentOnly(){
   NvidiaStreamParser stream=new NvidiaStreamParser();
   String event="data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"internal analysis\",\"content\":\"Hola\"}}]}";

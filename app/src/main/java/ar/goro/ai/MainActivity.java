@@ -21,6 +21,7 @@ import ar.goro.ai.core.NemotronGateway;
 import ar.goro.ai.core.NvidiaCredentialStore;
 import ar.goro.ai.core.NemotronSpeechGateway;
 import ar.goro.ai.core.ParakeetAsrGateway;
+import ar.goro.ai.core.SpeechTextChunks;
 import ar.goro.ai.voice.Z02Player;
 import android.bluetooth.BluetoothDevice;
 import ar.goro.ai.avatar.GoroAvatarView;
@@ -71,6 +72,9 @@ public class MainActivity extends Activity {
   private Z02Player z02Player;
   private String pendingSpeechText="";
   private byte[] pendingSpeechWav;
+  private final ArrayDeque<String> speechChunks=new ArrayDeque<>();
+  private long speechGeneration;
+  private boolean foreground;
   private boolean pendingZn02Connection=false;
   private TextView calendarAccountLabel;
   private boolean pendingWeatherForecast=false;
@@ -93,12 +97,15 @@ public class MainActivity extends Activity {
         if("Reproduciendo por Z02".equals(value)&&dashboard!=null)dashboard.avatarSpeak(pendingSpeechText,pendingSpeechWav);
       }
       public void onError(String error){
+        speechChunks.clear();
         if(state!=null)state.setText("GORO · Audio Z02 no disponible");
         if(output!=null)output.setText(output.getText()+"\n\n"+error);
         if(dashboard!=null)dashboard.showAvatarMood(GoroAvatarView.Mood.ALERT);
         if(voiceActive)startZ02Listening();
       }
       public void onCompleted(){
+        if(!speechChunks.isEmpty()){speakNextChunk(speechGeneration);return;}
+        pendingSpeechWav=null;
         if(state!=null)state.setText(voiceActive?"GORO · Escuchando desde Z02":"GORO · Listo");
         if(dashboard!=null)dashboard.showAvatarMood(voiceActive?GoroAvatarView.Mood.LISTENING:GoroAvatarView.Mood.IDLE);
         if(voiceActive)startZ02Listening();
@@ -200,29 +207,38 @@ public class MainActivity extends Activity {
       if(voiceActive){voiceActive=false;if(dashboard!=null)dashboard.setVoiceActive(false);if(zn02Controller!=null)zn02Controller.stopVoice();}
       return;
     }
-    if(voiceActive&&zn02Controller!=null)zn02Controller.stopVoice();
+    if(voiceActive&&zn02Controller!=null)zn02Controller.cancelVoice();
     if(z02Player!=null)z02Player.stop();
-    pendingSpeechText=message;pendingSpeechWav=null;
-    if(state!=null)state.setText("GORO · Generando voz NVIDIA Magpie · Diego");
+    speechGeneration++;
+    speechChunks.clear();
+    speechChunks.addAll(SpeechTextChunks.split(message,1600));
+    speechGateway.cancelPending();
+    speakNextChunk(speechGeneration);
+  }
+  private void speakNextChunk(long generation){
+    if(generation!=speechGeneration||isFinishing()||isDestroyed())return;
+    if(speechChunks.isEmpty()){if(voiceActive)startZ02Listening();return;}
+    String chunk=speechChunks.removeFirst();
+    pendingSpeechText=chunk;pendingSpeechWav=null;
+    if(state!=null)state.setText("GORO · Preparando voz Diego");
     if(dashboard!=null)dashboard.showAvatarMood(GoroAvatarView.Mood.THINKING);
-    speechGateway.synthesize(message,(wav,error)->{
+    speechGateway.synthesize(chunk,(wav,error)->{
+      if(generation!=speechGeneration||isFinishing()||isDestroyed())return;
       if(error!=null||wav==null){
+        speechChunks.clear();
         if(state!=null)state.setText("GORO · Magpie no disponible");
         if(dashboard!=null)dashboard.showAvatarMood(GoroAvatarView.Mood.ALERT);
-        if(output!=null)output.setText(message+"\n\nNo se pudo generar audio NVIDIA: "+(error==null?"respuesta vacía":error));
+        if(output!=null)output.append("\n\nNo se pudo completar la voz NVIDIA: "+(error==null?"respuesta vacía":error));
         if(voiceActive)startZ02Listening();
         return;
       }
-      if(z02Player==null){
-        if(output!=null)output.setText(message+"\n\nNo hay reproductor Z02 disponible. No se reprodujo por la tablet.");
-        return;
-      }
+      if(z02Player==null){speechChunks.clear();return;}
       pendingSpeechWav=wav;
       z02Player.playWav(wav);
     });
   }
   private void startZ02Listening(){
-    if(!voiceActive||zn02Controller==null)return;
+    if(!foreground||!voiceActive||zn02Controller==null)return;
     if(!zn02Controller.startVoice()){
       voiceActive=false;
       if(dashboard!=null)dashboard.setVoiceActive(false);
@@ -415,6 +431,7 @@ public class MainActivity extends Activity {
     });
   }
   private void maybeStartHandsFreeConversation(){
+    if(!foreground)return;
     if(voiceActive||!zn02ReadyForVoice)return;
     if(!nvidiaChatReady||!magpieDiegoReady||asrGateway==null){
       if(dashboard!=null)dashboard.showDeviceStatus("Z02 conectado. La conversación manos libres espera la validación de Nemotron, Parakeet y Magpie Diego.");
@@ -488,6 +505,8 @@ public class MainActivity extends Activity {
   }
   @Override protected void onResume(){
     super.onResume();
+    foreground=true;
+    if(zn02ReadyForVoice&&nvidiaChatReady&&magpieDiegoReady&&!voiceActive)maybeStartHandsFreeConversation();
     if(pendingZn02Connection&&zn02Controller!=null){
       String[] missing=zn02Controller.neededPermissions();
       if(missing.length>0)requestPermissions(missing,ZN02_BLE_PERMISSION_REQUEST);
@@ -645,6 +664,18 @@ public class MainActivity extends Activity {
     }else if(request==52){
       say(results[0]==PackageManager.PERMISSION_GRANTED?"Notificaciones habilitadas. Ya puedo entregarte recordatorios.":"Las notificaciones están deshabilitadas; GORO no puede mostrar recordatorios hasta que las habilites en Android.");
     }
+  }
+  @Override protected void onStop(){
+    foreground=false;
+    voiceActive=false;
+    speechGeneration++;speechChunks.clear();pendingSpeechWav=null;
+    if(asrGateway!=null)asrGateway.cancelPending();
+    if(nemotronGateway!=null)nemotronGateway.cancelPending();
+    if(speechGateway!=null)speechGateway.cancelPending();
+    if(zn02Controller!=null)zn02Controller.cancelVoice();
+    if(z02Player!=null)z02Player.stop();
+    if(dashboard!=null){dashboard.setVoiceActive(false);dashboard.showAvatarMood(GoroAvatarView.Mood.IDLE);}
+    super.onStop();
   }
   @Override protected void onDestroy(){
     if(nemotronGateway!=null)nemotronGateway.close();
