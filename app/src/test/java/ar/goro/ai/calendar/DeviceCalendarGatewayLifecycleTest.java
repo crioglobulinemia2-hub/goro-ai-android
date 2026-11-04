@@ -117,6 +117,13 @@ public class DeviceCalendarGatewayLifecycleTest {
   try{other.unlinkGoogleAccount();shadowOf(Looper.getMainLooper()).idle();assertFalse(callback.get());}
   finally{other.close();}
  }
+ @Test public void completedLocalWriteIsNotUndoneWhenItsOldCallbackIsSuppressed(){
+  AtomicBoolean callback=new AtomicBoolean();
+  gateway.create(event(),(result,error)->callback.set(true));
+  executor.runAll();assertEquals(1,provider.inserts);assertFalse(callback.get());
+  gateway.setSelectedGoogleAccount(TWO);shadowOf(Looper.getMainLooper()).idle();
+  assertEquals(1,provider.inserts);assertEquals(0,provider.deletes);assertFalse(callback.get());
+ }
  @Test public void closeSuppressesAlreadyPostedReadResult(){
   AtomicBoolean callback=new AtomicBoolean();gateway.list("",START,END,(events,error)->callback.set(true));
   executor.runAll();gateway.close();shadowOf(Looper.getMainLooper()).idle();assertFalse(callback.get());
