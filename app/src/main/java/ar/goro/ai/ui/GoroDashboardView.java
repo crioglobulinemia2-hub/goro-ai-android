@@ -230,7 +230,7 @@ public final class GoroDashboardView extends LinearLayout {
   devicePanel=new LinearLayout(activity);devicePanel.setOrientation(VERTICAL);
   devicePanel.addView(card("ZNP Z02",devicesValue),cardParams());
   devicePanel.addView(button("Conectar ZNP Z02",()->actions.onConnectZn02(),true),new LinearLayout.LayoutParams(-1,dp(46)));
-  devicePanel.addView(text("Audio bidireccional: micrófono RCSP y salida A2DP verificados por separado",12,false,palette.muted),new LinearLayout.LayoutParams(-1,dp(42)));
+  devicePanel.addView(text("Audio bidireccional: verificando micrófono RCSP y salida A2DP",12,false,palette.muted),new LinearLayout.LayoutParams(-1,dp(42)));
   devicePanel.addView(text("Conversación manos libres automática cuando Z02 y NVIDIA estén conectados",12,false,palette.muted),new LinearLayout.LayoutParams(-1,dp(42)));
   devicePanel.setVisibility(GONE);
   mainColumn.addView(devicePanel,new LinearLayout.LayoutParams(-1,-2));
