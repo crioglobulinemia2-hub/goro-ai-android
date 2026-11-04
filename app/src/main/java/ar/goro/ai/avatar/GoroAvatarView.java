@@ -70,7 +70,7 @@ public final class GoroAvatarView extends FrameLayout {
    // Consistent full-height framing for wide tablet and portrait layouts.
    if(surface!=null&&surface.getHeight()>0&&surface.getWidth()>0){
     double aspect=(double)surface.getWidth()/(double)surface.getHeight();
-    double halfHeight=1.90;
+    double halfHeight=1.30;
     current.getCamera().setProjection(Camera.Projection.ORTHO,
         -halfHeight*aspect,halfHeight*aspect,-halfHeight,halfHeight,.05,60.0);
    }
@@ -116,6 +116,8 @@ public final class GoroAvatarView extends FrameLayout {
    helper.setMediaOverlay(true);
    viewer=new ModelViewer(surface,engine,helper,null);
    viewer.getView().setAntiAliasing(View.AntiAliasing.FXAA);
+   viewer.getView().setBlendMode(com.google.android.filament.BlendMode.TRANSLUCENT);
+   viewer.getRenderer().setClearOptions(new com.google.android.filament.Renderer.ClearOptions(0.0,0.0,0.0,0.0,0,true,true));
    viewer.loadModelGlb(ByteBuffer.wrap(bytes));
    viewer.transformToUnitCube(new Float3(0f,0f,0f));
    // Position between normalized and raw-space model centers so both fits
