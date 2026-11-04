@@ -462,7 +462,10 @@ public final class GoroZn02Controller {
  private boolean isTarget(BluetoothDevice device){
   return target!=null&&device!=null&&target.getAddress()!=null&&target.getAddress().equals(device.getAddress());
  }
- private void emit(String value){if(listener!=null&&!closed)mainHandler.post(()->{if(listener!=null&&!closed)listener.onStatus(value);});}
+ private void emit(String value){
+  final long epoch=connectionEpoch;
+  if(listener!=null&&!closed)mainHandler.post(()->{if(listener!=null&&!closed&&epoch==connectionEpoch)listener.onStatus(value);});
+ }
  public synchronized void close(){
   if(closed)return;closed=true;connectionEpoch++;releaseVoice();bondSession.close();
   if(authPoll!=null)mainHandler.removeCallbacks(authPoll);if(authTimeout!=null)mainHandler.removeCallbacks(authTimeout);if(connectionCheck!=null)mainHandler.removeCallbacks(connectionCheck);
