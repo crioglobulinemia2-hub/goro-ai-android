@@ -17,7 +17,7 @@ public class GoroLaunchSmokeTest {
     View root=activity.findViewById(android.R.id.content);
     assertNotNull(root);
     assertNotNull(findText(root,"GORO   ASISTENTE PERSONAL"));
-    assertNotNull(findText(root,"Micrófono · Conversación continua"));
+    assertNotNull(findText(root,"GORO IA · Conversación manos libres por ZNP Z02. La conexión se inicia automáticamente."));
     assertNotNull(findText(root,"Enviar"));
     assertNotNull(findText(root,"Conversar"));
     assertNotNull(findText(root,"Explorar"));
