@@ -139,6 +139,9 @@ public class MainActivity extends Activity {
           say("Primero configurá y autorizá NVIDIA NIM en Ajustes.");
           return;
         }
+        if(checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){
+          requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO},41);return;
+        }
         voiceActive=true;dashboard.setVoiceActive(true);startZ02Listening();
       }
       public void onLinkAccount(){chooseGoogleAccount();}
@@ -590,6 +593,14 @@ public class MainActivity extends Activity {
       }else if(!granted&&dashboard!=null){
         pendingZn02Connection=false;pendingZn02Inspection=false;
         dashboard.showDeviceStatus("Android no concedió los permisos Bluetooth necesarios para Z02.");
+      }
+      return;
+    }
+    if(request==41){
+      if(results.length>0&&results[0]==PackageManager.PERMISSION_GRANTED){
+        voiceActive=true;if(dashboard!=null)dashboard.setVoiceActive(true);startZ02Listening();
+      }else{
+        voiceActive=false;if(dashboard!=null){dashboard.setVoiceActive(false);dashboard.showDeviceStatus("Android no concedió permiso de micrófono para capturar audio del Z02.");}
       }
       return;
     }
