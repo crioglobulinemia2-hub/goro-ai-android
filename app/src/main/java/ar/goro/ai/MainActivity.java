@@ -389,8 +389,10 @@ public class MainActivity extends Activity {
         nvidiaCredentialStore.save(key);
         if(nemotronGateway!=null)nemotronGateway.close();
         if(speechGateway!=null)speechGateway.close();
+        if(asrGateway!=null)asrGateway.close();
         nemotronGateway=new NemotronGateway(key);
         speechGateway=new NemotronSpeechGateway(key);
+        asrGateway=new NemotronAsrGateway(key);
         if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: clave cifrada · verificando…");
         if(dashboard!=null)dashboard.showVoiceStatus("Magpie Diego: consultando catálogo NVIDIA…");
         speechGateway.verifyDiego((ready,detail)->{
