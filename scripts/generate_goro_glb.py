@@ -13,7 +13,7 @@ import struct
 import zlib
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-DEST = ROOT / "app/src/main/assets/goro/goro_rigged.glb"
+DEST = ROOT / "build/generated-avatar/goro_procedural.glb"
 
 JOINTS = [
     ("root", None, (0, 0, 0)),

@@ -5,45 +5,27 @@ import json
 import pathlib
 import os
 import subprocess
-import struct
+from prepare_avatar import AUTHORED_RELATIVE, validate_contract
 from datetime import datetime, timezone
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 ASSET = ROOT / "app/src/main/assets/goro/goro_rigged.glb"
+AUTHORED_ASSET = ROOT / AUTHORED_RELATIVE
 EVIDENCE = ROOT / "evidence"
 
 def glb_report():
-    if not ASSET.exists():
-        return False, "Falta GLB rigged del robot aprobado."
+    if not AUTHORED_ASSET.is_file():
+        return False, "Falta GLB autorado en " + AUTHORED_RELATIVE + "; el procedural es solo de desarrollo."
+    if not ASSET.is_file():
+        return False, "Falta el GLB empaquetado para Android."
     try:
         data = ASSET.read_bytes()
-        if len(data) < 20 or data[:4] != b"glTF":
-            return False, "Archivo no es GLB 2.0."
-        version, length = struct.unpack_from("<II", data, 4)
-        if version != 2 or length != len(data):
-            return False, "GLB inválido o incompleto."
-        json_length, chunk_type = struct.unpack_from("<II", data, 12)
-        if chunk_type != 0x4E4F534A:
-            return False, "Falta bloque JSON."
-        gltf = json.loads(data[20:20 + json_length].decode("utf-8"))
-        nodes = {n.get("name") for n in gltf.get("nodes", [])}
-        bones = {"root","pelvis","spine","chest","neck","head","left_shoulder","left_elbow",
-                 "left_wrist","left_hand","right_shoulder","right_elbow","right_wrist","right_hand"}
-        if not bones.issubset(nodes):
-            return False, "Rig incompleto. Faltan huesos requeridos."
-        if not gltf.get("skins"):
-            return False, "GLB sin skeleton/skin."
-        shapes = set()
-        for mesh in gltf.get("meshes", []):
-            shapes.update(mesh.get("extras", {}).get("targetNames", []))
-        if not {"viseme_A","viseme_E","viseme_I","viseme_O","viseme_U",
-                "viseme_MBP","eye_blink_left","eye_blink_right","brow_raise","smile"}.issubset(shapes):
-            return False, "GLB sin visemas y expresiones faciales exigidas."
-        if not gltf.get("materials") or not gltf.get("textures"):
-            return False, "GLB sin materiales y texturas PBR."
-        return True, "Estructura GLB y rig declarados; calidad visual y movimiento requieren prueba física."
-    except (OSError, ValueError, KeyError, struct.error, UnicodeError) as exc:
-        return False, "Error inspeccionando GLB: " + type(exc).__name__
+        if data != AUTHORED_ASSET.read_bytes():
+            return False, "El GLB empaquetado no coincide con la fuente autorada."
+        validate_contract(data, authored=True)
+        return True, "Fuente autorada preservada y contrato GLB verificado; falta aceptación visual y física."
+    except (OSError, ValueError, TypeError, KeyError, IndexError, AttributeError) as exc:
+        return False, "Error inspeccionando GLB autorado: " + type(exc).__name__
 
 def verified(name, required):
     path = EVIDENCE / name

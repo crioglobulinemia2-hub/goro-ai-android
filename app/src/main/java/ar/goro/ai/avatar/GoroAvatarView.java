@@ -45,6 +45,7 @@ public final class GoroAvatarView extends FrameLayout {
  private double frameHalfHeight=1.30,frameHalfWidth=.75;
  private boolean morphErrorReported=false;
  private int faceEntity=0;
+ private AvatarMorphMap faceMorphMap;
  private boolean framePosted=false;
  private Mood mood=Mood.IDLE;
  private long moodStartedNanos=0;
@@ -150,6 +151,7 @@ public final class GoroAvatarView extends FrameLayout {
    FilamentAsset asset=viewer.getAsset();
    if(asset!=null){
     faceEntity=asset.getFirstEntityByName("GORO_Face_Morphs");
+    if(faceEntity!=0)faceMorphMap=new AvatarMorphMap(asset.getMorphTargetNames(faceEntity));
     float[] extent=asset.getBoundingBox().getHalfExtent();
     double scale=1.0/Math.max(extent[0],Math.max(extent[1],extent[2]));
     frameHalfHeight=extent[1]*scale*1.10;
@@ -184,7 +186,9 @@ public final class GoroAvatarView extends FrameLayout {
     viewer.getScene().setIndirectLight(ambientLight);
    }
    moodStartedNanos=0;
-   status("GORO 3D · Esqueleto y expresiones cargados.");
+   status(faceMorphMap!=null&&faceMorphMap.isComplete()?
+     "GORO 3D · Esqueleto y expresiones cargados.":
+     "GORO 3D · Modelo cargado; faltan expresiones faciales compatibles.");
   }catch(Throwable error){
    viewer=null;
    TextView label=new TextView(getContext());
@@ -254,7 +258,7 @@ public final class GoroAvatarView extends FrameLayout {
   return Math.min(1f,root*7.2f);
  }
  private void applyExpression(long frameTimeNanos){
-  if(viewer==null||engine==null||faceEntity==0)return;
+  if(viewer==null||engine==null||faceEntity==0||faceMorphMap==null||!faceMorphMap.isComplete())return;
   RenderableManager renderables=engine.getRenderableManager();
   int instance=renderables.getInstance(faceEntity);
   if(instance==0)return;
@@ -287,7 +291,7 @@ public final class GoroAvatarView extends FrameLayout {
     for(int i=0;i<6;i++)weights[i]*=speechWeight;
    }
   }
-  try{renderables.setMorphWeights(instance,weights,0);}
+  try{renderables.setMorphWeights(instance,faceMorphMap.map(weights),0);}
   catch(RuntimeException unsupported){
    if(!morphErrorReported){morphErrorReported=true;status("El dispositivo no admite morph targets de GORO.");}
   }
@@ -323,7 +327,7 @@ public final class GoroAvatarView extends FrameLayout {
    catch(RuntimeException ignored){}
   }
   ambientLight=null;
-  sunEntity=0;fillEntity=0;faceEntity=0;viewer=null;engine=null;moodStartedNanos=0;animationCatalog=null;
+  sunEntity=0;fillEntity=0;faceEntity=0;faceMorphMap=null;viewer=null;engine=null;moodStartedNanos=0;animationCatalog=null;
   super.onDetachedFromWindow();
  }
 }

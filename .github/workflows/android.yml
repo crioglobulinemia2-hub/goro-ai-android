@@ -60,32 +60,10 @@ jobs:
             assert not re.search(r'nvapi-[A-Za-z0-9_-]{12,}',s),f'Embedded NVIDIA key in {p}'
           print('Static security gate PASS')
           PY
-      - name: Generate and verify GORO articulated humanoid GLB
-        run: |
-          python3 scripts/generate_goro_glb.py
-          python3 - <<'PY'
-          import json,struct
-          from pathlib import Path
-          f=Path('app/src/main/assets/goro/goro_rigged.glb')
-          b=f.read_bytes()
-          assert b[:4]==b'glTF'
-          assert struct.unpack_from('<II',b,4)==(2,len(b))
-          l=struct.unpack_from('<I',b,12)[0]
-          doc=json.loads(b[20:20+l])
-          assert len(doc['skins'])>=1 and len(doc['animations'])>=6
-          assert len(doc['meshes'][1]['extras']['targetNames'])==10
-          for animation in doc['animations']:
-            for sampler in animation['samplers']:
-              accessor=doc['accessors'][sampler['input']]
-              assert accessor['type']=='SCALAR' and 'min' in accessor and 'max' in accessor
-              assert accessor['min'][0]<=0 and accessor['max'][0]>=1.8
-          for mesh in doc['meshes']:
-            for primitive in mesh['primitives']:
-              attrs=primitive['attributes']
-              assert 'TEXCOORD_0' in attrs and 'JOINTS_0' in attrs and 'WEIGHTS_0' in attrs
-          assert doc['materials'] and doc['textures']
-          print('GORO rig geometry and animation contract PASS',len(b))
-          PY
+      - name: Test avatar source preservation and release checks
+        run: python3 -m unittest discover -s scripts -p 'test_avatar_assets.py'
+      - name: Prepare authored avatar or explicit development fallback
+        run: python3 scripts/prepare_avatar.py --allow-procedural
       - name: Validate GORO ZNP animation asset
         run: python3 scripts/validate_znp_animation.py
       - name: Unit tests and build
@@ -169,8 +147,8 @@ jobs:
           test "$(git hash-object app/libs/BmpConvert_V1.6.0_10605-release.aar)" = "00f1fafab6e4fc1357f09b20275b7d5c7fd7d2c8"
           test "$(stat -c%s app/libs/jl_audio_decode_V2.1.0_20012-release.aar)" = "1445327"
           test "$(git hash-object app/libs/jl_audio_decode_V2.1.0_20012-release.aar)" = "1a609561d533cdbbd161459eece838e2038f85ed"
-      - name: Generate GORO articulated model for emulator
-        run: python3 scripts/generate_goro_glb.py
+      - name: Prepare the same avatar for emulator
+        run: python3 scripts/prepare_avatar.py --allow-procedural
       - name: Enable KVM acceleration on GitHub runner
         run: |
           set -euo pipefail
