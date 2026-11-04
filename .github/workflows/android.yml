@@ -29,6 +29,7 @@ jobs:
           curl --fail --location --retry 3 "$BASE/jldecryption_v0.4-release.aar" -o app/libs/jldecryption_v0.4-release.aar
           curl --fail --location --retry 3 "$BASE/GifConvert_V1.3.0_42-release.aar" -o app/libs/GifConvert_V1.3.0_42-release.aar
           curl --fail --location --retry 3 "$BASE/BmpConvert_V1.6.0_10605-release.aar" -o app/libs/BmpConvert_V1.6.0_10605-release.aar
+          curl --fail --location --retry 3 "$BASE/jl_audio_decode_V2.1.0_20012-release.aar" -o app/libs/jl_audio_decode_V2.1.0_20012-release.aar
           test "$(stat -c%s app/libs/jl_bluetooth_rcsp_V4.2.0_40250-release.aar)" = "1284165"
           test "$(stat -c%s app/libs/jldecryption_v0.4-release.aar)" = "42233"
           test "$(stat -c%s app/libs/GifConvert_V1.3.0_42-release.aar)" = "355226"
@@ -37,6 +38,8 @@ jobs:
           test "$(git hash-object app/libs/jldecryption_v0.4-release.aar)" = "fd933770e05afe815240922641a76fe62be7778b"
           test "$(git hash-object app/libs/GifConvert_V1.3.0_42-release.aar)" = "2d586af21f244f5337f29a0f656eac2186b40f6f"
           test "$(git hash-object app/libs/BmpConvert_V1.6.0_10605-release.aar)" = "00f1fafab6e4fc1357f09b20275b7d5c7fd7d2c8"
+          test "$(stat -c%s app/libs/jl_audio_decode_V2.1.0_20012-release.aar)" = "1445327"
+          test "$(git hash-object app/libs/jl_audio_decode_V2.1.0_20012-release.aar)" = "1a609561d533cdbbd161459eece838e2038f85ed"
       - name: Install Android 36 SDK and build tools
         run: |
           SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
@@ -158,10 +161,13 @@ jobs:
           curl --fail --location --retry 3 "$BASE/jldecryption_v0.4-release.aar" -o app/libs/jldecryption_v0.4-release.aar
           curl --fail --location --retry 3 "$BASE/GifConvert_V1.3.0_42-release.aar" -o app/libs/GifConvert_V1.3.0_42-release.aar
           curl --fail --location --retry 3 "$BASE/BmpConvert_V1.6.0_10605-release.aar" -o app/libs/BmpConvert_V1.6.0_10605-release.aar
+          curl --fail --location --retry 3 "$BASE/jl_audio_decode_V2.1.0_20012-release.aar" -o app/libs/jl_audio_decode_V2.1.0_20012-release.aar
           test "$(git hash-object app/libs/jl_bluetooth_rcsp_V4.2.0_40250-release.aar)" = "96be927894a69eb4af1fcc7dc1191a337360f86e"
           test "$(git hash-object app/libs/jldecryption_v0.4-release.aar)" = "fd933770e05afe815240922641a76fe62be7778b"
           test "$(git hash-object app/libs/GifConvert_V1.3.0_42-release.aar)" = "2d586af21f244f5337f29a0f656eac2186b40f6f"
           test "$(git hash-object app/libs/BmpConvert_V1.6.0_10605-release.aar)" = "00f1fafab6e4fc1357f09b20275b7d5c7fd7d2c8"
+          test "$(stat -c%s app/libs/jl_audio_decode_V2.1.0_20012-release.aar)" = "1445327"
+          test "$(git hash-object app/libs/jl_audio_decode_V2.1.0_20012-release.aar)" = "1a609561d533cdbbd161459eece838e2038f85ed"
       - name: Generate GORO articulated model for emulator
         run: python3 scripts/generate_goro_glb.py
       - name: Enable KVM acceleration on GitHub runner
