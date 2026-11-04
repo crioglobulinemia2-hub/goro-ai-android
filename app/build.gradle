@@ -27,7 +27,10 @@ protobuf {
     protoc { artifact = 'com.google.protobuf:protoc:3.25.5' }
     plugins { grpc { artifact = 'io.grpc:protoc-gen-grpc-java:1.68.1' } }
     generateProtoTasks {
-        all().each { task -> task.plugins { grpc {} } }
+        all().each { task ->
+            task.builtins { java {} }
+            task.plugins { grpc {} }
+        }
     }
 }
 
