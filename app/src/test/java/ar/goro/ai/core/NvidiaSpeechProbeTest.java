@@ -58,6 +58,19 @@ public class NvidiaSpeechProbeTest {
   h.session().audio.completed(DiagnosticWavFixture.shortSpeech(),null);
   h.timer.fire();h.session().text.completed(NvidiaSpeechProbe.PHRASE,null);
   assertEquals(1,r.count);assertFalse(r.ready);assertFalse(h.probe.isReady());assertTrue(h.session().closed);
+  h.probe.start(new Result());assertEquals(1,h.sessions.size());
+ }
+ @Test public void interruptedAttemptCanResumeWithoutAcceptingTheOldCallback(){
+  Harness h=new Harness();Result beforePause=new Result();h.probe.start(beforePause);
+  Session interrupted=h.session();interrupted.audio.completed(DiagnosticWavFixture.shortSpeech(),null);
+  h.probe.cancel();assertFalse(h.probe.wasAttempted());
+  Result afterResume=new Result();h.probe.start(afterResume);assertEquals(2,h.sessions.size());
+  interrupted.text.completed(NvidiaSpeechProbe.PHRASE,null);
+  assertEquals(0,beforePause.count);assertEquals(0,afterResume.count);assertFalse(h.probe.isReady());
+  h.session().audio.completed(DiagnosticWavFixture.shortSpeech(),null);
+  h.session().text.completed(NvidiaSpeechProbe.PHRASE,null);
+  assertEquals(1,afterResume.count);assertTrue(afterResume.ready);assertTrue(interrupted.closed);
+  h.probe.start(new Result());assertEquals(2,h.sessions.size());
  }
  @Test public void replacingCredentialInstanceCannotPublishAnOldSuccess(){
   Harness old=new Harness();Result r=new Result();old.probe.start(r);

@@ -6,8 +6,9 @@ import java.text.Normalizer;
 import java.util.Locale;
 
 /**
- * One explicit, bounded cloud speech check per instance. It only sends a fixed
- * synthetic phrase, never reads the microphone, plays sound or persists audio.
+ * A bounded cloud speech check with cached results. Interrupted attempts may
+ * restart when the lifecycle permits. It only sends a fixed synthetic phrase,
+ * never reads the microphone, plays sound or persists audio.
  */
 public final class NvidiaSpeechProbe {
  public static final String PHRASE="Esta es una prueba de voz en español.";
@@ -104,11 +105,11 @@ public final class NvidiaSpeechProbe {
   Session session=active;active=null;
   if(session!=null)session.close();
  }
- /** Stops pending network work; an explicit retry is required after interruption. */
+ /** Interrupts pending work without caching a service failure. The caller controls restart. */
  public void cancel(){
   if(!running)return;
-  generation++;running=false;ready=false;callback=null;
-  status="Comprobación de voz interrumpida. Podés volver a probar NVIDIA.";
+  generation++;running=false;ready=false;attempted=false;callback=null;
+  status="Comprobación de voz interrumpida.";
   release();
  }
  public void reset(){
