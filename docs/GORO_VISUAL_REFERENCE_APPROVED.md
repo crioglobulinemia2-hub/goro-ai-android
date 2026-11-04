@@ -1,5 +1,19 @@
 # GORO AI — Referencia visual aprobada y criterios de aceptación
 
+## Referencia vinculante confirmada el 4 de noviembre de 2026
+
+El propietario volvió a adjuntar **la imagen adjunta por el propietario (image.png)** y pidió: «ESTE ES EL DISEÑO ACORDADO QUIERO 100X100 IGUAL».
+
+Prevalece esta referencia sobre las variaciones posteriores de teléfonos con visor negro y ojos dibujados como sonrisa. El personaje aprobado tiene cara blanca perlada, grandes ojos ópticos azules redondos, boca mecánica visible, paneles grafito en la cabeza y el cuello, manos articuladas y emblema azul hexagonal en el pecho.
+
+La vista principal muestra al personaje de cintura hacia arriba sobre un escritorio, con ambiente cálido y luz diurna, tarjetas compactas translúcidas a la derecha, burbuja clara junto al rostro y controles inferiores discretos. No debe tener una pared de botones ni tarjetas azules opacas sobredimensionadas. Los datos y estados de conexión de la referencia son ilustrativos: se deben sustituir por datos reales sin simular conexiones.
+
+La compilación del commit 52a81ee46fb4dc1733ce8baaa42584cd9915bc17 pasó sus pruebas, pero **NO cumple la identidad del robot ni la composición aprobada**. No es una entrega final. La imagen reconstruida para modelado tampoco acredita un modelo 3D funcional ni aceptación visual.
+
+El 4 de noviembre el propietario autorizó explícitamente enviar la imagen aislada de GORO a Microsoft TRELLIS en Hugging Face. La transferencia y la generación de vistas del modelo se completaron con resolución 1024 y semilla 42. Se conservaron 48 vistas renderizadas. La exportación GLB (100.000 caras objetivo y textura 2048) fue rechazada por el cupo gratuito anónimo de ZeroGPU; **no hay un GLB descargado**. La sesión del navegador no tenía una cuenta iniciada. El siguiente paso es iniciar sesión para comprobar el cupo gratuito autenticado, sin contratar servicios ni eludir límites. Las vistas guardadas no contienen la geometría y no garantizan que el estado del servidor pueda recuperarse.
+
+La revisión de las vistas confirma cara blanca y ojos azules redondos, pero el emblema, las letras del pecho y detalles de materiales no reproducen todavía el diseño aprobado. El recurso requiere corrección visual, exportación real, rig, expresiones y validación dentro de Android antes de reemplazar el avatar. No integrar imágenes de la previsualización como sustituto de un modelo articulado.
+
 La imagen aportada por el usuario el 1 de noviembre de 2026 es la referencia visual vinculante para la interfaz y la animación de GORO. No debe sustituirse por un chat genérico, un formulario simple ni una pantalla monocromática oscura.
 
 ## Composición de inicio

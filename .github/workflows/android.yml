@@ -2,6 +2,8 @@ name: Build Android APK
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 jobs:
   build:
@@ -27,6 +29,7 @@ jobs:
           curl --fail --location --retry 3 "$BASE/jldecryption_v0.4-release.aar" -o app/libs/jldecryption_v0.4-release.aar
           curl --fail --location --retry 3 "$BASE/GifConvert_V1.3.0_42-release.aar" -o app/libs/GifConvert_V1.3.0_42-release.aar
           curl --fail --location --retry 3 "$BASE/BmpConvert_V1.6.0_10605-release.aar" -o app/libs/BmpConvert_V1.6.0_10605-release.aar
+          curl --fail --location --retry 3 "$BASE/jl_audio_decode_V2.1.0_20012-release.aar" -o app/libs/jl_audio_decode_V2.1.0_20012-release.aar
           test "$(stat -c%s app/libs/jl_bluetooth_rcsp_V4.2.0_40250-release.aar)" = "1284165"
           test "$(stat -c%s app/libs/jldecryption_v0.4-release.aar)" = "42233"
           test "$(stat -c%s app/libs/GifConvert_V1.3.0_42-release.aar)" = "355226"
@@ -35,6 +38,8 @@ jobs:
           test "$(git hash-object app/libs/jldecryption_v0.4-release.aar)" = "fd933770e05afe815240922641a76fe62be7778b"
           test "$(git hash-object app/libs/GifConvert_V1.3.0_42-release.aar)" = "2d586af21f244f5337f29a0f656eac2186b40f6f"
           test "$(git hash-object app/libs/BmpConvert_V1.6.0_10605-release.aar)" = "00f1fafab6e4fc1357f09b20275b7d5c7fd7d2c8"
+          test "$(stat -c%s app/libs/jl_audio_decode_V2.1.0_20012-release.aar)" = "1445327"
+          test "$(git hash-object app/libs/jl_audio_decode_V2.1.0_20012-release.aar)" = "1a609561d533cdbbd161459eece838e2038f85ed"
       - name: Install Android 36 SDK and build tools
         run: |
           SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
@@ -55,12 +60,40 @@ jobs:
             assert not re.search(r'nvapi-[A-Za-z0-9_-]{12,}',s),f'Embedded NVIDIA key in {p}'
           print('Static security gate PASS')
           PY
+      - name: Generate and verify GORO articulated humanoid GLB
+        run: |
+          python3 scripts/generate_goro_glb.py
+          python3 - <<'PY'
+          import json,struct
+          from pathlib import Path
+          f=Path('app/src/main/assets/goro/goro_rigged.glb')
+          b=f.read_bytes()
+          assert b[:4]==b'glTF'
+          assert struct.unpack_from('<II',b,4)==(2,len(b))
+          l=struct.unpack_from('<I',b,12)[0]
+          doc=json.loads(b[20:20+l])
+          assert len(doc['skins'])>=1 and len(doc['animations'])>=6
+          assert len(doc['meshes'][1]['extras']['targetNames'])==10
+          for animation in doc['animations']:
+            for sampler in animation['samplers']:
+              accessor=doc['accessors'][sampler['input']]
+              assert accessor['type']=='SCALAR' and 'min' in accessor and 'max' in accessor
+              assert accessor['min'][0]<=0 and accessor['max'][0]>=1.8
+          for mesh in doc['meshes']:
+            for primitive in mesh['primitives']:
+              attrs=primitive['attributes']
+              assert 'TEXCOORD_0' in attrs and 'JOINTS_0' in attrs and 'WEIGHTS_0' in attrs
+          assert doc['materials'] and doc['textures']
+          print('GORO rig geometry and animation contract PASS',len(b))
+          PY
       - name: Validate GORO ZNP animation asset
         run: python3 scripts/validate_znp_animation.py
       - name: Unit tests and build
-        run: gradle --no-daemon clean testDebugUnitTest assembleDebug
+        run: gradle --no-daemon clean testDebugUnitTest assembleDebug assembleRelease
       - name: Android memory persistence tests (Robolectric)
         run: gradle --no-daemon testDebugUnitTest
+      - name: Build recovery package for the owner's existing private certificate
+        run: gradle --no-daemon -PgoroApplicationId=ar.goro.ai.recovery assembleRelease
       - name: Upload JVM test reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -81,13 +114,16 @@ jobs:
           assert 'android.permission.BLUETOOTH_PRIVILEGED' not in permissions
           activities=root.findall('.//activity')
           assert len(activities)==1 and activities[0].attrib.get(android+'exported')=='true'
-          apk=Path('app/build/outputs/apk/debug/app-debug.apk')
-          assert apk.is_file() and apk.stat().st_size>0
-          with zipfile.ZipFile(apk) as z:
-            assert z.testzip() is None
-            assert 'AndroidManifest.xml' in z.namelist()
-          print('Manifest, permissions, APK ZIP integrity: PASS')
+          for apk in [Path('app/build/outputs/apk/debug/app-debug.apk'),
+                      Path('app/build/outputs/apk/release/app-release.apk')]:
+            assert apk.is_file() and apk.stat().st_size>0, f'Missing APK: {apk}'
+            with zipfile.ZipFile(apk) as z:
+              assert z.testzip() is None
+              assert 'AndroidManifest.xml' in z.namelist()
+          print('Manifest, permissions, debug and release APK ZIP integrity: PASS')
           PY
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          "${SDK_ROOT}/build-tools/36.0.0/apksigner" verify --verbose app/build/outputs/apk/release/app-release.apk
       - name: Check 12-of-12 release readiness without claiming completion
         if: always()
         run: python3 scripts/release_gate.py --report build/goro-release-readiness.json
@@ -100,6 +136,10 @@ jobs:
         with:
           name: GoroAI-debug-apk
           path: app/build/outputs/apk/debug/*.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GoroAI-release-apk
+          path: app/build/outputs/apk/release/*.apk
   emulator-smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -123,25 +163,45 @@ jobs:
           curl --fail --location --retry 3 "$BASE/jldecryption_v0.4-release.aar" -o app/libs/jldecryption_v0.4-release.aar
           curl --fail --location --retry 3 "$BASE/GifConvert_V1.3.0_42-release.aar" -o app/libs/GifConvert_V1.3.0_42-release.aar
           curl --fail --location --retry 3 "$BASE/BmpConvert_V1.6.0_10605-release.aar" -o app/libs/BmpConvert_V1.6.0_10605-release.aar
+          curl --fail --location --retry 3 "$BASE/jl_audio_decode_V2.1.0_20012-release.aar" -o app/libs/jl_audio_decode_V2.1.0_20012-release.aar
           test "$(git hash-object app/libs/jl_bluetooth_rcsp_V4.2.0_40250-release.aar)" = "96be927894a69eb4af1fcc7dc1191a337360f86e"
           test "$(git hash-object app/libs/jldecryption_v0.4-release.aar)" = "fd933770e05afe815240922641a76fe62be7778b"
           test "$(git hash-object app/libs/GifConvert_V1.3.0_42-release.aar)" = "2d586af21f244f5337f29a0f656eac2186b40f6f"
           test "$(git hash-object app/libs/BmpConvert_V1.6.0_10605-release.aar)" = "00f1fafab6e4fc1357f09b20275b7d5c7fd7d2c8"
+          test "$(stat -c%s app/libs/jl_audio_decode_V2.1.0_20012-release.aar)" = "1445327"
+          test "$(git hash-object app/libs/jl_audio_decode_V2.1.0_20012-release.aar)" = "1a609561d533cdbbd161459eece838e2038f85ed"
+      - name: Generate GORO articulated model for emulator
+        run: python3 scripts/generate_goro_glb.py
+      - name: Enable KVM acceleration on GitHub runner
+        run: |
+          set -euo pipefail
+          if test -e /dev/kvm; then
+            sudo chmod 666 /dev/kvm
+            test -r /dev/kvm && test -w /dev/kvm
+            echo "KVM access available to Android emulator"
+          else
+            echo "::warning::KVM unavailable; Android emulator will use slow software emulation"
+          fi
       - name: Android emulator launch and navigation tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 30
-          target: default
+          api-level: 36
+          target: google_apis
           arch: x86_64
           profile: pixel_2
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -wipe-data -camera-back none
-          script: gradle --no-daemon connectedDebugAndroidTest
+          script: bash scripts/run_emulator_smoke.sh
       - name: Upload Android instrumentation reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: GoroAI-emulator-test-reports
-          path: app/build/outputs/androidTest-results/connected/**/*.xml
+          path: |
+            app/build/outputs/androidTest-results/connected/**/*.xml
+            build/goro-emulator-logcat.txt
+            build/goro-emulator-ui.png
+            build/goro-emulator-tablet.png
+            build/goro-emulator-gfxinfo.txt
           if-no-files-found: warn
 
