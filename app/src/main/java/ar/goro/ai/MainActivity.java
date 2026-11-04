@@ -70,6 +70,7 @@ public class MainActivity extends Activity {
   private NemotronAsrGateway asrGateway;
   private Z02Player z02Player;
   private String pendingSpeechText="";
+  private byte[] pendingSpeechWav;
   private boolean pendingZn02Connection=false;
   private TextView calendarAccountLabel;
   private boolean pendingWeatherForecast=false;
@@ -89,7 +90,7 @@ public class MainActivity extends Activity {
     z02Player=new Z02Player(this,new Z02Player.Listener(){
       public void onState(String value){
         if(state!=null)state.setText("GORO · "+value);
-        if("Reproduciendo por Z02".equals(value)&&dashboard!=null)dashboard.avatarSpeak(pendingSpeechText,null);
+        if("Reproduciendo por Z02".equals(value)&&dashboard!=null)dashboard.avatarSpeak(pendingSpeechText,pendingSpeechWav);
       }
       public void onError(String error){
         if(state!=null)state.setText("GORO · Audio Z02 no disponible");
@@ -212,7 +213,7 @@ public class MainActivity extends Activity {
     }
     if(voiceActive&&zn02Controller!=null)zn02Controller.stopVoice();
     if(z02Player!=null)z02Player.stop();
-    pendingSpeechText=message;
+    pendingSpeechText=message;pendingSpeechWav=null;
     if(state!=null)state.setText("GORO · Generando voz NVIDIA Magpie · Diego");
     if(dashboard!=null)dashboard.showAvatarMood(GoroAvatarView.Mood.THINKING);
     speechGateway.synthesize(message,(wav,error)->{
@@ -227,6 +228,7 @@ public class MainActivity extends Activity {
         if(output!=null)output.setText(message+"\n\nNo hay reproductor Z02 disponible. No se reprodujo por la tablet.");
         return;
       }
+      pendingSpeechWav=wav;
       z02Player.playWav(wav);
     });
   }
