@@ -185,7 +185,6 @@ public class MainActivity extends Activity {
     dashboard.showNvidiaStatus(nemotronGateway==null?"NVIDIA NIM: requiere API key":"NVIDIA NIM: clave guardada · sin prueba de conexión");
     dashboard.showVoiceStatus(speechGateway!=null?"NVIDIA Magpie · voz Diego · pendiente de prueba":"NVIDIA Magpie: falta API key · salida de voz deshabilitada");
     setContentView(dashboard);
-    if(nemotronGateway!=null)verifyNvidiaServices();
     connectZn02();
   }
   @Override protected void onActivityResult(int request,int result,Intent data) {
@@ -202,6 +201,7 @@ public class MainActivity extends Activity {
   private void say(String message) {
     if(output!=null)output.setText(message);
     if(dashboard!=null)dashboard.showAssistantMessage(message);
+    if(!foreground)return;
     if(speechGateway==null){
       if(state!=null)state.setText("GORO · NVIDIA Magpie no configurado");
       if(output!=null)output.setText(message+"\n\nLa respuesta queda en pantalla; no se usa la tablet como salida de voz.");
@@ -217,14 +217,14 @@ public class MainActivity extends Activity {
     speakNextChunk(speechGeneration);
   }
   private void speakNextChunk(long generation){
-    if(generation!=speechGeneration||isFinishing()||isDestroyed())return;
+    if(!foreground||generation!=speechGeneration||isFinishing()||isDestroyed())return;
     if(speechChunks.isEmpty()){if(voiceActive)startZ02Listening();return;}
     String chunk=speechChunks.removeFirst();
     pendingSpeechText=chunk;pendingSpeechWav=null;
     if(state!=null)state.setText("GORO · Preparando voz Diego");
     if(dashboard!=null)dashboard.showAvatarMood(GoroAvatarView.Mood.THINKING);
     speechGateway.synthesize(chunk,(wav,error)->{
-      if(generation!=speechGeneration||isFinishing()||isDestroyed())return;
+      if(!foreground||generation!=speechGeneration||isFinishing()||isDestroyed())return;
       if(error!=null||wav==null){
         speechChunks.clear();
         if(state!=null)state.setText("GORO · Magpie no disponible");
@@ -507,6 +507,10 @@ public class MainActivity extends Activity {
   @Override protected void onResume(){
     super.onResume();
     foreground=true;
+    // A permission/account screen may have interrupted the initial health
+    // checks. Retry on return rather than leaving hands-free mode waiting
+    // forever for callbacks that onStop correctly cancelled.
+    if(nemotronGateway!=null&&(!nvidiaChatReady||!magpieDiegoReady))verifyNvidiaServices();
     if(zn02ReadyForVoice&&nvidiaChatReady&&magpieDiegoReady&&!voiceActive)maybeStartHandsFreeConversation();
     if(pendingZn02Connection&&zn02Controller!=null){
       String[] missing=zn02Controller.neededPermissions();
