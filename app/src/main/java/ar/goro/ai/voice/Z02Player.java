@@ -17,6 +17,7 @@ public final class Z02Player {
  private long sequence;
  private volatile Playback active;
  private Listener listener;
+ private Runnable pendingStart;
  private static final class Playback {
   final long id;final AtomicBoolean running=new AtomicBoolean(true);
   volatile AudioTrack track;
@@ -52,11 +53,19 @@ public final class Z02Player {
   try{
    NvidiaWavValidator.Info info=NvidiaWavValidator.inspect(wav);
    byte[] pcm=Arrays.copyOfRange(wav,info.dataOffset,info.dataOffset+info.dataLength);
-   List<AudioDeviceInfo> devices=outputs();
-   if(devices.size()!=1){emitError("No hay una salida multimedia Z02 única y conectada.");return;}
-   play(pcm,info.sampleRate,info.channels,devices.get(0).getId());
+   stop();
+   waitForOutput(pcm,info.sampleRate,info.channels,0);
   }catch(Exception error){emitError("El WAV de Magpie no es reproducible: "+error.getMessage());}
  }
+ private void waitForOutput(byte[] pcm,int rate,int channels,int attempt){
+  if(attempt==0)emitStateText("Esperando audio multimedia del Z02");
+  List<AudioDeviceInfo> devices=outputs();
+  if(devices.size()==1){play(pcm,rate,channels,devices.get(0).getId());return;}
+  if(attempt>=30){emitError("El Z02 no presentó una salida A2DP única después de 15 segundos. No se reprodujo por la tablet.");return;}
+  pendingStart=()->waitForOutput(pcm,rate,channels,attempt+1);
+  main.postDelayed(pendingStart,500);
+ }
+ private void emitStateText(String value){main.post(()->{if(listener!=null)listener.onState(value);});}
  public void play(byte[] pcm,int rate,int channels,int targetId){
   stop();
   Playback session=new Playback(++sequence);active=session;
@@ -136,6 +145,11 @@ public final class Z02Player {
  }
  private void emitError(String message){main.post(()->{if(listener!=null)listener.onError(message);});}
  private void emitState(Playback session,String state){main.post(()->{if(active==session&&listener!=null)listener.onState(state);});}
- public void stop(){Playback old=active;active=null;if(old!=null){old.running.set(false);if(old.track!=null)try{old.track.setVolume(0f);}catch(Exception ignored){}}}
+ public void stop(){
+  if(pendingStart!=null)main.removeCallbacks(pendingStart);
+  pendingStart=null;
+  Playback old=active;active=null;
+  if(old!=null){old.running.set(false);if(old.track!=null)try{old.track.setVolume(0f);}catch(Exception ignored){}}
+ }
  public void close(){stop();if(audio!=null)try{audio.unregisterAudioDeviceCallback(deviceCallback);}catch(Exception ignored){}main.removeCallbacksAndMessages(null);listener=null;}
 }
