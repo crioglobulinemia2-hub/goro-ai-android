@@ -38,4 +38,25 @@ public class GmailAccountStateTest {
   long id=state.begin();state.close();
   assertFalse(state.authorize(id,"one@example.test","token"));assertNull(state.messageId(1));
  }
+ @Test public void freshMessageAuthorizationPreservesStableSelection(){
+  GmailAccountState state=new GmailAccountState();state.select("one@example.test");
+  long inbox=state.begin();state.authorize(inbox,"one@example.test","expired-token");
+  state.publish(inbox,Arrays.asList("first","chosen"));
+  String selected=state.messageId(2);
+  long read=state.beginMessageRead();
+  assertFalse(state.current(inbox));assertNull(state.token());
+  assertEquals("chosen",selected);assertEquals("chosen",state.messageId(2));
+  assertTrue(state.authorize(read,"one@example.test","fresh-token"));
+  assertEquals("fresh-token",state.token());assertEquals(selected,state.messageId(2));
+  assertFalse(state.publish(inbox,Arrays.asList("replacement")));
+  assertEquals("chosen",state.messageId(2));
+ }
+ @Test public void accountChangeDuringRenewalRejectsOldMessageAndToken(){
+  GmailAccountState state=new GmailAccountState();state.select("one@example.test");
+  long inbox=state.begin();state.authorize(inbox,"one@example.test","token");
+  state.publish(inbox,Arrays.asList("private-message"));
+  long read=state.beginMessageRead();state.select("two@example.test");
+  assertFalse(state.current(read));assertNull(state.messageId(1));
+  assertFalse(state.authorize(read,"one@example.test","fresh-token"));assertNull(state.token());
+ }
 }

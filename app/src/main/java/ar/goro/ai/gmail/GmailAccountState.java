@@ -20,6 +20,8 @@ final class GmailAccountState {
  synchronized long generation(){return generation;}
  synchronized boolean current(long id){return !closed&&id==generation;}
  synchronized long begin(){generation++;token=null;ids.clear();return generation;}
+ /** Refresh authorization while preserving the selected account's displayed message IDs. */
+ synchronized long beginMessageRead(){generation++;token=null;return generation;}
  synchronized boolean authorize(long id,String verifiedEmail,String accessToken){
   if(!current(id)||account==null||!account.equalsIgnoreCase(verifiedEmail)
     ||accessToken==null||accessToken.isEmpty())return false;
