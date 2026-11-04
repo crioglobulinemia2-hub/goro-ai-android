@@ -97,7 +97,7 @@ public class MainActivity extends Activity {
         if(state!=null)state.setText("GORO · Audio Z02 no disponible");
         if(output!=null)output.setText(output.getText()+"\n\n"+error);
         if(dashboard!=null)dashboard.showAvatarMood(GoroAvatarView.Mood.ALERT);
-        if(voiceActive){voiceActive=false;if(dashboard!=null)dashboard.setVoiceActive(false);}
+        if(voiceActive)startZ02Listening();
       }
       public void onCompleted(){
         if(state!=null)state.setText(voiceActive?"GORO · Escuchando desde Z02":"GORO · Listo");
