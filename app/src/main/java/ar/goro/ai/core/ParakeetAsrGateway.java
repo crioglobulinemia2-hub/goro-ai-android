@@ -2,85 +2,86 @@ package ar.goro.ai.core;
 
 import android.os.Handler;
 import android.os.Looper;
-import org.json.JSONObject;
-import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
-import java.util.UUID;
+import com.google.protobuf.ByteString;
+import io.grpc.ManagedChannel;
+import io.grpc.Metadata;
+import io.grpc.StatusRuntimeException;
+import io.grpc.okhttp.OkHttpChannelBuilder;
+import io.grpc.stub.MetadataUtils;
+import nvidia.riva.AudioEncoding;
+import nvidia.riva.asr.RecognitionConfig;
+import nvidia.riva.asr.RecognizeRequest;
+import nvidia.riva.asr.RecognizeResponse;
+import nvidia.riva.asr.RivaSpeechRecognitionGrpc;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
-/** NVIDIA Parakeet CTC 0.6B Spanish-English ASR for PCM16 mono decoded from Z02 RCSP. */
+/** NVIDIA-hosted Parakeet CTC Spanish ASR through the documented Riva gRPC API. */
 public final class ParakeetAsrGateway {
- public static final String ENDPOINT="https://a9eeee8f-b509-4712-b19d-194361fa5f31.invocation.api.nvcf.nvidia.com/v1/audio/transcriptions";
+ public static final String SERVER="grpc.nvcf.nvidia.com";
+ public static final int PORT=443;
+ public static final String FUNCTION_ID="a9eeee8f-b509-4712-b19d-194361fa5f31";
+ public static final String LANGUAGE="es-US";
  public interface Callback {void completed(String transcript,String error);}
  private final String apiKey;
+ private final ManagedChannel channel;
  private final ExecutorService executor=Executors.newSingleThreadExecutor();
  private final Handler main=new Handler(Looper.getMainLooper());
  public ParakeetAsrGateway(String apiKey){
   if(apiKey==null||!apiKey.startsWith("nvapi-"))throw new IllegalArgumentException("NVIDIA NIM API key required");
   this.apiKey=apiKey;
+  channel=OkHttpChannelBuilder.forAddress(SERVER,PORT).useTransportSecurity().build();
  }
  public void transcribe(byte[] pcm16Mono,int sampleRate,Callback callback){
   if(callback==null)throw new IllegalArgumentException("callback required");
-  if(pcm16Mono==null||pcm16Mono.length<3200||pcm16Mono.length>480000||pcm16Mono.length%2!=0||sampleRate!=16000){
-   callback.completed(null,"El audio del micrófono Z02 no tiene un formato PCM16 mono válido.");return;
+  if(pcm16Mono==null||pcm16Mono.length<3200||pcm16Mono.length>480000
+      ||pcm16Mono.length%2!=0||sampleRate!=16000){
+   callback.completed(null,"El audio del micrófono Z02 no tiene formato PCM16 mono a 16 kHz.");
+   return;
   }
+  byte[] audio=pcm16Mono.clone();
   executor.execute(()->{
-   HttpURLConnection connection=null;String transcript=null,error=null;
-   String boundary="----GOROASR"+UUID.randomUUID().toString().replace("-","");
+   String transcript=null,error=null;
    try{
-    byte[] wav=wav(pcm16Mono,sampleRate);
-    connection=(HttpURLConnection)new URL(ENDPOINT).openConnection();
-    connection.setRequestMethod("POST");connection.setConnectTimeout(15000);connection.setReadTimeout(45000);connection.setDoOutput(true);
-    connection.setRequestProperty("Authorization","Bearer "+apiKey);
-    connection.setRequestProperty("Content-Type","multipart/form-data; boundary="+boundary);
-    connection.setRequestProperty("Accept","application/json");
-    try(OutputStream out=connection.getOutputStream()){
-     field(out,boundary,"language","es-US");
-     out.write(("--"+boundary+"\r\nContent-Disposition: form-data; name=\"file\"; filename=\"goro-z02.wav\"\r\nContent-Type: audio/wav\r\n\r\n").getBytes(StandardCharsets.UTF_8));
-     out.write(wav);out.write("\r\n".getBytes(StandardCharsets.UTF_8));
-     out.write(("--"+boundary+"--\r\n").getBytes(StandardCharsets.UTF_8));
+    RecognitionConfig config=RecognitionConfig.newBuilder()
+      .setEncoding(AudioEncoding.LINEAR_PCM)
+      .setSampleRateHertz(sampleRate)
+      .setLanguageCode(LANGUAGE)
+      .setAudioChannelCount(1)
+      .setMaxAlternatives(1)
+      .setEnableAutomaticPunctuation(true)
+      .build();
+    RecognizeRequest request=RecognizeRequest.newBuilder()
+      .setConfig(config)
+      .setAudio(ByteString.copyFrom(audio))
+      .build();
+    Metadata headers=new Metadata();
+    headers.put(Metadata.Key.of("function-id",Metadata.ASCII_STRING_MARSHALLER),FUNCTION_ID);
+    headers.put(Metadata.Key.of("authorization",Metadata.ASCII_STRING_MARSHALLER),"Bearer "+apiKey);
+    RivaSpeechRecognitionGrpc.RivaSpeechRecognitionBlockingStub stub=
+      RivaSpeechRecognitionGrpc.newBlockingStub(channel)
+        .withInterceptors(MetadataUtils.newAttachHeadersInterceptor(headers))
+        .withDeadlineAfter(35,TimeUnit.SECONDS);
+    RecognizeResponse response=stub.recognize(request);
+    if(response.getResultsCount()>0
+        &&response.getResults(0).getAlternativesCount()>0){
+      transcript=response.getResults(0).getAlternatives(0).getTranscript().trim();
     }
-    int status=connection.getResponseCode();
-    InputStream stream=status>=200&&status<300?connection.getInputStream():connection.getErrorStream();
-    byte[] response=readBounded(stream,256*1024);
-    if(status<200||status>=300){
-     String detail=new String(response,StandardCharsets.UTF_8);
-     throw new IllegalStateException("NVIDIA ASR HTTP "+status+": "+(detail.length()>180?detail.substring(0,180):detail));
-    }
-    transcript=new JSONObject(new String(response,StandardCharsets.UTF_8)).optString("text","").trim();
-    if(transcript.isEmpty())throw new IllegalStateException("NVIDIA ASR no reconoció palabras en el audio recibido.");
-   }catch(Exception e){error=e.getMessage()==null?"No se pudo transcribir el audio del Z02.":e.getMessage();}
-   finally{if(connection!=null)connection.disconnect();}
-   final String result=transcript,problem=error;
-   main.post(()->callback.completed(result,problem));
+    if(transcript==null||transcript.isEmpty())
+      throw new IllegalStateException("Parakeet no detectó palabras en el audio recibido.");
+   }catch(StatusRuntimeException e){
+    error="NVIDIA Parakeet/Riva: "+e.getStatus().getCode()
+      +(e.getStatus().getDescription()==null?"":" · "+e.getStatus().getDescription());
+   }catch(Exception e){
+    error=e.getMessage()==null?"Error de reconocimiento NVIDIA Parakeet":e.getMessage();
+   }
+   final String text=transcript,problem=error;
+   main.post(()->callback.completed(text,problem));
   });
  }
- private static byte[] wav(byte[] pcm,int rate)throws Exception{
-  ByteArrayOutputStream out=new ByteArrayOutputStream(44+pcm.length);
-  out.write("RIFF".getBytes(StandardCharsets.US_ASCII));write32(out,36+pcm.length);
-  out.write("WAVEfmt ".getBytes(StandardCharsets.US_ASCII));write32(out,16);
-  write16(out,1);write16(out,1);write32(out,rate);write32(out,rate*2);
-  write16(out,2);write16(out,16);out.write("data".getBytes(StandardCharsets.US_ASCII));
-  write32(out,pcm.length);out.write(pcm);return out.toByteArray();
+ public void close(){
+  executor.shutdownNow();
+  channel.shutdownNow();
  }
- private static void field(OutputStream out,String boundary,String name,String value)throws Exception{
-  out.write(("--"+boundary+"\r\nContent-Disposition: form-data; name=\""+name+"\"\r\n\r\n").getBytes(StandardCharsets.UTF_8));
-  out.write(value.getBytes(StandardCharsets.UTF_8));out.write("\r\n".getBytes(StandardCharsets.UTF_8));
- }
- private static void write16(OutputStream out,int value)throws Exception{out.write(value&255);out.write((value>>>8)&255);}
- private static void write32(OutputStream out,int value)throws Exception{out.write(value&255);out.write((value>>>8)&255);out.write((value>>>16)&255);out.write((value>>>24)&255);}
- private static byte[] readBounded(InputStream stream,int limit)throws Exception{
-  if(stream==null)throw new IllegalStateException("NVIDIA ASR devolvió una respuesta vacía");
-  try(InputStream in=stream;ByteArrayOutputStream out=new ByteArrayOutputStream()){
-   byte[] buffer=new byte[8192];int n,total=0;
-   while((n=in.read(buffer))!=-1){total+=n;if(total>limit)throw new IllegalStateException("Respuesta ASR demasiado grande");out.write(buffer,0,n);}
-   return out.toByteArray();
-  }
- }
- public void close(){executor.shutdownNow();}
 }
