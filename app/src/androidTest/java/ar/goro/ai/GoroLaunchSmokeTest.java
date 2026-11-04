@@ -1,16 +1,26 @@
 package ar.goro.ai;
 
+import android.Manifest;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.rule.GrantPermissionRule;
 import androidx.test.core.app.ActivityScenario;
 import org.junit.Test;
+import org.junit.Rule;
 import org.junit.runner.RunWith;
 import static org.junit.Assert.*;
 
 @RunWith(AndroidJUnit4.class)
 public class GoroLaunchSmokeTest {
+ @Rule public GrantPermissionRule permissions=GrantPermissionRule.grant(
+   Manifest.permission.BLUETOOTH_SCAN,
+   Manifest.permission.BLUETOOTH_CONNECT,
+   Manifest.permission.RECORD_AUDIO,
+   Manifest.permission.ACCESS_FINE_LOCATION,
+   Manifest.permission.ACCESS_COARSE_LOCATION
+ );
  @Test public void appLaunchesInConversationModeWithoutTechnicalButtonWall(){
   try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)){
    scenario.onActivity(activity->{
