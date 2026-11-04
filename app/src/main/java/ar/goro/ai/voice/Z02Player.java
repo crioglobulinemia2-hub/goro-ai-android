@@ -77,7 +77,7 @@ public final class Z02Player {
    fail(session,"Formato PCM de voz inválido.");return;
   }
   final AudioDeviceInfo selected=target;
-  Thread worker=new Thread(()->{
+  new Thread(()->{
    AudioTrack track=null;
    AudioManager.OnAudioFocusChangeListener focus=change->{
     if(change!=AudioManager.AUDIOFOCUS_GAIN){session.running.set(false);if(session.track!=null)try{session.track.setVolume(0f);}catch(Exception ignored){}}
