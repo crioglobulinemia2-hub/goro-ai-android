@@ -13,9 +13,9 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/** NVIDIA hosted Spanish ASR for PCM16 mono decoded from the Z02 RCSP microphone. */
+/** NVIDIA Parakeet RNNT multilingual ASR (Spanish) for PCM16 mono decoded from Z02 RCSP. */
 public final class NemotronAsrGateway {
- public static final String ENDPOINT="https://a9eeee8f-b509-4712-b19d-194361fa5f31.invocation.api.nvcf.nvidia.com/v1/audio/transcriptions";
+ public static final String ENDPOINT="https://71203149-d3b7-4460-8231-1be2543a1fca.invocation.api.nvcf.nvidia.com/v1/audio/transcriptions";
  public interface Callback {void completed(String transcript,String error);}
  private final String apiKey;
  private final ExecutorService executor=Executors.newSingleThreadExecutor();
