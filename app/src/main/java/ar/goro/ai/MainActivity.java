@@ -56,6 +56,7 @@ public class MainActivity extends Activity {
   private SharedPreferences memory;
   private MemoryStore memoryStore;
   private boolean voiceActive=false;
+  private boolean responseInProgress=false;
   private final android.os.Handler voiceHandler=new android.os.Handler(android.os.Looper.getMainLooper());
   private long speechSequence;
   private long nvidiaVerificationSequence;
@@ -96,12 +97,14 @@ public class MainActivity extends Activity {
         if("Reproduciendo por Z02".equals(value)&&dashboard!=null)dashboard.avatarSpeak(pendingSpeechText,pendingSpeechWav);
       }
       public void onError(String error){
+        responseInProgress=false;
         if(state!=null)state.setText("GORO · Audio Z02 no disponible");
         if(output!=null)output.setText(output.getText()+"\n\n"+error);
         if(dashboard!=null)dashboard.showAvatarMood(GoroAvatarView.Mood.ALERT);
         if(voiceActive)startZ02Listening();
       }
       public void onCompleted(){
+        responseInProgress=false;
         if(state!=null)state.setText(voiceActive?"GORO · Escuchando desde Z02":"GORO · Listo");
         if(dashboard!=null)dashboard.showAvatarMood(voiceActive?GoroAvatarView.Mood.LISTENING:GoroAvatarView.Mood.IDLE);
         if(voiceActive)startZ02Listening();
@@ -124,7 +127,8 @@ public class MainActivity extends Activity {
         if(message!=null){
           String normalized=message.toLowerCase(Locale.ROOT);
           if(normalized.contains("desconectado")||normalized.contains("conexión fallida")||normalized.contains("conexión rechazada")){
-            zn02ReadyForVoice=false;
+            zn02ReadyForVoice=false;responseInProgress=false;speechSequence++;
+            if(z02Player!=null)z02Player.stop();
             if(voiceActive){voiceActive=false;if(zn02Controller!=null)zn02Controller.stopVoice();if(dashboard!=null)dashboard.setVoiceActive(false);}
           }
         }
@@ -222,6 +226,7 @@ public class MainActivity extends Activity {
       if(voiceActive){voiceActive=false;if(dashboard!=null)dashboard.setVoiceActive(false);if(zn02Controller!=null)zn02Controller.stopVoice();}
       return;
     }
+    responseInProgress=true;
     if(voiceActive&&zn02Controller!=null)zn02Controller.stopVoice();
     if(z02Player!=null)z02Player.stop();
     pendingSpeechText=message;pendingSpeechWav=null;
@@ -231,6 +236,7 @@ public class MainActivity extends Activity {
     speechGateway.synthesize(message,(wav,error)->{
       if(isFinishing()||isDestroyed()||speechRequest!=speechSequence)return;
       if(error!=null||wav==null){
+        responseInProgress=false;
         if(state!=null)state.setText("GORO · Magpie no disponible");
         if(dashboard!=null)dashboard.showAvatarMood(GoroAvatarView.Mood.ALERT);
         if(output!=null)output.setText(message+"\n\nNo se pudo generar audio NVIDIA: "+(error==null?"respuesta vacía":error));
@@ -238,6 +244,7 @@ public class MainActivity extends Activity {
         return;
       }
       if(z02Player==null){
+        responseInProgress=false;
         if(output!=null)output.setText(message+"\n\nNo hay reproductor Z02 disponible. No se reprodujo por la tablet.");
         return;
       }
@@ -246,7 +253,8 @@ public class MainActivity extends Activity {
     });
   }
   private void startZ02Listening(){
-    if(!voiceActive||zn02Controller==null)return;
+    if(!voiceActive||responseInProgress||zn02Controller==null)return;
+    voiceHandler.removeCallbacksAndMessages(null);
     if(!zn02Controller.startVoice()){
       voiceActive=false;
       if(dashboard!=null)dashboard.setVoiceActive(false);
@@ -256,7 +264,7 @@ public class MainActivity extends Activity {
     if(state!=null)state.setText("GORO · Abriendo micrófono Z02");
   }
   private void handleZ02Pcm(byte[] pcm){
-    if(!voiceActive)return;
+    if(!voiceActive||responseInProgress)return;
     if(asrGateway==null){say("NVIDIA ASR no está configurado.");return;}
     if(state!=null)state.setText("GORO · Transcribiendo voz Z02 con NVIDIA");
     if(dashboard!=null)dashboard.showAvatarMood(GoroAvatarView.Mood.THINKING);
@@ -398,7 +406,7 @@ public class MainActivity extends Activity {
        String key=input.getText().toString().trim();
        try{
         nvidiaCredentialStore.save(key);
-        voiceActive=false;speechSequence++;nvidiaVerificationSequence++;
+        voiceActive=false;responseInProgress=false;speechSequence++;nvidiaVerificationSequence++;
         if(zn02Controller!=null)zn02Controller.stopVoice();
         if(z02Player!=null)z02Player.stop();
         if(dashboard!=null)dashboard.setVoiceActive(false);
@@ -677,7 +685,7 @@ public class MainActivity extends Activity {
     }
   }
   @Override protected void onDestroy(){
-    voiceActive=false;speechSequence++;nvidiaVerificationSequence++;
+    voiceActive=false;responseInProgress=false;speechSequence++;nvidiaVerificationSequence++;
     voiceHandler.removeCallbacksAndMessages(null);
     if(nemotronGateway!=null)nemotronGateway.close();
     if(speechGateway!=null)speechGateway.close();
