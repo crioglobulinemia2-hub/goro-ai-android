@@ -41,7 +41,6 @@ public final class ParakeetAsrGateway {
     connection.setRequestProperty("Accept","application/json");
     try(OutputStream out=connection.getOutputStream()){
      field(out,boundary,"language","es-US");
-     field(out,boundary,"response_format","json");
      out.write(("--"+boundary+"\r\nContent-Disposition: form-data; name=\"file\"; filename=\"goro-z02.wav\"\r\nContent-Type: audio/wav\r\n\r\n").getBytes(StandardCharsets.UTF_8));
      out.write(wav);out.write("\r\n".getBytes(StandardCharsets.UTF_8));
      out.write(("--"+boundary+"--\r\n").getBytes(StandardCharsets.UTF_8));
