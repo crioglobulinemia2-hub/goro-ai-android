@@ -84,9 +84,9 @@ public class GoroDashboardViewTest {
   activity.setContentView(dashboard);
   findButton(dashboard,"Dispositivos").performClick();
   findButton(dashboard,"Conectar ZNP Z02").performClick();
-  findButton(dashboard,"Hablar con GORO").performClick();
+  assertNull(findButton(dashboard,"Hablar con GORO"));
+  assertNotNull(findText(dashboard,"Conversación manos libres automática cuando Z02 y NVIDIA estén conectados"));
   assertEquals(1,calls.connect);
-  assertEquals(1,calls.voice);
   findButton(dashboard,"Ajustes").performClick();
   findButton(dashboard,"Vincular cuenta Google").performClick();
   findButton(dashboard,"Autorizar Calendar").performClick();
