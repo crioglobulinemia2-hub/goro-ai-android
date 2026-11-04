@@ -15,9 +15,8 @@ import static org.junit.Assert.*;
 @RunWith(RobolectricTestRunner.class)
 public class GoroDashboardViewTest {
  private static final class Calls implements GoroDashboardView.Actions {
-  int commands,voice,link,gmail,calendar,unlink,weather,forecast,reminders,connect,inspect,lightOn,lightOff,lightRead,animation,nvidia;
+  int commands,link,gmail,calendar,unlink,weather,forecast,reminders,connect,inspect,lightOn,lightOff,lightRead,animation,nvidia;
   public void onCommand(String value){commands++;}
-  public void onVoiceSession(){voice++;}
   public void onLinkAccount(){link++;}
   public void onReadGmail(){gmail++;}
   public void onCalendarPermission(){calendar++;}
@@ -42,6 +41,17 @@ public class GoroDashboardViewTest {
    ViewGroup group=(ViewGroup)root;
    for(int i=0;i<group.getChildCount();i++){
     Button found=findButton(group.getChildAt(i),label);
+    if(found!=null)return found;
+   }
+  }
+  return null;
+ }
+ private android.widget.TextView findText(View root,String label){
+  if(root instanceof android.widget.TextView && label.contentEquals(((android.widget.TextView)root).getText()))return (android.widget.TextView)root;
+  if(root instanceof ViewGroup){
+   ViewGroup group=(ViewGroup)root;
+   for(int i=0;i<group.getChildCount();i++){
+    android.widget.TextView found=findText(group.getChildAt(i),label);
     if(found!=null)return found;
    }
   }
