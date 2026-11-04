@@ -181,7 +181,7 @@ public final class GoroDashboardView extends LinearLayout {
   LinearLayout controls=new LinearLayout(activity);
   controlsPane=controls;
   controls.setGravity(Gravity.CENTER);
-  conversationStatus=text("Micrófono Z02 · conversación manos libres automática",14,true,palette.accentSecondary);
+  conversationStatus=text("Z02 · esperando conexión automática",14,true,palette.accentSecondary);
   conversationStatus.setGravity(Gravity.CENTER);
   conversationStatus.setPadding(dp(14),dp(12),dp(14),dp(12));
   conversationStatus.setBackground(gradient(palette.surface,palette.surfaceElevated,dp(16)));
