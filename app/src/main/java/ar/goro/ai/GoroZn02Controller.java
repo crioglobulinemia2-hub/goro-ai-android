@@ -76,7 +76,7 @@ public final class GoroZn02Controller {
  private ByteArrayOutputStream microphonePcm=new ByteArrayOutputStream();
  private boolean recording;
  private boolean draining;
- private Runnable authPoll,authTimeout,voiceTimeout,drainTimeout,drainFinishTimeout;
+ private Runnable authPoll,authTimeout,voiceTimeout,drainTimeout,drainFinishTimeout,connectionCheck;
  private final OnChargingCaseListener caseListener=new OnChargingCaseListener(){
   @Override public void onInit(BluetoothDevice device,int state){
    if(!isTarget(device))return;
@@ -120,13 +120,25 @@ public final class GoroZn02Controller {
    @Override public void onConnection(BluetoothDevice device,int status){
     if(!isTarget(device))return;
     if(status==StateCode.CONNECTION_OK||status==StateCode.CONNECTION_CONNECTED){
+     if(connectionCheck!=null)mainHandler.removeCallbacks(connectionCheck);
      connected=true;vendorProtocolVerified=false;
      emit("Enlace BLE Z02 abierto. Verificando autenticación RCSP…");
      verifyAuthenticated(device);
     }else if(status==StateCode.CONNECTION_DISCONNECT||status==StateCode.CONNECTION_FAILED){
-     connectionEpoch++;connected=false;vendorProtocolVerified=false;releaseVoice();bondSession.close();
-     if(authPoll!=null)mainHandler.removeCallbacks(authPoll);if(authTimeout!=null)mainHandler.removeCallbacks(authTimeout);
-     emit("ZN02 desconectado o conexión fallida (estado "+status+").");
+     // JieLi can report a classic-audio profile failure while the authenticated BLE/RCSP link remains alive.
+     if(connectionCheck!=null)mainHandler.removeCallbacks(connectionCheck);
+     connectionCheck=()->{
+      if(closed||!isTarget(device)||controller==null)return;
+      if(!controller.isDeviceConnected(device)){
+       connectionEpoch++;connected=false;vendorProtocolVerified=false;releaseVoice();bondSession.close();
+       if(authPoll!=null)mainHandler.removeCallbacks(authPoll);
+       if(authTimeout!=null)mainHandler.removeCallbacks(authTimeout);
+       emit("ZNP Z02 desconectado (estado "+status+").");
+      }else{
+       emit("El perfil secundario informó "+status+"; el enlace BLE/RCSP principal sigue conectado.");
+      }
+     };
+     mainHandler.postDelayed(connectionCheck,500);
     }else if(status==StateCode.CONNECTION_CONNECTING){
      emit("Conectando ZN02 por Bluetooth LE…");
     }
@@ -443,7 +455,7 @@ public final class GoroZn02Controller {
  private void emit(String value){if(listener!=null&&!closed)mainHandler.post(()->{if(listener!=null&&!closed)listener.onStatus(value);});}
  public synchronized void close(){
   if(closed)return;closed=true;connectionEpoch++;releaseVoice();bondSession.close();
-  if(authPoll!=null)mainHandler.removeCallbacks(authPoll);if(authTimeout!=null)mainHandler.removeCallbacks(authTimeout);
+  if(authPoll!=null)mainHandler.removeCallbacks(authPoll);if(authTimeout!=null)mainHandler.removeCallbacks(authTimeout);if(connectionCheck!=null)mainHandler.removeCallbacks(connectionCheck);
   if(controller!=null){
    if(scanning)controller.stopScan();
    controller.removeBTRcspEventCallback(eventCallback);
