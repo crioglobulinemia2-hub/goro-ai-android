@@ -48,6 +48,7 @@ public final class GoroAvatarView extends FrameLayout {
  private boolean framePosted=false;
  private Mood mood=Mood.IDLE;
  private long moodStartedNanos=0;
+ private AvatarAnimationCatalog animationCatalog;
  private String speechText="";
  private long speechStartedUptime=0;
  private long speechDurationMs=0;
@@ -62,11 +63,23 @@ public final class GoroAvatarView extends FrameLayout {
    ModelViewer current=viewer;
    if(current==null||!isAttachedToWindow())return;
    com.google.android.filament.gltfio.Animator animator=current.getAnimator();
-   if(animator!=null&&animator.getAnimationCount()>0){
+   if(animator!=null){
+    if(animationCatalog==null){
+     int count=animator.getAnimationCount();
+     String[] names=new String[count];
+     float[] durations=new float[count];
+     for(int i=0;i<count;i++){
+      names[i]=animator.getAnimationName(i);
+      durations[i]=animator.getAnimationDuration(i);
+     }
+     animationCatalog=new AvatarAnimationCatalog(names,durations);
+    }
     if(moodStartedNanos==0)moodStartedNanos=frameTimeNanos;
-    int clip=Math.min(mood.ordinal(),animator.getAnimationCount()-1);
-    float elapsed=((frameTimeNanos-moodStartedNanos)/1_000_000_000f)%1.80f;
-    animator.applyAnimation(clip,elapsed);
+    int clip=animationCatalog.resolve(mood.name());
+    if(clip>=0){
+     double elapsed=(frameTimeNanos-moodStartedNanos)/1_000_000_000.0;
+     animator.applyAnimation(clip,animationCatalog.timeSeconds(clip,elapsed));
+    }
     animator.updateBoneMatrices();
    }
    applyExpression(frameTimeNanos);
@@ -310,7 +323,7 @@ public final class GoroAvatarView extends FrameLayout {
    catch(RuntimeException ignored){}
   }
   ambientLight=null;
-  sunEntity=0;fillEntity=0;faceEntity=0;viewer=null;engine=null;moodStartedNanos=0;
+  sunEntity=0;fillEntity=0;faceEntity=0;viewer=null;engine=null;moodStartedNanos=0;animationCatalog=null;
   super.onDetachedFromWindow();
  }
 }
