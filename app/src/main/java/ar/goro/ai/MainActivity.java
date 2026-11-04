@@ -123,6 +123,7 @@ public class MainActivity extends Activity {
     }catch(Exception credentialError){nvidiaCredentialStore.clear();}
     calendarGateway=new DeviceCalendarGateway(this);
     gmailGateway=new GoroGmailGateway(this);
+    gmailGateway.setSelectedAccount(calendarGateway.selectedGoogleAccount());
     zn02Controller=new GoroZn02Controller(this,new GoroZn02Controller.Listener(){
       public void onStatus(String message){
         if(message!=null){
@@ -158,6 +159,8 @@ public class MainActivity extends Activity {
       }
       public void onUnlinkAccount(){
         calendarGateway.unlinkGoogleAccount();
+        gmailGateway.setSelectedAccount(null);
+        dashboard.showGmailStatus("Gmail · cuenta desvinculada");
         calendarAccountLabel.setText("Cuenta Google: sin vincular");
         lastCalendarEvents.clear();pendingCalendarEvent=null;pendingCalendarDeleteId=null;
         say("Cuenta desvinculada. No se eliminaron eventos.");
@@ -194,7 +197,7 @@ public class MainActivity extends Activity {
       return;
     }
     if(request==GOOGLE_ACCOUNT_REQUEST){
-      if(result==RESULT_OK&&data!=null){String email=data.getStringExtra(AccountManager.KEY_ACCOUNT_NAME);String type=data.getStringExtra(AccountManager.KEY_ACCOUNT_TYPE);if(email==null||!"com.google".equals(type)){say("No se seleccionó una cuenta Google válida.");return;}try{calendarGateway.setSelectedGoogleAccount(email);calendarAccountLabel.setText("Google Calendar: "+email);say("Cuenta "+email+" seleccionada para GORO. Ahora autorizá el acceso al calendario.");requestCalendarPermissions();}catch(Exception e){say("No pude vincular esa cuenta Google.");}}
+      if(result==RESULT_OK&&data!=null){String email=data.getStringExtra(AccountManager.KEY_ACCOUNT_NAME);String type=data.getStringExtra(AccountManager.KEY_ACCOUNT_TYPE);if(email==null||!"com.google".equals(type)){say("No se seleccionó una cuenta Google válida.");return;}try{calendarGateway.setSelectedGoogleAccount(email);gmailGateway.setSelectedAccount(email);dashboard.showGmailStatus("Gmail · cuenta seleccionada: "+email+" · requiere autorización");calendarAccountLabel.setText("Google Calendar: "+email);say("Cuenta "+email+" seleccionada para GORO. Ahora autorizá el acceso al calendario.");requestCalendarPermissions();}catch(Exception e){say("No pude vincular esa cuenta Google.");}}
       else say("Vinculación de Gmail cancelada.");
     }
   }
