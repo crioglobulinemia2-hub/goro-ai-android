@@ -159,7 +159,7 @@ public final class GoroDashboardView extends LinearLayout {
   sp.setMargins(dp(12),dp(2),dp(8),0);
   mainColumn.addView(state,sp);
 
-  output=text("Las funciones locales están disponibles. NVIDIA remoto y el avatar 3D todavía no están conectados.",16,false,palette.text);
+  output=text("GORO IA · Conversación por ZNP Z02. Conectá el dispositivo y autorizá NVIDIA en Ajustes.",16,false,palette.text);
   output.setPadding(dp(14),dp(12),dp(14),dp(12));
   output.setBackground(gradient(palette.surface,palette.surfaceElevated,dp(15)));
   LinearLayout.LayoutParams op=new LinearLayout.LayoutParams(-1,-2);
@@ -196,7 +196,7 @@ public final class GoroDashboardView extends LinearLayout {
   LinearLayout controls=new LinearLayout(activity);
   controlsPane=controls;
   controls.setGravity(Gravity.CENTER);
-  talk=button("Micrófono · Conversación continua",()->actions.onVoiceSession(),true);
+  talk=button("Hablar con GORO · Z02",()->actions.onVoiceSession(),true);
   controls.addView(talk,new LinearLayout.LayoutParams(0,dp(52),1f));
   Button send=button("Enviar",()->actions.onCommand(command.getText().toString().trim()),false);
   controls.addView(send,new LinearLayout.LayoutParams(dp(102),dp(52)));
@@ -230,7 +230,7 @@ public final class GoroDashboardView extends LinearLayout {
   devicePanel=new LinearLayout(activity);devicePanel.setOrientation(VERTICAL);
   devicePanel.addView(card("ZNP Z02",devicesValue),cardParams());
   devicePanel.addView(button("Conectar ZNP Z02",()->actions.onConnectZn02(),true),new LinearLayout.LayoutParams(-1,dp(46)));
-  devicePanel.addView(text("Animaciones: visor no verificado",12,false,palette.muted),new LinearLayout.LayoutParams(-1,dp(32)));
+  devicePanel.addView(text("Audio bidireccional: micrófono RCSP y salida A2DP verificados por separado",12,false,palette.muted),new LinearLayout.LayoutParams(-1,dp(42)));
   devicePanel.addView(button("Hablar con GORO",()->actions.onVoiceSession(),false),new LinearLayout.LayoutParams(-1,dp(44)));
   devicePanel.setVisibility(GONE);
   mainColumn.addView(devicePanel,new LinearLayout.LayoutParams(-1,-2));
@@ -266,7 +266,7 @@ public final class GoroDashboardView extends LinearLayout {
   switch(section){
    case HOME: output.setText("Conversá con GORO. Usá los accesos rápidos para Agenda, Gmail, Proyectos y Dispositivos.");break;
    case EXPLORE: output.setText("Explorar proyectos. Pedime que retomemos cualquiera de tus proyectos.");break;
-   case DEVICES: output.setText("ZNP Z02. Emparejá el periférico desde Android; GORO comprobará el perfil disponible sin inventar funciones.");break;
+   case DEVICES: output.setText("ZNP Z02. GORO busca el dispositivo, autentica RCSP y prepara el micrófono y el audio Bluetooth.");break;
    case AUTOMATIONS: output.setText("Automatizaciones. Pedime recordatorios, alarmas o temporizadores en lenguaje natural.");actions.onReminders();break;
    case SETTINGS: output.setText("Ajustes y conexiones. Configurá las cuentas y servicios que quieras vincular.");break;
   }
@@ -274,7 +274,7 @@ public final class GoroDashboardView extends LinearLayout {
  public void showAgenda(String value){agendaValue.setText(value==null?"Sin datos.":value);}
  public void showWeather(String value){weatherValue.setText(value==null?"Sin datos.":value);}
  public void showDeviceStatus(String value){devicesValue.setText(value==null?"Sin datos de dispositivo.":value);}
- public void setVoiceActive(boolean active){talk.setText(active?"Detener conversación":"Micrófono · Conversación continua");}
+ public void setVoiceActive(boolean active){talk.setText(active?"Detener conversación":"Hablar con GORO · Z02");}
  public void showVoiceStatus(String value){
   String detail=value==null?"Voz no disponible":value;
   voiceValue.setText(detail);
