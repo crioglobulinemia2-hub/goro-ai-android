@@ -56,7 +56,7 @@ public class LocalCommandVoiceCycleTest {
   output=new TextView(activity);set("output",output);set("state",new TextView(activity));
   set("foreground",true);set("voiceActive",true);
   set("zn02Controller",new GoroZn02Controller(RuntimeEnvironment.getApplication(),status->{}));
-  set("speechGateway",new NemotronSpeechGateway("nvapi-test-only-not-a-credential"));
+  set("speechGateway",new NemotronSpeechGateway("nvapi-test"));
   Context context=RuntimeEnvironment.getApplication();
   context.getSharedPreferences("goro_calendar_link",Context.MODE_PRIVATE).edit().clear().commit();
   calendar=new DeviceCalendarGateway(context);set("calendarGateway",calendar);
