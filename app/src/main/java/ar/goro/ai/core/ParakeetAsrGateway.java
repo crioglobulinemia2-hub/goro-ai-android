@@ -20,7 +20,7 @@ public final class ParakeetAsrGateway {
  private final String apiKey;
  private final ExecutorService executor=Executors.newSingleThreadExecutor();
  private final Handler main=new Handler(Looper.getMainLooper());
- public NemotronAsrGateway(String apiKey){
+ public ParakeetAsrGateway(String apiKey){
   if(apiKey==null||!apiKey.startsWith("nvapi-"))throw new IllegalArgumentException("NVIDIA NIM API key required");
   this.apiKey=apiKey;
  }
