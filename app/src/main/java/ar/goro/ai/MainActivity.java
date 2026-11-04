@@ -38,7 +38,6 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import android.provider.AlarmClock;
 import android.provider.Settings;
-import android.speech.RecognizerIntent;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.view.Gravity;
@@ -48,7 +47,6 @@ import java.util.*;
 import java.util.regex.*;
 
 public class MainActivity extends Activity {
-  private static final int VOICE_REQUEST=27;
   private TextView output, state;
   private ar.goro.ai.ui.GoroDashboardView dashboard;
   private GoroZn02Controller zn02Controller;
@@ -181,14 +179,6 @@ public class MainActivity extends Activity {
     dashboard.showVoiceStatus(speechGateway!=null?"NVIDIA Magpie · voz Diego · pendiente de prueba":"NVIDIA Magpie: falta API key · salida de voz deshabilitada");
     setContentView(dashboard);
   }
-  private void listen() {
-    Intent intent=new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-    intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-    intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE,"es-AR");
-    intent.putExtra(RecognizerIntent.EXTRA_PROMPT,"Hablale a GORO");
-    try {state.setText("Escuchando...");startActivityForResult(intent,VOICE_REQUEST);}
-    catch(ActivityNotFoundException e){say("No hay reconocimiento de voz disponible en este dispositivo.");}
-  }
   @Override protected void onActivityResult(int request,int result,Intent data) {
     super.onActivityResult(request,result,data);
     if(request==GoroGmailGateway.REQUEST_AUTHORIZATION){
@@ -197,12 +187,7 @@ public class MainActivity extends Activity {
     }
     if(request==GOOGLE_ACCOUNT_REQUEST){
       if(result==RESULT_OK&&data!=null){String email=data.getStringExtra(AccountManager.KEY_ACCOUNT_NAME);String type=data.getStringExtra(AccountManager.KEY_ACCOUNT_TYPE);if(email==null||!"com.google".equals(type)){say("No se seleccionó una cuenta Google válida.");return;}try{calendarGateway.setSelectedGoogleAccount(email);calendarAccountLabel.setText("Google Calendar: "+email);say("Cuenta "+email+" seleccionada para GORO. Ahora autorizá el acceso al calendario.");requestCalendarPermissions();}catch(Exception e){say("No pude vincular esa cuenta Google.");}}
-      else say("Vinculación de Gmail cancelada.");return;
-    }
-    state.setText("Asistente de voz • Android");
-    if(request==VOICE_REQUEST && result==RESULT_OK && data!=null){
-      ArrayList<String> words=data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
-      if(words!=null&&!words.isEmpty()){command.setText(words.get(0));runCommand(words.get(0));}
+      else say("Vinculación de Gmail cancelada.");
     }
   }
   private void say(String message) {
