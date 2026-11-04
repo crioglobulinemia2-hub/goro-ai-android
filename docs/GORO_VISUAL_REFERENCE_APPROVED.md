@@ -1,5 +1,15 @@
 # GORO AI — Referencia visual aprobada y criterios de aceptación
 
+## Referencia vinculante confirmada el 4 de noviembre de 2026
+
+El propietario volvió a adjuntar **la imagen adjunta por el propietario (image.png)** y pidió: «ESTE ES EL DISEÑO ACORDADO QUIERO 100X100 IGUAL».
+
+Prevalece esta referencia sobre las variaciones posteriores de teléfonos con visor negro y ojos dibujados como sonrisa. El personaje aprobado tiene cara blanca perlada, grandes ojos ópticos azules redondos, boca mecánica visible, paneles grafito en la cabeza y el cuello, manos articuladas y emblema azul hexagonal en el pecho.
+
+La vista principal muestra al personaje de cintura hacia arriba sobre un escritorio, con ambiente cálido y luz diurna, tarjetas compactas translúcidas a la derecha, burbuja clara junto al rostro y controles inferiores discretos. No debe tener una pared de botones ni tarjetas azules opacas sobredimensionadas. Los datos y estados de conexión de la referencia son ilustrativos: se deben sustituir por datos reales sin simular conexiones.
+
+La compilación del commit 52a81ee46fb4dc1733ce8baaa42584cd9915bc17 pasó sus pruebas, pero **NO cumple la identidad del robot ni la composición aprobada**. No es una entrega final. La imagen reconstruida para modelado tampoco acredita un modelo 3D funcional ni aceptación visual. La conversión de esa imagen mediante Microsoft TRELLIS en Hugging Face quedó bloqueada por la revisión automática: requiere autorización para enviar el recurso visual a ese servicio externo. No se debe reintentar la transferencia sin esa autorización.
+
 La imagen aportada por el usuario el 1 de noviembre de 2026 es la referencia visual vinculante para la interfaz y la animación de GORO. No debe sustituirse por un chat genérico, un formulario simple ni una pantalla monocromática oscura.
 
 ## Composición de inicio
