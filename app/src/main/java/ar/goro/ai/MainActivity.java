@@ -57,6 +57,9 @@ public class MainActivity extends Activity {
   private SharedPreferences memory;
   private MemoryStore memoryStore;
   private boolean voiceActive=false;
+  private boolean zn02ReadyForVoice=false;
+  private boolean nvidiaChatReady=false;
+  private boolean magpieDiegoReady=false;
   private ReminderScheduler reminderScheduler;
   private DeviceCalendarGateway calendarGateway;
   private GoroGmailGateway gmailGateway;
@@ -114,34 +117,32 @@ public class MainActivity extends Activity {
     calendarGateway=new DeviceCalendarGateway(this);
     gmailGateway=new GoroGmailGateway(this);
     zn02Controller=new GoroZn02Controller(this,new GoroZn02Controller.Listener(){
-      public void onStatus(String message){if(dashboard!=null)dashboard.showDeviceStatus(message);}
+      public void onStatus(String message){
+        if(message!=null){
+          String normalized=message.toLowerCase(Locale.ROOT);
+          if(normalized.contains("desconectado")||normalized.contains("conexión fallida")||normalized.contains("conexión rechazada")){
+            zn02ReadyForVoice=false;
+            if(voiceActive){voiceActive=false;if(zn02Controller!=null)zn02Controller.stopVoice();if(dashboard!=null)dashboard.setVoiceActive(false);}
+          }
+        }
+        if(dashboard!=null)dashboard.showDeviceStatus(message);
+      }
       public void onMicrophonePcm(byte[] pcm){handleZ02Pcm(pcm);}
       public void onAudioTarget(BluetoothDevice audioTarget){
-        try{z02Player.setTarget(audioTarget.getAddress(),audioTarget.getName());}
-        catch(SecurityException error){if(dashboard!=null)dashboard.showDeviceStatus("Android no autorizó identificar la salida de audio Z02.");}
+        try{
+          z02Player.setTarget(audioTarget.getAddress(),audioTarget.getName());
+          zn02ReadyForVoice=true;
+          maybeStartHandsFreeConversation();
+        }catch(SecurityException error){
+          zn02ReadyForVoice=false;
+          if(dashboard!=null)dashboard.showDeviceStatus("Android no autorizó identificar la salida de audio Z02.");
+        }
       }
     });
     zn02GattInspector=new GoroZn02GattInspector(this,message->{if(dashboard!=null)dashboard.showDeviceStatus(message);});
     memoryStore.migrateLegacy(memory);
     dashboard=new ar.goro.ai.ui.GoroDashboardView(this,new ar.goro.ai.ui.GoroDashboardView.Actions(){
       public void onCommand(String text){runCommand(text);}
-      public void onVoiceSession(){
-        if(voiceActive){
-          voiceActive=false;
-          if(zn02Controller!=null)zn02Controller.stopVoice();
-          dashboard.setVoiceActive(false);
-          if(state!=null)state.setText("GORO · Conversación pausada");
-          return;
-        }
-        if(asrGateway==null||speechGateway==null){
-          say("Primero configurá y autorizá NVIDIA NIM en Ajustes.");
-          return;
-        }
-        if(checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){
-          requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO},41);return;
-        }
-        voiceActive=true;dashboard.setVoiceActive(true);startZ02Listening();
-      }
       public void onLinkAccount(){chooseGoogleAccount();}
       public void onReadGmail(){readGmail();}
       public void onCalendarPermission(){
@@ -178,6 +179,8 @@ public class MainActivity extends Activity {
     dashboard.showNvidiaStatus(nemotronGateway==null?"NVIDIA NIM: requiere API key":"NVIDIA NIM: clave guardada · sin prueba de conexión");
     dashboard.showVoiceStatus(speechGateway!=null?"NVIDIA Magpie · voz Diego · pendiente de prueba":"NVIDIA Magpie: falta API key · salida de voz deshabilitada");
     setContentView(dashboard);
+    if(nemotronGateway!=null)verifyNvidiaServices();
+    connectZn02();
   }
   @Override protected void onActivityResult(int request,int result,Intent data) {
     super.onActivityResult(request,result,data);
@@ -383,20 +386,49 @@ public class MainActivity extends Activity {
         asrGateway=new ParakeetAsrGateway(key);
         if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: clave cifrada · verificando…");
         if(dashboard!=null)dashboard.showVoiceStatus("Magpie Diego: consultando catálogo NVIDIA…");
-        speechGateway.verifyDiego((ready,detail)->{
-          if(dashboard!=null)dashboard.showVoiceStatus(detail);
-        });
-        testNemotron();
+        verifyNvidiaServices();
        }catch(Exception e){if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: clave no guardada");say("No pude guardar la clave NVIDIA. Verificá que sea una API key nvapi válida.");}
       }).show();
   }
   private void testNemotron(){
-    if(nemotronGateway==null){if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: falta API key");say("Primero configurá la API key de NVIDIA NIM.");return;}
-    if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: probando endpoint…");
+    verifyNvidiaServices();
+  }
+  private void verifyNvidiaServices(){
+    if(nemotronGateway==null||speechGateway==null||asrGateway==null){
+      nvidiaChatReady=false;magpieDiegoReady=false;
+      if(dashboard!=null)dashboard.showVoiceStatus("Falta configurar NVIDIA NIM para la conversación automática.");
+      return;
+    }
+    nvidiaChatReady=false;magpieDiegoReady=false;
+    if(dashboard!=null){
+      dashboard.showNvidiaStatus("NVIDIA Nemotron 3.5 · verificando conexión real…");
+      dashboard.showVoiceStatus("Magpie Diego · verificando catálogo de voces…");
+    }
     nemotronGateway.request("goro-healthcheck","Respondé exactamente: GORO conectado.",(reply,error)->{
-      if(error!=null){if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: error · "+error);say("No pude autenticar con NVIDIA NIM. "+error);}
-      else{if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: conectado · "+NemotronGateway.MODEL);say(reply);}
+      nvidiaChatReady=error==null&&reply!=null&&!reply.trim().isEmpty();
+      if(dashboard!=null)dashboard.showNvidiaStatus(nvidiaChatReady
+        ?"NVIDIA NIM conectado · "+NemotronGateway.MODEL
+        :"NVIDIA NIM sin conexión · "+(error==null?"respuesta vacía":error));
+      maybeStartHandsFreeConversation();
     });
+    speechGateway.verifyDiego((ready,detail)->{
+      magpieDiegoReady=ready;
+      if(dashboard!=null)dashboard.showVoiceStatus(detail);
+      maybeStartHandsFreeConversation();
+    });
+  }
+  private void maybeStartHandsFreeConversation(){
+    if(voiceActive||!zn02ReadyForVoice)return;
+    if(!nvidiaChatReady||!magpieDiegoReady||asrGateway==null){
+      if(dashboard!=null)dashboard.showDeviceStatus("Z02 conectado. La conversación manos libres espera la validación de Nemotron, Parakeet y Magpie Diego.");
+      return;
+    }
+    if(checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){
+      requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO},41);return;
+    }
+    voiceActive=true;
+    if(dashboard!=null)dashboard.setVoiceActive(true);
+    startZ02Listening();
   }
   private void requestNemotron(String text){
     if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: procesando…");
@@ -583,7 +615,7 @@ public class MainActivity extends Activity {
     }
     if(request==41){
       if(results.length>0&&results[0]==PackageManager.PERMISSION_GRANTED){
-        voiceActive=true;if(dashboard!=null)dashboard.setVoiceActive(true);startZ02Listening();
+        maybeStartHandsFreeConversation();
       }else{
         voiceActive=false;if(dashboard!=null){dashboard.setVoiceActive(false);dashboard.showDeviceStatus("Android no concedió permiso de micrófono para capturar audio del Z02.");}
       }
