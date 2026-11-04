@@ -53,10 +53,8 @@ public final class GoroAvatarView extends FrameLayout {
  private String speechText="";
  private long speechStartedUptime=0;
  private long speechDurationMs=0;
- private byte[] speechAudio;
- private int pcmStart=44;
- private int pcmByteRate=44100;
- private int pcmBlockAlign=2;
+ private AvatarSpeechEnvelope speechEnvelope;
+ private boolean speechHasAudio=false;
  private final VisemeEstimator visemes=new VisemeEstimator();
  private final Choreographer.FrameCallback frameCallback=new Choreographer.FrameCallback(){
   @Override public void doFrame(long frameTimeNanos){
@@ -202,60 +200,25 @@ public final class GoroAvatarView extends FrameLayout {
  public void setMood(Mood next){
   if(next==null)return;
   if(mood!=next){mood=next;moodStartedNanos=0;}
-  if(next!=Mood.SPEAKING){speechText="";speechAudio=null;}
+  if(next!=Mood.SPEAKING){speechText="";speechEnvelope=null;speechHasAudio=false;}
  }
  public void startSpeaking(String text,byte[] wav){
   speechText=text==null?"":text.trim();
-  speechAudio=wav;
-  pcmStart=44;pcmByteRate=44100;pcmBlockAlign=2;
-  int pcmSize=wav==null?0:Math.max(0,wav.length-44);
-  if(wav!=null&&wav.length>=44){
-   int byteRate=readLe32(wav,28);
-   int align=readLe16(wav,32);
-   if(byteRate>0&&byteRate<400000&&align>=2&&align<=16){
-    pcmByteRate=byteRate;pcmBlockAlign=align;
-   }
-   // WAV permits metadata chunks before the audio payload.
-   for(int offset=12;offset+8<=wav.length;){
-    int size=readLe32(wav,offset+4);
-    if(size<0||size>wav.length-offset-8)break;
-    if(wav[offset]=='d'&&wav[offset+1]=='a'&&wav[offset+2]=='t'&&wav[offset+3]=='a'){
-     pcmStart=offset+8;pcmSize=size;break;
-    }
-    offset+=(8+size+(size&1));
-   }
+  speechHasAudio=wav!=null;
+  speechEnvelope=null;
+  if(speechHasAudio){
+   try{speechEnvelope=new AvatarSpeechEnvelope(wav);}
+   catch(IllegalArgumentException invalid){status("Audio no compatible con las expresiones de GORO.");}
   }
-  speechDurationMs=pcmByteRate>0&&wav!=null?
-    Math.max(200,1000L*pcmSize/pcmByteRate):
+  speechDurationMs=speechEnvelope!=null?Math.max(1,speechEnvelope.durationMs()):
     Math.max(500,speechText.length()*74L);
   speechStartedUptime=SystemClock.uptimeMillis();
   setMood(Mood.SPEAKING);
  }
- private static int readLe16(byte[] data,int offset){
-  return (data[offset]&255)|((data[offset+1]&255)<<8);
- }
- private static int readLe32(byte[] data,int offset){
-  return (data[offset]&255)|((data[offset+1]&255)<<8)|
-    ((data[offset+2]&255)<<16)|((data[offset+3]&255)<<24);
- }
  /** Audio-driven RMS envelope, sampled from the actual NVIDIA PCM WAV response. */
  private float speechEnergy(long elapsedMs){
-  byte[] audio=speechAudio;
-  if(audio==null||audio.length<pcmStart+4||pcmByteRate<=0)return .55f;
-  long byteOffset=elapsedMs*pcmByteRate/1000;
-  if(byteOffset<0||byteOffset>audio.length-pcmStart-4)return 0f;
-  int pos=pcmStart+(int)(byteOffset/pcmBlockAlign)*pcmBlockAlign;
-  if(pos<pcmStart||pos+1>=audio.length)return 0f;
-  double squared=0;int count=0;
-  int end=Math.min(audio.length-1,pos+pcmBlockAlign*256);
-  for(int i=pos;i+1<end;i+=pcmBlockAlign){
-   int sample=(short)readLe16(audio,i);
-   squared+=(sample/32768.0)*(sample/32768.0);
-   count++;
-  }
-  if(count==0)return 0f;
-  float root=(float)Math.sqrt(squared/count);
-  return Math.min(1f,root*7.2f);
+  if(speechEnvelope!=null)return speechEnvelope.energyAt(elapsedMs);
+  return speechHasAudio?0f:.55f;
  }
  private void applyExpression(long frameTimeNanos){
   if(viewer==null||engine==null||faceEntity==0||faceMorphMap==null||!faceMorphMap.isComplete())return;

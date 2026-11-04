@@ -126,6 +126,10 @@ public final class GoroZn02Controller {
      if(closed||!isTarget(device))return;
      if(status==StateCode.CONNECTION_OK||status==StateCode.CONNECTION_CONNECTED){
       if(connectionCheck!=null)mainHandler.removeCallbacks(connectionCheck);
+      // JieLi reports both transport-connected and ready for the same link.
+      // Restarting authentication here would invalidate an active capture's
+      // epoch without releasing it, leaving every later startVoice blocked.
+      if(connected)return;
       connected=true;vendorProtocolVerified=false;
       emit("Enlace BLE Z02 abierto. Verificando autenticación RCSP…");
       verifyAuthenticated(device);
@@ -209,7 +213,14 @@ public final class GoroZn02Controller {
    }catch(RuntimeException ignored){}
    mainHandler.postDelayed(this,250);
   }};
-  authTimeout=()->{if(epoch==connectionEpoch&&!closed){connected=false;vendorProtocolVerified=false;emit("El SDK no completó la autenticación del Z02 en 20 segundos.");}};
+  authTimeout=()->{
+   if(epoch!=connectionEpoch||closed)return;
+   if(authPoll!=null)mainHandler.removeCallbacks(authPoll);
+   authPoll=null;authTimeout=null;
+   connectionEpoch++;connected=false;vendorProtocolVerified=false;
+   releaseVoice();
+   emit("El SDK no completó la autenticación del Z02 en 20 segundos. Volvé a conectar el dispositivo.");
+  };
   mainHandler.postDelayed(authTimeout,20000);
   mainHandler.post(authPoll);
  }
