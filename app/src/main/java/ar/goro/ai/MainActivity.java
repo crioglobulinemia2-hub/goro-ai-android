@@ -22,6 +22,7 @@ import ar.goro.ai.core.NvidiaCredentialStore;
 import ar.goro.ai.core.NemotronSpeechGateway;
 import ar.goro.ai.core.ParakeetAsrGateway;
 import ar.goro.ai.core.SpeechTextChunks;
+import ar.goro.ai.core.NvidiaSpeechProbe;
 import ar.goro.ai.voice.Z02Player;
 import android.bluetooth.BluetoothDevice;
 import ar.goro.ai.avatar.GoroAvatarView;
@@ -60,6 +61,9 @@ public class MainActivity extends Activity {
   private boolean zn02ReadyForVoice=false;
   private boolean nvidiaChatReady=false;
   private boolean magpieDiegoReady=false;
+  private boolean nvidiaAsrReady=false;
+  private long serviceCheckGeneration;
+  private NvidiaSpeechProbe speechProbe;
   private ReminderScheduler reminderScheduler;
   private DeviceCalendarGateway calendarGateway;
   private GoroGmailGateway gmailGateway;
@@ -122,6 +126,7 @@ public class MainActivity extends Activity {
         nemotronGateway=new NemotronGateway(savedNvidiaKey);
         speechGateway=new NemotronSpeechGateway(savedNvidiaKey);
         asrGateway=new ParakeetAsrGateway(savedNvidiaKey);
+        speechProbe=new NvidiaSpeechProbe(savedNvidiaKey);
       }
     }catch(Exception credentialError){nvidiaCredentialStore.clear();}
     calendarGateway=new DeviceCalendarGateway(this);
@@ -441,9 +446,12 @@ public class MainActivity extends Activity {
         if(nemotronGateway!=null)nemotronGateway.close();
         if(speechGateway!=null)speechGateway.close();
         if(asrGateway!=null)asrGateway.close();
+        if(speechProbe!=null)speechProbe.close();
+        nvidiaAsrReady=false;serviceCheckGeneration++;
         nemotronGateway=new NemotronGateway(key);
         speechGateway=new NemotronSpeechGateway(key);
         asrGateway=new ParakeetAsrGateway(key);
+        speechProbe=new NvidiaSpeechProbe(key);
         if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: clave cifrada · verificando…");
         if(dashboard!=null)dashboard.showVoiceStatus("Magpie Diego: consultando catálogo NVIDIA…");
         verifyNvidiaServices();
@@ -451,20 +459,26 @@ public class MainActivity extends Activity {
       }).show();
   }
   private void testNemotron(){
+    invalidateVoiceConversation();
+    nvidiaAsrReady=false;
+    if(speechProbe!=null)speechProbe.reset();
     verifyNvidiaServices();
   }
   private void verifyNvidiaServices(){
-    if(nemotronGateway==null||speechGateway==null||asrGateway==null){
-      nvidiaChatReady=false;magpieDiegoReady=false;
+    if(!foreground)return;
+    final long verification=++serviceCheckGeneration;
+    if(nemotronGateway==null||speechGateway==null||asrGateway==null||speechProbe==null){
+      nvidiaChatReady=false;magpieDiegoReady=false;nvidiaAsrReady=false;
       if(dashboard!=null)dashboard.showVoiceStatus("Falta configurar NVIDIA NIM para la conversación automática.");
       return;
     }
-    nvidiaChatReady=false;magpieDiegoReady=false;
+    nvidiaChatReady=false;magpieDiegoReady=false;nvidiaAsrReady=speechProbe.isReady();
     if(dashboard!=null){
       dashboard.showNvidiaStatus("NVIDIA Nemotron 3.5 · verificando conexión real…");
       dashboard.showVoiceStatus("Magpie Diego · verificando catálogo de voces…");
     }
     nemotronGateway.request("goro-healthcheck","Respondé exactamente: GORO conectado.",(reply,error)->{
+      if(!foreground||verification!=serviceCheckGeneration)return;
       nvidiaChatReady=error==null&&reply!=null&&!reply.trim().isEmpty();
       if(dashboard!=null)dashboard.showNvidiaStatus(nvidiaChatReady
         ?"NVIDIA NIM conectado · "+NemotronGateway.MODEL
@@ -472,15 +486,29 @@ public class MainActivity extends Activity {
       maybeStartHandsFreeConversation();
     });
     speechGateway.verifyDiego((ready,detail)->{
+      if(!foreground||verification!=serviceCheckGeneration)return;
       magpieDiegoReady=ready;
       if(dashboard!=null)dashboard.showVoiceStatus(detail);
+      if(ready)startSpeechReadinessProbe();
+      maybeStartHandsFreeConversation();
+    });
+  }
+  private void startSpeechReadinessProbe(){
+    if(!foreground||speechProbe==null||!magpieDiegoReady)return;
+    if(dashboard!=null)dashboard.showVoiceStatus(speechProbe.wasAttempted()?speechProbe.status():
+      "Comprobando Diego y Parakeet con una frase de diagnóstico…");
+    final NvidiaSpeechProbe current=speechProbe;
+    current.start((ready,message)->{
+      if(!foreground||speechProbe!=current)return;
+      nvidiaAsrReady=ready;
+      if(dashboard!=null)dashboard.showVoiceStatus(message);
       maybeStartHandsFreeConversation();
     });
   }
   private void maybeStartHandsFreeConversation(){
     if(!foreground)return;
     if(voiceActive||!zn02ReadyForVoice)return;
-    if(!nvidiaChatReady||!magpieDiegoReady||asrGateway==null){
+    if(!nvidiaChatReady||!magpieDiegoReady||!nvidiaAsrReady||asrGateway==null){
       if(dashboard!=null)dashboard.showDeviceStatus("Z02 conectado. La conversación manos libres espera la validación de Nemotron, Parakeet y Magpie Diego.");
       return;
     }
@@ -557,7 +585,8 @@ public class MainActivity extends Activity {
     // checks. Retry on return rather than leaving hands-free mode waiting
     // forever for callbacks that onStop correctly cancelled.
     if(nemotronGateway!=null&&(!nvidiaChatReady||!magpieDiegoReady))verifyNvidiaServices();
-    if(zn02ReadyForVoice&&nvidiaChatReady&&magpieDiegoReady&&!voiceActive)maybeStartHandsFreeConversation();
+    if(magpieDiegoReady&&!nvidiaAsrReady)startSpeechReadinessProbe();
+    if(zn02ReadyForVoice&&nvidiaChatReady&&magpieDiegoReady&&nvidiaAsrReady&&!voiceActive)maybeStartHandsFreeConversation();
     if(pendingZn02Connection&&zn02Controller!=null){
       String[] missing=zn02Controller.neededPermissions();
       if(missing.length>0)requestPermissions(missing,ZN02_BLE_PERMISSION_REQUEST);
@@ -717,13 +746,16 @@ public class MainActivity extends Activity {
     }
   }
   @Override protected void onStop(){
-    foreground=false;
+    foreground=false;serviceCheckGeneration++;
+    if(speechProbe!=null){speechProbe.cancel();nvidiaAsrReady=speechProbe.isReady();}
     invalidateVoiceConversation();
     if(dashboard!=null){dashboard.setVoiceActive(false);dashboard.showAvatarMood(GoroAvatarView.Mood.IDLE);}
     super.onStop();
   }
   @Override protected void onDestroy(){
-    foreground=false;invalidateVoiceConversation();
+    foreground=false;serviceCheckGeneration++;
+    if(speechProbe!=null)speechProbe.close();
+    invalidateVoiceConversation();
     if(nemotronGateway!=null)nemotronGateway.close();
     if(speechGateway!=null)speechGateway.close();
     if(asrGateway!=null)asrGateway.close();
