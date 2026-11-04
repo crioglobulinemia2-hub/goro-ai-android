@@ -100,48 +100,54 @@ public final class GoroZn02Controller {
   controller=null;
   eventCallback=new BTRcspEventCallback(){
    @Override public void onDiscoveryStatus(boolean ble,boolean start){
-    if(!ble)return;
-    scanning=start;
-    if(!start&&!connected&&target==null)emit("Búsqueda finalizada: no se encontró el estuche ZN02.");
+    mainHandler.post(()->{
+     if(!ble||closed)return;
+     scanning=start;
+     if(!start&&!connected&&target==null)emit("Búsqueda finalizada: no se encontró el ZNP Z02.");
+    });
    }
    @Override public void onDiscovery(BluetoothDevice device,BleScanMessage message){
-    if(closed||!scanning||device==null)return;
-    String name=null;
-    try{name=device.getName();}catch(SecurityException ignored){}
-    ZnpDeviceProfile profile=ZnpDeviceProfile.detect(name);
-    if(!profile.isCandidate())return;
-    target=device;
-    controller.stopScan();
-    scanning=false;
-    emit("El anuncio Bluetooth coincide con ZN02. Verificando el protocolo antes de habilitar controles…");
-    try{controller.connectDevice(device);}
-    catch(RuntimeException error){emit("El SDK JieLi no pudo iniciar la conexión BLE RCSP: "+error.getClass().getSimpleName());}
+    mainHandler.post(()->{
+     if(closed||!scanning||device==null||controller==null)return;
+     String name=null;
+     try{name=device.getName();}catch(SecurityException ignored){}
+     ZnpDeviceProfile profile=ZnpDeviceProfile.detect(name);
+     if(!profile.isCandidate())return;
+     target=device;
+     try{controller.stopScan();}catch(RuntimeException ignored){}
+     scanning=false;
+     emit("Anuncio ZNP Z02 detectado. Abriendo enlace RCSP y verificando autenticación…");
+     try{controller.connectDevice(device);}
+     catch(RuntimeException error){emit("El SDK JieLi no pudo iniciar la conexión BLE RCSP: "+error.getClass().getSimpleName());}
+    });
    }
    @Override public void onConnection(BluetoothDevice device,int status){
-    if(!isTarget(device))return;
-    if(status==StateCode.CONNECTION_OK||status==StateCode.CONNECTION_CONNECTED){
-     if(connectionCheck!=null)mainHandler.removeCallbacks(connectionCheck);
-     connected=true;vendorProtocolVerified=false;
-     emit("Enlace BLE Z02 abierto. Verificando autenticación RCSP…");
-     verifyAuthenticated(device);
-    }else if(status==StateCode.CONNECTION_DISCONNECT||status==StateCode.CONNECTION_FAILED){
-     // JieLi can report a classic-audio profile failure while the authenticated BLE/RCSP link remains alive.
-     if(connectionCheck!=null)mainHandler.removeCallbacks(connectionCheck);
-     connectionCheck=()->{
-      if(closed||!isTarget(device)||controller==null)return;
-      if(!controller.isDeviceConnected(device)){
-       connectionEpoch++;connected=false;vendorProtocolVerified=false;releaseVoice();bondSession.close();
-       if(authPoll!=null)mainHandler.removeCallbacks(authPoll);
-       if(authTimeout!=null)mainHandler.removeCallbacks(authTimeout);
-       emit("ZNP Z02 desconectado (estado "+status+").");
-      }else{
-       emit("El perfil secundario informó "+status+"; el enlace BLE/RCSP principal sigue conectado.");
-      }
-     };
-     mainHandler.postDelayed(connectionCheck,500);
-    }else if(status==StateCode.CONNECTION_CONNECTING){
-     emit("Conectando ZN02 por Bluetooth LE…");
-    }
+    mainHandler.post(()->{
+     if(closed||!isTarget(device))return;
+     if(status==StateCode.CONNECTION_OK||status==StateCode.CONNECTION_CONNECTED){
+      if(connectionCheck!=null)mainHandler.removeCallbacks(connectionCheck);
+      connected=true;vendorProtocolVerified=false;
+      emit("Enlace BLE Z02 abierto. Verificando autenticación RCSP…");
+      verifyAuthenticated(device);
+     }else if(status==StateCode.CONNECTION_DISCONNECT||status==StateCode.CONNECTION_FAILED){
+      // JieLi may report a classic audio profile failure while the BLE/RCSP link remains alive.
+      if(connectionCheck!=null)mainHandler.removeCallbacks(connectionCheck);
+      connectionCheck=()->{
+       if(closed||!isTarget(device)||controller==null)return;
+       if(!controller.isDeviceConnected(device)){
+        connectionEpoch++;connected=false;vendorProtocolVerified=false;releaseVoice();bondSession.close();
+        if(authPoll!=null)mainHandler.removeCallbacks(authPoll);
+        if(authTimeout!=null)mainHandler.removeCallbacks(authTimeout);
+        emit("ZNP Z02 desconectado (estado "+status+").");
+       }else{
+        emit("El perfil secundario informó "+status+"; el enlace BLE/RCSP principal sigue conectado.");
+       }
+      };
+      mainHandler.postDelayed(connectionCheck,500);
+     }else if(status==StateCode.CONNECTION_CONNECTING){
+      emit("Conectando ZNP Z02 por Bluetooth LE…");
+     }
+    });
    }
   };
  }
