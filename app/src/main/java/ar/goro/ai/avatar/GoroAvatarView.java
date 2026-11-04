@@ -5,7 +5,7 @@ import android.graphics.Color;
 import android.os.SystemClock;
 import android.view.Choreographer;
 import android.view.MotionEvent;
-import android.view.SurfaceView;
+import android.view.TextureView;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 import com.google.android.filament.Engine;
@@ -34,7 +34,7 @@ public final class GoroAvatarView extends FrameLayout {
  public enum Mood {IDLE,LISTENING,THINKING,SPEAKING,CONFIRMING,ALERT}
  private static final String ASSET_PATH="goro/goro_rigged.glb";
  private final StatusListener statusListener;
- private SurfaceView surface;
+ private TextureView surface;
  private ModelViewer viewer;
  private Engine engine;
  private int sunEntity=0;
@@ -70,7 +70,7 @@ public final class GoroAvatarView extends FrameLayout {
    // Consistent full-height framing for wide tablet and portrait layouts.
    if(surface!=null&&surface.getHeight()>0&&surface.getWidth()>0){
     double aspect=(double)surface.getWidth()/(double)surface.getHeight();
-    double halfHeight=1.30;
+    double halfHeight=Math.max(1.08,0.91/aspect);
     current.getCamera().setProjection(Camera.Projection.ORTHO,
         -halfHeight*aspect,halfHeight*aspect,-halfHeight,halfHeight,.05,60.0);
    }
@@ -96,10 +96,10 @@ public final class GoroAvatarView extends FrameLayout {
    status("No se encontró el robot 3D de GORO.");
    return;
   }
-  surface=new SurfaceView(getContext());
+  surface=new TextureView(getContext());
   surface.setFocusable(false);
   surface.setFocusableInTouchMode(false);
-  surface.setBackgroundColor(Color.TRANSPARENT);
+  surface.setOpaque(false);
   addView(surface,new FrameLayout.LayoutParams(-1,-1));
   surface.setOnTouchListener((v,event)->{
    if(viewer!=null){viewer.onTouchEvent(event);return true;}
@@ -112,20 +112,20 @@ public final class GoroAvatarView extends FrameLayout {
    engine=Engine.create(Engine.Backend.VULKAN);
    if(engine==null)throw new IllegalStateException("Vulkan is not available");
    UiHelper helper=new UiHelper(UiHelper.ContextErrorPolicy.DONT_CHECK);
-   helper.setOpaque(true);
+   helper.setOpaque(false);
    viewer=new ModelViewer(surface,engine,helper,null);
    viewer.getView().setAntiAliasing(View.AntiAliasing.FXAA);
-   viewer.getView().setBlendMode(View.BlendMode.OPAQUE);
+   viewer.getView().setBlendMode(View.BlendMode.TRANSLUCENT);
+   viewer.getScene().setSkybox(null);
    com.google.android.filament.Renderer.ClearOptions clearOptions=new com.google.android.filament.Renderer.ClearOptions();
-   clearOptions.clearColor=new float[]{0.145f,0.173f,0.204f,1.0f};
+   clearOptions.clearColor=new float[]{0f,0f,0f,0f};
    clearOptions.clear=true;
    clearOptions.discard=true;
    viewer.getRenderer().setClearOptions(clearOptions);
    viewer.loadModelGlb(ByteBuffer.wrap(bytes));
    viewer.transformToUnitCube(new Float3(0f,0f,0f));
-   // Position between normalized and raw-space model centers so both fits
-   // remain visible until the asset bounding box is fully resolved.
-   viewer.getCamera().lookAt(0.0,.65,8.0,0.0,.65,0.0,0.0,1.0,0.0);
+   // transformToUnitCube centers the model at the origin. Frame its full body.
+   viewer.getCamera().lookAt(0.0,0.0,8.0,0.0,0.0,0.0,0.0,1.0,0.0);
    FilamentAsset asset=viewer.getAsset();
    if(asset!=null)faceEntity=asset.getFirstEntityByName("GORO_Face_Morphs");
    sunEntity=EntityManager.get().create();

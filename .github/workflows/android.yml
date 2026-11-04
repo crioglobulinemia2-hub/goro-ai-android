@@ -92,6 +92,8 @@ jobs:
         run: gradle --no-daemon clean testDebugUnitTest assembleDebug assembleRelease
       - name: Android memory persistence tests (Robolectric)
         run: gradle --no-daemon testDebugUnitTest
+      - name: Build recovery package for the owner's existing private certificate
+        run: gradle --no-daemon -PgoroApplicationId=ar.goro.ai.recovery assembleRelease
       - name: Upload JVM test reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -199,6 +201,7 @@ jobs:
             app/build/outputs/androidTest-results/connected/**/*.xml
             build/goro-emulator-logcat.txt
             build/goro-emulator-ui.png
+            build/goro-emulator-tablet.png
             build/goro-emulator-gfxinfo.txt
           if-no-files-found: warn
 

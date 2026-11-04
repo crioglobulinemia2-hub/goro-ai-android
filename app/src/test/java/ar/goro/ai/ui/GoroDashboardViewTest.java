@@ -10,6 +10,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
+import org.robolectric.annotation.Config;
 import static org.junit.Assert.*;
 
 @RunWith(RobolectricTestRunner.class)
@@ -114,5 +115,29 @@ public class GoroDashboardViewTest {
   button.dispatchTouchEvent(cancel);cancel.recycle();
   assertTrue(button.isClickable());
   assertTrue(button.isFocusable());
+ }
+ @Test public void homeDisplaysServiceResultsAndWeatherAction(){
+  Activity activity=Robolectric.buildActivity(Activity.class).setup().get();
+  Calls calls=new Calls();
+  GoroDashboardView dashboard=new GoroDashboardView(activity,calls,null,false);
+  activity.setContentView(dashboard);
+  dashboard.showWeather("Ubicación actual: 21 grados");
+  dashboard.showAgenda("Reunión · 14:00");
+  dashboard.showDeviceStatus("Z02 desconectado");
+  assertTrue(findText(dashboard,"Reunión · 14:00").isShown());
+  assertTrue(findText(dashboard,"Ubicación actual: 21 grados").isShown());
+  assertTrue(findText(dashboard,"Z02 desconectado").isShown());
+  findButton(dashboard,"Consultar clima").performClick();
+  assertEquals(1,calls.weather);
+ }
+ @Test @Config(qualifiers="w960dp-h600dp-land")
+ public void tabletPlacesServiceCardsBesideTheRobot(){
+  Activity activity=Robolectric.buildActivity(Activity.class).setup().get();
+  GoroDashboardView dashboard=new GoroDashboardView(activity,new Calls(),null,false);
+  activity.setContentView(dashboard);
+  android.widget.LinearLayout cards=(android.widget.LinearLayout)findText(dashboard,"AGENDA DEL DÍA").getParent().getParent();
+  android.widget.LinearLayout columns=(android.widget.LinearLayout)cards.getParent();
+  assertEquals(android.widget.LinearLayout.HORIZONTAL,columns.getOrientation());
+  assertEquals(2,columns.getChildCount());
  }
 }

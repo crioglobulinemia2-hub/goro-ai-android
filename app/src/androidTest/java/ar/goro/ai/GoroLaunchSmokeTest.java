@@ -32,7 +32,7 @@ public class GoroLaunchSmokeTest {
    scenario.onActivity(activity->{
     View root=activity.findViewById(android.R.id.content);
     assertNotNull(root);
-    assertNotNull(findText(root,"GORO   ASISTENTE PERSONAL"));
+    assertNotNull(findText(root,"GORO IA"));
     assertNotNull(findText(root,"GORO IA · Conversación manos libres por ZNP Z02. La conexión se inicia automáticamente."));
     assertNotNull(findText(root,"Z02 · esperando conexión automática"));
     assertNotNull(findText(root,"Conversar"));
@@ -40,6 +40,8 @@ public class GoroLaunchSmokeTest {
     assertNotNull(findText(root,"Automatizar"));
     assertNotNull(findText(root,"Ajustes"));
     assertNotNull(findText(root,"Dispositivos"));
+    assertTrue(findText(root,"AGENDA DEL DÍA").isShown());
+    assertTrue(findText(root,"CLIMA LOCAL").isShown());
     assertEquals(4,countVisibleNavigation(root));
    });
   }

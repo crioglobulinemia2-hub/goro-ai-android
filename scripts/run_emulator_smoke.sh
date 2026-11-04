@@ -13,12 +13,22 @@ if adb get-state >/dev/null 2>&1; then
   adb install -r app/build/outputs/apk/debug/app-debug.apk     > build/goro-emulator-install.txt 2>&1
   INSTALL_STATUS=$?
   if [ "$INSTALL_STATUS" -eq 0 ]; then
+    for permission in BLUETOOTH_SCAN BLUETOOTH_CONNECT RECORD_AUDIO ACCESS_FINE_LOCATION ACCESS_COARSE_LOCATION; do
+      adb shell pm grant ar.goro.ai.personal "android.permission.$permission" >/dev/null 2>&1 || true
+    done
     adb shell am force-stop ar.goro.ai.personal >/dev/null 2>&1 || true
     adb shell am start -W -n ar.goro.ai.personal/ar.goro.ai.MainActivity       > build/goro-emulator-launch.txt 2>&1
     START_STATUS=$?
     sleep 6
     adb exec-out screencap -p > build/goro-emulator-ui.png 2>/dev/null || true
     test -s build/goro-emulator-ui.png || rm -f build/goro-emulator-ui.png
+    # Capture the same build at tablet width. This changes emulator display only.
+    adb shell wm size 1600x1200
+    adb shell wm density 240
+    sleep 4
+    adb exec-out screencap -p > build/goro-emulator-tablet.png 2>/dev/null || true
+    adb shell wm size reset
+    adb shell wm density reset
     adb shell dumpsys gfxinfo ar.goro.ai.personal       > build/goro-emulator-gfxinfo.txt 2>&1 || true
     adb shell dumpsys activity activities       > build/goro-emulator-activities.txt 2>&1 || true
     if [ "$START_STATUS" -ne 0 ]; then
