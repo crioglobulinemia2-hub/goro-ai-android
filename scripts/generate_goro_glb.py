@@ -81,7 +81,7 @@ def ellipsoid(center,radius,joint,mat,steps=28,rings=16):
  for i in range(rings):
   for q in range(steps):
    k=start+i*(steps+1)+q
-   part["idx"].extend((k,k+steps+1,k+1,k+1,k+steps+1,k+steps+2))
+   part["idx"].extend((k,k+1,k+steps+1,k+1,k+steps+2,k+steps+1))
 
 def tube(points,radius,joint,mat,group=None,edges=10):
  part=FACE if group is not None else PARTS[mat]
@@ -101,7 +101,7 @@ def tube(points,radius,joint,mat,group=None,edges=10):
  for k in range(len(points)-1):
   for q in range(edges):
    a=start+k*edges+q;b=start+k*edges+(q+1)%edges
-   part["idx"].extend((a,a+edges,b,b,a+edges,b+edges))
+   part["idx"].extend((a,b,a+edges,b,b+edges,a+edges))
 
 def link(a,b,diameter,joint,mat):
  start=G[a];end=G[b]
@@ -261,7 +261,21 @@ class Buffer:
    accessor["max"]=[max(values[i::arity]) for i in range(arity)]
   self.accessors.append(accessor);return len(self.accessors)-1
 buf=Buffer()
+def verify_surface_orientation(part,material):
+ # glTF considers counter-clockwise triangles front-facing. A valid rig does
+ # not catch reversed winding: check geometric faces against their authored
+ # outward normals before writing any mesh buffers.
+ positions=part["p"];normals=part["n"];indices=part["idx"]
+ for i in range(0,len(indices),3):
+  vertices=indices[i:i+3]
+  a,b,c=[positions[v*3:v*3+3] for v in vertices]
+  u=[b[j]-a[j] for j in range(3)];v=[c[j]-a[j] for j in range(3)]
+  face=(u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0])
+  dot=sum(face[j]*sum(normals[k*3+j] for k in vertices) for j in range(3))
+  if dot < -1e-12:
+   raise ValueError(f"Reversed triangle in {material}, index {i//3}")
 def primitive(part,material,morphs=False):
+ verify_surface_orientation(part,material)
  p=part["p"]
  # glTF requires TEXCOORD_0 whenever a material references baseColorTexture.
  uv=[]

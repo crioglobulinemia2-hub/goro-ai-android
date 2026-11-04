@@ -9,6 +9,7 @@ La aplicación todavía no cumple la entrega final solicitada. Esta revisión co
 - El reproductor libera el audio antes de iniciar la siguiente escucha.
 - La voz se valida por identificador exacto en el catálogo oficial. Una respuesta de Nemotron cortada por el límite de tokens se informa como incompleta.
 - Las transcripciones conservan todos los segmentos reconocidos.
+- La captura Android permitió detectar que todos los triángulos del robot estaban invertidos. Se corrigió la orientación de las superficies y se agregó una comprobación geométrica que rechaza normales opuestas al frente de cada triángulo.
 - Agenda y Gmail tienen paneles propios; las tarjetas consultan los servicios existentes. El reloj se actualiza durante la ejecución.
 - Se permite importar una configuración NVIDIA personal opcional al almacén cifrado del dispositivo. El archivo privado no está en Git ni en los APK públicos de CI.
 

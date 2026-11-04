@@ -117,7 +117,9 @@ public final class GoroAvatarView extends FrameLayout {
    viewer.getView().setAntiAliasing(View.AntiAliasing.FXAA);
    viewer.getView().setBlendMode(View.BlendMode.OPAQUE);
    com.google.android.filament.Renderer.ClearOptions clearOptions=new com.google.android.filament.Renderer.ClearOptions();
-   clearOptions.clearColor=new float[]{0.145f,0.173f,0.204f,1.0f};
+   // Filament clear colors are linear; display-space gray values made the
+   // approved dark stage look washed out after tone mapping.
+   clearOptions.clearColor=new float[]{0.003f,0.009f,0.018f,1.0f};
    clearOptions.clear=true;
    clearOptions.discard=true;
    viewer.getRenderer().setClearOptions(clearOptions);
