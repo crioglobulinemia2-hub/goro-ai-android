@@ -20,7 +20,7 @@ import ar.goro.ai.weather.DeviceLocationProvider;
 import ar.goro.ai.core.NemotronGateway;
 import ar.goro.ai.core.NvidiaCredentialStore;
 import ar.goro.ai.core.NemotronSpeechGateway;
-import ar.goro.ai.core.NemotronAsrGateway;
+import ar.goro.ai.core.ParakeetAsrGateway;
 import ar.goro.ai.voice.Z02Player;
 import android.bluetooth.BluetoothDevice;
 import ar.goro.ai.avatar.GoroAvatarView;
