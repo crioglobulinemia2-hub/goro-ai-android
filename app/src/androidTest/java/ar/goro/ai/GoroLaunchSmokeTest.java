@@ -34,7 +34,7 @@ public class GoroLaunchSmokeTest {
     assertNotNull(root);
     assertNotNull(findText(root,"GORO   ASISTENTE PERSONAL"));
     assertNotNull(findText(root,"GORO IA · Conversación manos libres por ZNP Z02. La conexión se inicia automáticamente."));
-    assertNotNull(findText(root,"Micrófono Z02 · conversación manos libres automática"));
+    assertNotNull(findText(root,"Z02 · esperando conexión automática"));
     assertNotNull(findText(root,"Conversar"));
     assertNotNull(findText(root,"Explorar"));
     assertNotNull(findText(root,"Automatizar"));
