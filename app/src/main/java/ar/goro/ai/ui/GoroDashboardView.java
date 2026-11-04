@@ -55,8 +55,7 @@ public final class GoroDashboardView extends LinearLayout {
  public final TextView output;
  public final TextView state;
  public final TextView accountLabel;
- public final EditText command;
- public final Button talk;
+ private TextView conversationStatus;
  public final FrameLayout avatarStage;
  private final TextView speechBubble;
  private final GoroAvatarView avatar;
@@ -166,19 +165,6 @@ public final class GoroDashboardView extends LinearLayout {
   op.setMargins(dp(8),0,dp(8),dp(12));
   mainColumn.addView(output,op);
 
-  command=new EditText(activity);
-  command.setHint("Escribí o dictá una orden");
-  command.setTextColor(palette.text);
-  command.setHintTextColor(palette.muted);
-  command.setSingleLine(false);
-  command.setMinLines(1);
-  command.setMaxLines(3);
-  command.setBackground(gradient(palette.surface,palette.surface,dp(16)));
-  command.setPadding(dp(16),dp(10),dp(16),dp(10));
-  LinearLayout.LayoutParams cmdParams=new LinearLayout.LayoutParams(-1,-2);
-  cmdParams.setMargins(dp(8),0,dp(8),dp(10));
-  mainColumn.addView(command,cmdParams);
-
   LinearLayout quick=new LinearLayout(activity);quick.setOrientation(HORIZONTAL);quick.setGravity(Gravity.CENTER);
   quickPane=quick;
   Button agendaQuick=button("Agenda",()->actions.onCommand("agenda hoy"),false);
@@ -196,10 +182,11 @@ public final class GoroDashboardView extends LinearLayout {
   LinearLayout controls=new LinearLayout(activity);
   controlsPane=controls;
   controls.setGravity(Gravity.CENTER);
-  talk=button("Conversación automática por Z02",()->{},false);
-  talk.setVisibility(GONE);
-  Button send=button("Enviar",()->actions.onCommand(command.getText().toString().trim()),true);
-  controls.addView(send,new LinearLayout.LayoutParams(-1,dp(52)));
+  conversationStatus=text("Micrófono Z02 · conversación manos libres automática",14,true,palette.accentSecondary);
+  conversationStatus.setGravity(Gravity.CENTER);
+  conversationStatus.setPadding(dp(14),dp(12),dp(14),dp(12));
+  conversationStatus.setBackground(gradient(palette.surface,palette.surfaceElevated,dp(16)));
+  controls.addView(conversationStatus,new LinearLayout.LayoutParams(-1,dp(52)));
   LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-1,dp(52));
   cp.setMargins(dp(8),0,dp(8),dp(8));
   mainColumn.addView(controls,cp);
@@ -260,7 +247,6 @@ public final class GoroDashboardView extends LinearLayout {
   boolean utilityPage=section==GoroSection.SETTINGS||section==GoroSection.DEVICES;
   heroPane.setVisibility(utilityPage?GONE:VISIBLE);
   quickPane.setVisibility(utilityPage?GONE:VISIBLE);
-  command.setVisibility(utilityPage?GONE:VISIBLE);
   controlsPane.setVisibility(utilityPage?GONE:VISIBLE);
   if(mainScrollContainer!=null)mainScrollContainer.post(()->mainScrollContainer.scrollTo(0,0));
   switch(section){
@@ -275,7 +261,9 @@ public final class GoroDashboardView extends LinearLayout {
  public void showWeather(String value){weatherValue.setText(value==null?"Sin datos.":value);}
  public void showDeviceStatus(String value){devicesValue.setText(value==null?"Sin datos de dispositivo.":value);}
  public void setVoiceActive(boolean active){
-  voiceValue.setText(active?"Micrófono Z02 activo · conversación manos libres":"Micrófono Z02 · esperando conexión");
+  String status=active?"Micrófono Z02 activo · conversación manos libres":"Micrófono Z02 · esperando conexión automática";
+  voiceValue.setText(status);
+  if(conversationStatus!=null)conversationStatus.setText(status);
   if(state!=null)state.setText(active?"GORO · Escuchando desde Z02":"GORO · Conversación automática");
  }
  public void showVoiceStatus(String value){
