@@ -1,6 +1,7 @@
 package ar.goro.ai.gmail;
 
 import android.app.Activity;
+import android.accounts.Account;
 import android.app.PendingIntent;
 import android.content.Intent;
 import android.content.IntentSender;
@@ -39,13 +40,19 @@ public final class GoroGmailGateway {
  private final Activity activity;
  private final Handler main=new Handler(Looper.getMainLooper());
  private final ExecutorService io=Executors.newSingleThreadExecutor();
- private boolean closed=false;
- private String accessToken;
- private String accountEmail;
- private final List<String> latestInboxIds=new ArrayList<>();
+ private volatile boolean closed=false;
+ private final GmailAccountState session=new GmailAccountState();
+ private long pendingEpoch=-1;
+ private long resolutionEpoch=-1;
  private Callback pending;
  private String pendingQuery;
  public GoroGmailGateway(Activity activity){this.activity=activity;}
+ public void setSelectedAccount(String email){
+  long previous=session.generation();
+  session.select(email);
+  if(previous!=session.generation()){pending=null;pendingQuery=null;pendingEpoch=-1;}
+ }
+ private boolean current(long epoch){return !closed&&!activity.isFinishing()&&!activity.isDestroyed()&&session.current(epoch);}
  public void readInbox(Callback callback){authorizeAndRead(callback,null);}
  public void searchInbox(String query,Callback callback){
   if(callback==null)throw new IllegalArgumentException("callback");
@@ -57,66 +64,84 @@ public final class GoroGmailGateway {
  }
  private void authorizeAndRead(Callback callback,String query){
   if(callback==null)throw new IllegalArgumentException("callback");
-  if(closed){callback.complete(null,"Gmail cerrado");return;}
-  if(pending!=null){callback.complete(null,"Gmail tiene otra autorización en curso");return;}
-  pending=callback;
-  pendingQuery=query;
+  if(closed||activity.isFinishing()||activity.isDestroyed()){callback.complete(null,"Gmail cerrado");return;}
+  String email=session.account();
+  if(email==null){callback.complete(null,"Elegí tu cuenta Google en Ajustes para vincular Calendar y Gmail.");return;}
+  if(pending!=null||resolutionEpoch!=-1){callback.complete(null,"Completá o cerrá la autorización Google en curso.");return;}
+  final long epoch=session.begin();
+  pending=callback;pendingQuery=query;pendingEpoch=epoch;
   AuthorizationRequest request=AuthorizationRequest.builder()
+    .setAccount(new Account(email,"com.google"))
     .setRequestedScopes(Collections.singletonList(new Scope(GMAIL_SCOPE)))
     .build();
   Identity.getAuthorizationClient(activity).authorize(request)
    .addOnSuccessListener(result->{
-    if(closed)return;
+    if(!current(epoch))return;
     if(result.hasResolution()){
      PendingIntent intent=result.getPendingIntent();
-     if(intent==null){complete(null,"Google no devolvió una autorización");return;}
-     try{activity.startIntentSenderForResult(intent.getIntentSender(),REQUEST_AUTHORIZATION,
-       null,0,0,0);}
-     catch(IntentSender.SendIntentException e){complete(null,"No se pudo abrir el consentimiento Google");}
-    }else onAuthorized(result);
+     if(intent==null){complete(epoch,null,"Google no devolvió una autorización");return;}
+     resolutionEpoch=epoch;
+     try{activity.startIntentSenderForResult(intent.getIntentSender(),REQUEST_AUTHORIZATION,null,0,0,0);}
+     catch(IntentSender.SendIntentException e){resolutionEpoch=-1;complete(epoch,null,"No se pudo abrir el consentimiento Google");}
+    }else onAuthorized(epoch,result);
    })
-   .addOnFailureListener(e->complete(null,"No se pudo iniciar OAuth Gmail: "+e.getClass().getSimpleName()));
+   .addOnFailureListener(e->complete(epoch,null,"No se pudo iniciar OAuth Gmail: "+e.getClass().getSimpleName()));
  }
  public void onActivityResult(int requestCode,int resultCode,Intent intent){
-  if(requestCode!=REQUEST_AUTHORIZATION)return;
-  if(resultCode!=Activity.RESULT_OK||intent==null){complete(null,"Autorización Gmail cancelada");return;}
-  try{onAuthorized(Identity.getAuthorizationClient(activity).getAuthorizationResultFromIntent(intent));}
-  catch(ApiException e){complete(null,"Gmail OAuth rechazado: "+e.getStatusCode());}
+  if(requestCode!=REQUEST_AUTHORIZATION||resolutionEpoch==-1)return;
+  long epoch=resolutionEpoch;resolutionEpoch=-1;
+  if(!current(epoch))return;
+  if(resultCode!=Activity.RESULT_OK||intent==null){complete(epoch,null,"Autorización Gmail cancelada");return;}
+  try{onAuthorized(epoch,Identity.getAuthorizationClient(activity).getAuthorizationResultFromIntent(intent));}
+  catch(ApiException e){complete(epoch,null,"Gmail OAuth rechazado: "+e.getStatusCode());}
  }
- private void onAuthorized(AuthorizationResult result){
-  if(result==null){complete(null,"No se recibió autorización Gmail");return;}
+ private void onAuthorized(long epoch,AuthorizationResult result){
+  if(!current(epoch))return;
+  if(result==null){complete(epoch,null,"No se recibió autorización Gmail");return;}
   if(!result.getGrantedScopes().contains(GMAIL_SCOPE)){
-   complete(null,"No se concedió lectura de Gmail");return;
+   complete(epoch,null,"No se concedió lectura de Gmail");return;
   }
   String token=result.getAccessToken();
-  if(token==null||token.isEmpty()){complete(null,"No se recibió token de acceso Gmail");return;}
-  accessToken=token;
-  if(result.toGoogleSignInAccount()!=null)accountEmail=result.toGoogleSignInAccount().getEmail();
+  if(token==null||token.isEmpty()){complete(epoch,null,"No se recibió token de acceso Gmail");return;}
+  final String query=pendingQuery;
+  final String expectedAccount=session.account();
   io.execute(()->{
    try{
-    String resultText=fetchInbox(token,pendingQuery);
-    main.post(()->complete(resultText,null));
+    // Gmail's profile verifies the actual owner even when the identity result omits email.
+    String verified=getJson("https://gmail.googleapis.com/gmail/v1/users/me/profile",token).optString("emailAddress","");
+    if(!current(epoch))return;
+    if(!session.authorize(epoch,verified,token)){
+     main.post(()->complete(epoch,null,"Google autorizó otra cuenta. Elegí la misma cuenta que Calendar."));return;
+    }
+    InboxResult inbox=fetchInbox(token,query,expectedAccount,epoch);
+    main.post(()->{
+     if(current(epoch)&&session.publish(epoch,inbox.ids))complete(epoch,inbox.text,null);
+    });
    }catch(Exception e){
     String error=e.getMessage()==null?"Error Gmail":e.getMessage();
-    main.post(()->complete(null,error));
+    main.post(()->complete(epoch,null,error));
    }
   });
  }
- private String fetchInbox(String token,String query)throws Exception{
+ private static final class InboxResult {
+  final String text;final List<String> ids;
+  InboxResult(String text,List<String> ids){this.text=text;this.ids=ids;}
+ }
+ private InboxResult fetchInbox(String token,String query,String accountEmail,long epoch)throws Exception{
   String url="https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=10"+
     (query==null?"&labelIds=INBOX":"&q="+URLEncoder.encode(query,"UTF-8"));
   JSONObject response=getJson(url,token);
   JSONArray messages=response.optJSONArray("messages");
   if(messages==null||messages.length()==0){
-   synchronized(latestInboxIds){latestInboxIds.clear();}
-   return query==null?"Gmail: no hay mensajes en la bandeja de entrada.":
-    "Gmail: no se encontraron correos para la búsqueda.";
+   return new InboxResult(query==null?"Gmail: no hay mensajes en la bandeja de entrada.":
+    "Gmail: no se encontraron correos para la búsqueda.",Collections.emptyList());
   }
   List<String> ids=new ArrayList<>();
   StringBuilder output=new StringBuilder(query==null?"Gmail · últimos mensajes":
     "Gmail · resultados de búsqueda");
   if(accountEmail!=null&&!accountEmail.isEmpty())output.append(" · ").append(accountEmail);
   for(int i=0;i<messages.length();i++){
+   if(!session.current(epoch))throw new java.io.InterruptedIOException("Cuenta Google modificada");
    String id=messages.getJSONObject(i).optString("id","");
    if(id.isEmpty())continue;
    ids.add(id);
@@ -132,23 +157,20 @@ public final class GoroGmailGateway {
     if(key.equalsIgnoreCase("Subject"))subject=h.optString("value","Sin asunto");
     if(key.equalsIgnoreCase("From"))from=h.optString("value","Remitente no disponible");
    }
-   output.append("\n").append(i+1).append(". ").append(limit(subject,120))
+   output.append("\n").append(ids.size()).append(". ").append(limit(subject,120))
      .append("\n   ").append(limit(from,120));
   }
-  synchronized(latestInboxIds){latestInboxIds.clear();latestInboxIds.addAll(ids);}
-  return output.toString();
+  return new InboxResult(output.toString(),ids);
  }
  /** Reads one previously listed email. Explicit user request is required. */
  public void readMessage(int number,Callback callback){
   if(callback==null)throw new IllegalArgumentException("callback");
   if(closed){callback.complete(null,"Gmail cerrado");return;}
-  if(accessToken==null){callback.complete(null,"Primero autorizá Gmail y consultá la bandeja");return;}
-  String id;
-  synchronized(latestInboxIds){
-   if(number<1||number>latestInboxIds.size()){callback.complete(null,"Ese número de correo no está en la lista consultada");return;}
-   id=latestInboxIds.get(number-1);
-  }
-  String token=accessToken;
+  long epoch=session.generation();
+  String token=session.token();
+  if(token==null){callback.complete(null,"Primero autorizá Gmail y consultá la bandeja");return;}
+  String id=session.messageId(number);
+  if(id==null){callback.complete(null,"Ese número de correo no está en la lista consultada");return;}
   io.execute(()->{
    String text=null,error=null;
    try{
@@ -170,7 +192,7 @@ public final class GoroGmailGateway {
       +"\n\n"+limit(body,3200);
    }catch(Exception e){error=e.getMessage()==null?"No se pudo leer el correo":e.getMessage();}
    final String message=text,problem=error;
-   main.post(()->{if(!closed)callback.complete(message,problem);});
+   main.post(()->{if(current(epoch))callback.complete(message,problem);});
   });
  }
  private static String extractPlainText(JSONObject payload,int depth){
@@ -214,10 +236,14 @@ public final class GoroGmailGateway {
   }
  }
  private static String limit(String text,int max){return text.length()<=max?text:text.substring(0,max);}
- private void complete(String text,String error){
-  if(closed)return;
-  Callback cb=pending;pending=null;pendingQuery=null;
+ private void complete(long epoch,String text,String error){
+  if(!current(epoch)||pendingEpoch!=epoch)return;
+  Callback cb=pending;pending=null;pendingQuery=null;pendingEpoch=-1;
+  if(error!=null)session.clearAuthorization();
   if(cb!=null)cb.complete(text,error);
  }
- public void close(){closed=true;accessToken=null;pending=null;pendingQuery=null;io.shutdownNow();}
+ public void close(){
+  closed=true;session.close();pending=null;pendingQuery=null;pendingEpoch=-1;
+  main.removeCallbacksAndMessages(null);io.shutdownNow();
+ }
 }

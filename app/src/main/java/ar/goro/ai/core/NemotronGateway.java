@@ -1,7 +1,5 @@
 package ar.goro.ai.core;
 
-import android.os.Handler;
-import android.os.Looper;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.io.BufferedReader;
@@ -9,13 +7,10 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 /**
  * NVIDIA NIM Chat Completions client, aligned with the validated Cabezón request:
@@ -34,8 +29,7 @@ public final class NemotronGateway implements ModelGateway {
    "Si una capacidad no está conectada, decilo sin simular que ejecutaste algo. "+
    "No afirmes haber encendido el ZNP ni modificado eventos sin confirmación de la aplicación.";
  private final String apiKey;
- private final ExecutorService executor=Executors.newSingleThreadExecutor();
- private final Handler main=new Handler(Looper.getMainLooper());
+ private final GatewayJobs jobs=new GatewayJobs();
  private final Map<String,ArrayDeque<JSONObject>> histories=new HashMap<>();
  public NemotronGateway(String apiKey){
   if(apiKey==null||!apiKey.startsWith("nvapi-"))throw new IllegalArgumentException("NVIDIA NIM API key required");
@@ -56,7 +50,7 @@ public final class NemotronGateway implements ModelGateway {
   if(callback==null)throw new IllegalArgumentException("callback required");
   if(userText==null||userText.trim().isEmpty()){callback.completed(null,"Empty request");return;}
   if(userText.length()>4000){callback.completed(null,"Request too long");return;}
-  executor.execute(()->{
+  jobs.submit(()->{
    HttpURLConnection connection=null;String reply=null,error=null;
    try{
     JSONArray messages=new JSONArray();
@@ -81,7 +75,7 @@ public final class NemotronGateway implements ModelGateway {
     payload.put("temperature",1.0);payload.put("top_p",0.95);
     payload.put("max_tokens",2048);payload.put("seed",42);
     payload.put("stream",true);
-    connection=(HttpURLConnection)new URL(ENDPOINT).openConnection();
+    connection=jobs.open(ENDPOINT);
     connection.setRequestMethod("POST");connection.setConnectTimeout(15000);
     connection.setReadTimeout(90000);connection.setDoOutput(true);
     connection.setRequestProperty("Authorization","Bearer "+apiKey);
@@ -116,6 +110,7 @@ public final class NemotronGateway implements ModelGateway {
       throw new IllegalStateException("NVIDIA streaming response ended before completion");
     reply=accumulated.toString().trim();
     if(reply.isEmpty())throw new IllegalStateException("NVIDIA returned no answer content");
+    if(jobs.isClosed())return;
     synchronized(history){
      history.addLast(user);
      history.addLast(new JSONObject().put("role","assistant").put("content",reply));
@@ -124,9 +119,9 @@ public final class NemotronGateway implements ModelGateway {
    }catch(Exception e){
     String raw=e.getMessage()==null?"Connection failed":e.getMessage();
     error=raw.length()>240?raw.substring(0,240):raw;
-   }finally{if(connection!=null)connection.disconnect();}
+   }finally{jobs.finished(connection);}
    final String result=reply,problem=error;
-   main.post(()->callback.completed(result,problem));
+   jobs.deliver(()->callback.completed(result,problem));
   });
  }
  private static byte[] readBounded(InputStream stream,int limit)throws Exception{
@@ -137,5 +132,5 @@ public final class NemotronGateway implements ModelGateway {
    return out.toByteArray();
   }
  }
- public void close(){executor.shutdownNow();synchronized(histories){histories.clear();}}
+ public void close(){jobs.close();synchronized(histories){histories.clear();}}
 }

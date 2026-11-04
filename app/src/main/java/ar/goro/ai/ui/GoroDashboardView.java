@@ -138,7 +138,7 @@ public final class GoroDashboardView extends LinearLayout {
   avatar=enableAvatar?new GoroAvatarView(activity,this::onAvatarStatus):null;
   if(avatar!=null)avatarStage.addView(avatar,new FrameLayout.LayoutParams(-1,-1));
   else{TextView testStage=text("Avatar renderer disabled in JVM test",13,false,palette.muted);testStage.setGravity(Gravity.CENTER);avatarStage.addView(testStage,new FrameLayout.LayoutParams(-1,-1));}
-  speechBubble=text("GORO · Escuchando y listo para responder",tablet?14:12,true,palette.text);
+  speechBubble=text("GORO · Preparando conexión de voz",tablet?14:12,true,palette.text);
   speechBubble.setGravity(Gravity.CENTER_VERTICAL);
   speechBubble.setMaxLines(3);
   speechBubble.setPadding(dp(12),dp(10),dp(12),dp(10));

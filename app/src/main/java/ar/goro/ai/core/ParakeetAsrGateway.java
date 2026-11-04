@@ -1,7 +1,5 @@
 package ar.goro.ai.core;
 
-import android.os.Handler;
-import android.os.Looper;
 import com.google.protobuf.ByteString;
 import io.grpc.ManagedChannel;
 import io.grpc.Metadata;
@@ -13,8 +11,6 @@ import nvidia.riva.asr.RecognitionConfig;
 import nvidia.riva.asr.RecognizeRequest;
 import nvidia.riva.asr.RecognizeResponse;
 import nvidia.riva.asr.RivaSpeechRecognitionGrpc;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /** NVIDIA-hosted Parakeet CTC Spanish ASR through the documented Riva gRPC API. */
@@ -26,8 +22,7 @@ public final class ParakeetAsrGateway {
  public interface Callback {void completed(String transcript,String error);}
  private final String apiKey;
  private final ManagedChannel channel;
- private final ExecutorService executor=Executors.newSingleThreadExecutor();
- private final Handler main=new Handler(Looper.getMainLooper());
+ private final GatewayJobs jobs=new GatewayJobs();
  public ParakeetAsrGateway(String apiKey){
   if(apiKey==null||!apiKey.startsWith("nvapi-"))throw new IllegalArgumentException("NVIDIA NIM API key required");
   this.apiKey=apiKey;
@@ -41,7 +36,7 @@ public final class ParakeetAsrGateway {
    return;
   }
   byte[] audio=pcm16Mono.clone();
-  executor.execute(()->{
+  jobs.submit(()->{
    String transcript=null,error=null;
    try{
     RecognitionConfig config=RecognitionConfig.newBuilder()
@@ -64,10 +59,7 @@ public final class ParakeetAsrGateway {
         .withInterceptors(MetadataUtils.newAttachHeadersInterceptor(headers))
         .withDeadlineAfter(35,TimeUnit.SECONDS);
     RecognizeResponse response=stub.recognize(request);
-    if(response.getResultsCount()>0
-        &&response.getResults(0).getAlternativesCount()>0){
-      transcript=response.getResults(0).getAlternatives(0).getTranscript().trim();
-    }
+    transcript=transcript(response);
     if(transcript==null||transcript.isEmpty())
       throw new IllegalStateException("Parakeet no detectó palabras en el audio recibido.");
    }catch(StatusRuntimeException e){
@@ -77,11 +69,22 @@ public final class ParakeetAsrGateway {
     error=e.getMessage()==null?"Error de reconocimiento NVIDIA Parakeet":e.getMessage();
    }
    final String text=transcript,problem=error;
-   main.post(()->callback.completed(text,problem));
+   jobs.deliver(()->callback.completed(text,problem));
   });
  }
+ static String transcript(RecognizeResponse response){
+  StringBuilder words=new StringBuilder();
+  for(int i=0;i<response.getResultsCount();i++){
+   if(response.getResults(i).getAlternativesCount()==0)continue;
+   String part=response.getResults(i).getAlternatives(0).getTranscript().trim();
+   if(part.isEmpty())continue;
+   if(words.length()>0)words.append(' ');
+   words.append(part);
+  }
+  return words.toString();
+ }
  public void close(){
-  executor.shutdownNow();
+  jobs.close();
   channel.shutdownNow();
  }
 }
