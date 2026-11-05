@@ -88,6 +88,37 @@ public class AvatarReattachTest {
   }
  }
 
+ @Test public void idleAndSpeakingActuallyChangeRenderedPixels(){
+  try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)){
+   GoroAvatarView[] avatar=new GoroAvatarView[1];
+   scenario.onActivity(activity->{avatar[0]=find(activity.findViewById(android.R.id.content),GoroAvatarView.class);assertNotNull(avatar[0]);});
+   SystemClock.sleep(2500);
+   for(GoroAvatarView.Mood mood:new GoroAvatarView.Mood[]{GoroAvatarView.Mood.IDLE,GoroAvatarView.Mood.SPEAKING}){
+    scenario.onActivity(activity->avatar[0].setMood(mood));
+    SystemClock.sleep(400);
+    Bitmap[] shots=new Bitmap[2];
+    scenario.onActivity(activity->shots[0]=find(avatar[0],TextureView.class).getBitmap(192,192));
+    SystemClock.sleep(650);
+    scenario.onActivity(activity->shots[1]=find(avatar[0],TextureView.class).getBitmap(192,192));
+    assertNotNull(shots[0]);assertNotNull(shots[1]);
+    int changed=0;
+    for(int y=0;y<192;y++)for(int x=0;x<192;x++){
+     int a=shots[0].getPixel(x,y),b=shots[1].getPixel(x,y);
+     if(Math.abs(Color.red(a)-Color.red(b))+Math.abs(Color.green(a)-Color.green(b))+Math.abs(Color.blue(a)-Color.blue(b))>30)changed++;
+    }
+    android.util.Log.i("GoroMotionTest",mood+" changed pixels: "+changed);
+    for(int j=0;j<2;j++){
+     try{
+      java.io.File dir=new java.io.File(InstrumentationRegistry.getInstrumentation().getTargetContext().getExternalFilesDir(null),"goro-motion");dir.mkdirs();
+      try(java.io.FileOutputStream out=new java.io.FileOutputStream(new java.io.File(dir,mood.name()+j+".png"))){shots[j].compress(Bitmap.CompressFormat.PNG,100,out);}
+     }catch(java.io.IOException e){throw new AssertionError(e);}
+     shots[j].recycle();
+    }
+    assertTrue("The robot must visibly move in "+mood,changed>30);
+   }
+  }
+ }
+
  private static <T extends View>T find(View view,Class<T> type){
   if(type.isInstance(view))return type.cast(view);
   if(view instanceof ViewGroup){

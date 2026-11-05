@@ -80,6 +80,8 @@ public class MainActivity extends Activity {
   private long speechGeneration;
   private long commandGeneration;
   private boolean speechInProgress;
+  private boolean modelReplyStreaming;
+  private boolean speechChunkActive;
   private final android.os.Handler voiceRetryHandler=new android.os.Handler(android.os.Looper.getMainLooper());
   private Runnable pendingVoiceRetry;
   private boolean foreground;
@@ -106,19 +108,14 @@ public class MainActivity extends Activity {
         if("Reproduciendo por Z02".equals(value)&&dashboard!=null)dashboard.avatarSpeak(pendingSpeechText,pendingSpeechWav);
       }
       public void onError(String error){
-        speechInProgress=false;speechChunks.clear();pendingSpeechWav=null;
+        cancelStreamedReply();
+        speechInProgress=false;speechChunkActive=false;modelReplyStreaming=false;speechChunks.clear();pendingSpeechWav=null;
         if(state!=null)state.setText("GORO · Audio Z02 no disponible");
         if(output!=null)output.setText(output.getText()+"\n\n"+error);
         if(dashboard!=null)dashboard.showAvatarMood(GoroAvatarView.Mood.ALERT);
         if(voiceActive)startZ02Listening();
       }
-      public void onCompleted(){
-        if(!speechChunks.isEmpty()){speakNextChunk(speechGeneration);return;}
-        speechInProgress=false;pendingSpeechWav=null;
-        if(state!=null)state.setText(voiceActive?"GORO · Escuchando desde Z02":"GORO · Listo");
-        if(dashboard!=null)dashboard.showAvatarMood(voiceActive?GoroAvatarView.Mood.LISTENING:GoroAvatarView.Mood.IDLE);
-        if(voiceActive)startZ02Listening();
-      }
+      public void onCompleted(){onSpeechPlaybackCompleted();}
     });
     nvidiaCredentialStore=new NvidiaCredentialStore(this);
     try{
@@ -216,6 +213,20 @@ public class MainActivity extends Activity {
       else say("Selección de cuenta Google cancelada.");
     }
   }
+  private void cancelStreamedReply(){
+    if(!modelReplyStreaming)return;
+    modelReplyStreaming=false;commandGeneration++;
+    if(nemotronGateway!=null)nemotronGateway.cancelPending();
+  }
+  private void onSpeechPlaybackCompleted(){
+        speechChunkActive=false;
+        if(!speechChunks.isEmpty()){speakNextChunk(speechGeneration);return;}
+        if(modelReplyStreaming)return;
+        speechInProgress=false;pendingSpeechWav=null;
+        if(state!=null)state.setText(voiceActive?"GORO · Escuchando desde Z02":"GORO · Listo");
+        if(dashboard!=null)dashboard.showAvatarMood(voiceActive?GoroAvatarView.Mood.LISTENING:GoroAvatarView.Mood.IDLE);
+        if(voiceActive)startZ02Listening();
+        }
   private void say(String message) {
     if(output!=null)output.setText(message);
     if(dashboard!=null)dashboard.showAssistantMessage(message);
@@ -226,18 +237,26 @@ public class MainActivity extends Activity {
       if(voiceActive){voiceActive=false;if(dashboard!=null)dashboard.setVoiceActive(false);if(zn02Controller!=null)zn02Controller.stopVoice();}
       return;
     }
+    modelReplyStreaming=false;speechChunkActive=false;
     speechInProgress=true;cancelVoiceRetry();
     if(voiceActive&&zn02Controller!=null)zn02Controller.cancelVoice();
     if(z02Player!=null)z02Player.stop();
     speechGeneration++;
     speechChunks.clear();
-    speechChunks.addAll(SpeechTextChunks.split(message,1600));
+    speechChunks.addAll(SpeechTextChunks.split(message,260));
     speechGateway.cancelSynthesis();
     speakNextChunk(speechGeneration);
   }
   private void speakNextChunk(long generation){
     if(!foreground||generation!=speechGeneration||isFinishing()||isDestroyed())return;
-    if(speechChunks.isEmpty()){speechInProgress=false;if(voiceActive)startZ02Listening();return;}
+    if(speechChunks.isEmpty()){
+      speechChunkActive=false;
+      if(modelReplyStreaming)return;
+      speechInProgress=false;
+      if(dashboard!=null)dashboard.showAvatarMood(voiceActive?GoroAvatarView.Mood.LISTENING:GoroAvatarView.Mood.IDLE);
+      if(voiceActive)startZ02Listening();return;
+    }
+    speechChunkActive=true;
     String chunk=speechChunks.removeFirst();
     pendingSpeechText=chunk;pendingSpeechWav=null;
     if(state!=null)state.setText("GORO · Preparando voz Diego");
@@ -245,7 +264,8 @@ public class MainActivity extends Activity {
     speechGateway.synthesize(chunk,(wav,error)->{
       if(!foreground||generation!=speechGeneration||isFinishing()||isDestroyed())return;
       if(error!=null||wav==null){
-        speechInProgress=false;speechChunks.clear();
+        cancelStreamedReply();
+        speechChunkActive=false;speechInProgress=false;modelReplyStreaming=false;speechChunks.clear();
         if(state!=null)state.setText("GORO · Magpie no disponible");
         if(dashboard!=null)dashboard.showAvatarMood(GoroAvatarView.Mood.ALERT);
         if(output!=null)output.append("\n\nNo se pudo completar la voz NVIDIA: "+(error==null?"respuesta vacía":error));
@@ -284,7 +304,7 @@ public class MainActivity extends Activity {
     voiceRetryHandler.postDelayed(pendingVoiceRetry,500);
   }
   private void invalidateVoiceConversation(){
-    voiceActive=false;speechInProgress=false;
+    voiceActive=false;speechInProgress=false;modelReplyStreaming=false;speechChunkActive=false;
     speechGeneration++;speechChunks.clear();pendingSpeechWav=null;cancelVoiceRetry();
     if(asrGateway!=null)asrGateway.cancelPending();
     if(nemotronGateway!=null)nemotronGateway.cancelPending();
@@ -316,6 +336,9 @@ public class MainActivity extends Activity {
     commandGeneration++;
     pendingGmailSpeechConsent=null;
     String text=raw.toLowerCase(new Locale("es","AR")).trim();
+    String identity=ar.goro.ai.core.GoroIdentity.localReply(raw);
+    if(identity!=null){if(nemotronGateway!=null)nemotronGateway.cancelPending();say(identity);return;}
+
     if(text.equals("confirmar")||text.equals("confirmá")){confirmCalendarAction();return;}
     Matcher emailNumber=Pattern.compile("^(?:(?:leeme|léeme|lee|leé|leer|abrí|abrir|mostrame|mostrar)\\s+)?(?:el\\s+)?(?:correo|mail|mensaje)(?:\\s+(?:n[uú]mero|nro))?\\s+(\\d{1,2})$").matcher(text);
     if(emailNumber.matches()){
@@ -531,7 +554,14 @@ public class MainActivity extends Activity {
     startZ02Listening();
   }
   private void requestNemotron(String text){
+    speechGeneration++;
+    speechChunks.clear();speechChunkActive=false;pendingSpeechWav=null;
+    if(speechGateway!=null)speechGateway.cancelSynthesis();
+    if(z02Player!=null)z02Player.stop();
+    if(voiceActive&&zn02Controller!=null)zn02Controller.cancelVoice();
+    modelReplyStreaming=true;speechInProgress=true;
     final long command=commandGeneration,conversation=speechGeneration;
+    final ar.goro.ai.core.StreamingSpeechText streamedText=new ar.goro.ai.core.StreamingSpeechText();
     if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: procesando…");
     output.setText("GORO está consultando Nemotron…");
     if(dashboard!=null)dashboard.showAvatarMood(GoroAvatarView.Mood.THINKING);
@@ -552,16 +582,32 @@ public class MainActivity extends Activity {
         if(context.length()>140)prompt=context+"\nMENSAJE ACTUAL DEL USUARIO:\n"+text;
       }
     }catch(Exception ignored){}
-    nemotronGateway.request("goro-main",prompt,(reply,error)->{
-      // A local command can supersede an in-flight model request without
-      // submitting another network request. Its old answer must not speak over
-      // that newer result, even if it was already queued on the main thread.
-      if(!foreground||command!=commandGeneration||conversation!=speechGeneration
-          ||isFinishing()||isDestroyed())return;
-      if(error!=null){if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: error · "+error);say("La consulta a Nemotron falló. "+error);}
-      else{if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: conectado");say(reply);}
+    nemotronGateway.request("goro-main",prompt,new ar.goro.ai.core.ModelGateway.Callback(){
+      private boolean current(){return foreground&&command==commandGeneration&&conversation==speechGeneration
+          &&!isFinishing()&&!isDestroyed();}
+      public void partial(String delta,String accumulated){
+        if(!current())return;
+        if(output!=null)output.setText(accumulated);
+        if(dashboard!=null)dashboard.showAssistantMessage(accumulated);
+        enqueueStreamedSpeech(streamedText.append(delta));
+      }
+      public void completed(String reply,String error){
+        if(!current())return;
+        if(error!=null){modelReplyStreaming=false;say("La consulta a Nemotron falló. "+error);return;}
+        if(dashboard!=null){dashboard.showNvidiaStatus("NVIDIA NIM: conectado");dashboard.showAssistantMessage(reply);}
+        if(output!=null)output.setText(reply);
+        enqueueStreamedSpeech(streamedText.finish());
+        modelReplyStreaming=false;
+        if(!speechChunkActive)speakNextChunk(conversation);
+      }
+      private void enqueueStreamedSpeech(java.util.List<String> chunks){
+        if(speechGateway==null||z02Player==null)return;
+        speechChunks.addAll(chunks);
+        if(!speechChunkActive&&!speechChunks.isEmpty())speakNextChunk(conversation);
+      }
     });
   }
+
   private void installGoroAnimationOnZn02(){
     if(zn02Controller==null){say("El controlador propio del ZN02 no está disponible.");return;}
     String[] parts={"znp_faces_00.b64","znp_faces_00b.b64","znp_faces_01.b64","znp_faces_02.b64","znp_faces_03.b64","znp_faces_04.b64","znp_faces_05.b64","znp_faces_05b.b64","znp_faces_06.b64","znp_faces_07.b64","znp_faces_08.b64","znp_faces_09.b64","znp_faces_10.b64","znp_faces_11.b64","znp_faces_12.b64","znp_faces_12b.b64","znp_faces_13.b64","znp_faces_14.b64","znp_faces_15.b64","znp_faces_16.b64","znp_faces_17.b64"};

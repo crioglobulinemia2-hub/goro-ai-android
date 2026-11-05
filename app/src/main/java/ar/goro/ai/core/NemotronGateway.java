@@ -27,7 +27,7 @@ public final class NemotronGateway implements ModelGateway {
  public static final String MODEL="nvidia/nemotron-3.5-super-vl-120b-a12b";
  private static final int MAX_REPLY_CHARS=24000;
  private static final String SYSTEM_PROMPT=
-   "Sos GORO, asistente personal del usuario. Hablás en español rioplatense natural, claro y directo. "+
+   GoroIdentity.CONTEXT+
    "Tu identidad vocal es masculina; la voz se sintetiza mediante NVIDIA Magpie Diego, nunca mediante TTS local. "+
    "No inventes acceso a dispositivos, correo, calendario, GPS ni sensores. "+
    "Usá las herramientas locales solo cuando la app las invoque explícitamente. "+
@@ -78,8 +78,8 @@ public final class NemotronGateway implements ModelGateway {
     messages.put(user);
     JSONObject payload=new JSONObject();
     payload.put("model",MODEL);payload.put("messages",messages);
-    payload.put("temperature",1.0);payload.put("top_p",0.95);
-    payload.put("max_tokens",4096);payload.put("seed",42);
+    payload.put("temperature",0.4);payload.put("top_p",0.95);
+    payload.put("max_tokens",768);payload.put("seed",42);
     payload.put("stream",true);
     payload.put("chat_template_kwargs",new JSONObject().put("enable_thinking",false));
     connection=(HttpURLConnection)new URL(ENDPOINT).openConnection();
@@ -110,6 +110,8 @@ public final class NemotronGateway implements ModelGateway {
        if(accumulated.length()+piece.length()>MAX_REPLY_CHARS)
         throw new IllegalStateException("NVIDIA reply exceeded the application limit");
        accumulated.append(piece);
+       final String delta=piece,partial=accumulated.toString();
+       main.post(()->{if(ticket.current())callback.partial(delta,partial);});
       }
       if(parser.isDone())break;
      }

@@ -691,7 +691,7 @@ def qxyz(axis, degrees):
 
 animations = []
 clipdefs = [
-    ("idle", {"head": [0, 2, -2, 0], "left_shoulder": [0, 1, 0, 0], "right_shoulder": [0, -1, 0, 0]}),
+    ("idle", {"head": [0, 5, -5, 0], "left_shoulder": [0, 4, -2, 0], "right_shoulder": [0, -4, 2, 0]}),
     ("listening", {"head": [0, -5, -3, 0], "left_shoulder": [0, -3, 0, 0]}),
     ("thinking", {"head": [0, 8, 3, 0], "right_elbow": [0, 18, 18, 0]}),
     ("speaking", {"head": [0, 4, -4, 0], "left_shoulder": [0, -12, 3, 0], "right_shoulder": [0, 14, -3, 0]}),

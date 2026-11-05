@@ -66,6 +66,7 @@ public final class GoroAvatarView extends FrameLayout {
  private void renderFrame(long frameTimeNanos){
    GoroModelViewer current=viewer;
    if(current==null||!isAttachedToWindow()||!isShown()||getWindowVisibility()!=VISIBLE)return;
+   current.prepareFrame();
    com.google.android.filament.gltfio.Animator animator=current.getAnimator();
    if(animator!=null){
     if(animationCatalog==null){

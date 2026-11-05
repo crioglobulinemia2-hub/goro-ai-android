@@ -291,16 +291,18 @@ class GoroModelViewer(
      * @param frameTimeNanos time in nanoseconds when the frame started being rendered,
      *                       typically comes from {@link android.view.Choreographer.FrameCallback}
      */
+    /** Finish async loading before the caller applies the animated pose. */
+    fun prepareFrame() {
+        if (destroyed || !uiHelper.isReadyToRender) return
+        resourceLoader.asyncUpdateLoad()
+        asset?.let { populateScene(it) }
+    }
+
     fun render(frameTimeNanos: Long) {
         if (destroyed || !uiHelper.isReadyToRender) {
             return
         }
 
-        // Allow the resource loader to finalize textures that have become ready.
-        resourceLoader.asyncUpdateLoad()
-
-        // Add renderable entities to the scene as they become ready.
-        asset?.let { populateScene(it) }
 
         // Extract the camera basis from the helper and push it to the Filament camera.
         cameraManipulator.getLookAt(eyePos, target, upward)

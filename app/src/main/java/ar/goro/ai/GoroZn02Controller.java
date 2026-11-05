@@ -460,10 +460,10 @@ public final class GoroZn02Controller {
    int gifWidth=(header[6]&255)|((header[7]&255)<<8);
    int gifHeight=(header[8]&255)|((header[9]&255)<<8);
    if(gifWidth!=info.getScreenWidth()||gifHeight!=info.getScreenHeight()){
-    emit("El GIF es "+gifWidth+"×"+gifHeight+" y la pantalla real es "+info.getScreenWidth()+"×"+info.getScreenHeight()+". No se transfirió para evitar deformarlo.");
-    return;
+    sourceGif=ZnpScreenAsset.forDisplay(context,info.getScreenWidth(),info.getScreenHeight());
    }
   }catch(Exception error){emit("No se pudo verificar la resolución del GIF: "+error.getClass().getSimpleName());return;}
+  final File matchedGif=sourceGif;
   final ScreenUpload upload=new ScreenUpload(target,connectionEpoch,caseOp);screenUpload=upload;
   upload.timeout=()->{
    if(!currentScreenUpload(upload))return;
@@ -478,7 +478,7 @@ public final class GoroZn02Controller {
      emit("El chip del estuche no está soportado por el conversor GIF 701N/707N. Transferencia cancelada.");
      finishScreenUpload(upload);return;
     }
-    try{resourceExecutor.execute(()->convertAndTransfer(sourceGif,sdk.getChip(),upload));}
+    try{resourceExecutor.execute(()->convertAndTransfer(matchedGif,sdk.getChip(),upload));}
     catch(java.util.concurrent.RejectedExecutionException ignored){finishScreenUpload(upload);}
    }
    @Override public void onError(BluetoothDevice device,BaseError error){
