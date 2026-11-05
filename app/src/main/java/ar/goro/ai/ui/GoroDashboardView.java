@@ -141,7 +141,7 @@ public final class GoroDashboardView extends LinearLayout {
   agendaPanel=panel();agendaPanel.addView(card("TU AGENDA",agendaValue));addAction(agendaPanel,"Consultar agenda de hoy","agenda",()->actions.onCommand("agenda hoy"));addAction(agendaPanel,"Consultar agenda de mañana","agenda",()->actions.onCommand("agenda mañana"));
   gmailPanel=panel();gmailPanel.addView(card("TU CORREO",gmailValue));addAction(gmailPanel,"Actualizar bandeja","mail",()->actions.onReadGmail());
   devicePanel=panel();devicePanel.addView(card("ZNP Z02",devicesValue));TextView deviceCaption=text("Activá o pausá la escucha con el botón superior. La pausa se mantiene al reconectar.",13,false,MUTED);deviceCaption.setPadding(dp(10),dp(8),dp(10),dp(14));devicePanel.addView(deviceCaption);
-  addAction(devicePanel,"Conectar ZNP Z02 (RCSP verificado)","link",()->actions.onConnectZn02());
+  addAction(devicePanel,"Conectar ZNP Z02","link",()->actions.onConnectZn02());
   addAction(devicePanel,"Buscar / diagnosticar ZNP Z01","devices",()->actions.onInspectZnpModel("Z01"));
   addAction(devicePanel,"Buscar / diagnosticar ZNP Z02 (BLE)","devices",()->actions.onInspectZnpModel("Z02"));
   addAction(devicePanel,"Buscar / diagnosticar ZNP N02","devices",()->actions.onInspectZnpModel("N02"));
