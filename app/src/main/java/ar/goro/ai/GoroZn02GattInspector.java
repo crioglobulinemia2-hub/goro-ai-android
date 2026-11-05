@@ -36,6 +36,7 @@ public final class GoroZn02GattInspector {
  private boolean scanning;
  private boolean closed;
  private String detectedModel="ZNP";
+ private String requestedModel=null;
  private final Runnable timeout=()->{
   if(scanning){stopScan();emit("No se observó un ZNP Z01/Z02/N02 en 12 segundos. Sin cambios en el dispositivo.");}
  };
@@ -50,6 +51,7 @@ public final class GoroZn02GattInspector {
    // An advertised name is a candidate only, never authenticated model identity.
    ZnpDeviceProfile candidate=ZnpDeviceProfile.detect(name);
    if(!candidate.isCandidate())return;
+   if(requestedModel!=null&&!candidate.model.name().equals(requestedModel+"_CANDIDATE"))return;
    detectedModel=candidate.modelLabel();
    stopScan();
    emit("Se observó "+detectedModel+". Candidato preliminar; leyendo servicios BLE sin escribir ni asumir protocolo.");
@@ -121,8 +123,11 @@ public final class GoroZn02GattInspector {
    return new String[]{Manifest.permission.ACCESS_FINE_LOCATION};
   return new String[0];
  }
- public void scan(){
+ public void scan(){scan(null);}
+ public void scan(String model){
   if(closed){emit("Inspector BLE cerrado.");return;}
+  requestedModel=model==null?null:model.trim().toUpperCase(java.util.Locale.ROOT);
+  if(requestedModel!=null&&!requestedModel.matches("Z01|Z02|N02")){emit("Modelo ZNP no reconocido para diagnóstico.");return;}
   if(neededPermissions().length>0){emit("Faltan permisos Android para el inventario BLE.");return;}
   try{
    BluetoothManager manager=(BluetoothManager)context.getSystemService(Context.BLUETOOTH_SERVICE);
@@ -133,7 +138,7 @@ public final class GoroZn02GattInspector {
    if(scanning){emit("Ya se está leyendo el entorno BLE.");return;}
    scanning=true;scanner.startScan(scanListener);
    main.postDelayed(timeout,12000);
-   emit("Buscando ZNP Z01, Z02 y N02 por Bluetooth LE, solo lectura y sin órdenes al firmware.");
+   emit("Buscando "+(requestedModel==null?"ZNP Z01, Z02 y N02":"ZNP "+requestedModel)+" por Bluetooth LE, solo lectura y sin órdenes al firmware.");
   }catch(SecurityException denied){scanning=false;emit("Android no autorizó el escaneo BLE.");}
    catch(RuntimeException error){scanning=false;emit("No se pudo iniciar el inventario BLE.");}
  }
