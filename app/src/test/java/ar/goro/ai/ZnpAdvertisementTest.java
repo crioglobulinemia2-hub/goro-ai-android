@@ -4,6 +4,7 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 public class ZnpAdvertisementTest {
  private byte[] name(int type,String name){byte[] n=name.getBytes(StandardCharsets.UTF_8);byte[] a=new byte[n.length+2];a[0]=(byte)(n.length+1);a[1]=(byte)type;System.arraycopy(n,0,a,2,n.length);return a;}
+ @Test public void findsZ01FromAdvertisement(){assertEquals(ZnpDeviceProfile.Model.Z01_CANDIDATE,ZnpAdvertisement.profile(null,name(9,"ZNP Z01")).model);}
  @Test public void findsZ02WhenAndroidNameCacheIsEmpty(){assertTrue(ZnpAdvertisement.profile(null,name(9,"ZNP Z02")).isCandidate());}
  @Test public void findsZ02WhenAndroidCacheContainsOldGenericName(){assertTrue(ZnpAdvertisement.profile("Bluetooth device",name(9,"ZNP Z02")).isCandidate());}
  @Test public void recognizesShortenedLocalName(){assertTrue(ZnpAdvertisement.profile(null,name(8,"ZNP Z02")).isCandidate());}
