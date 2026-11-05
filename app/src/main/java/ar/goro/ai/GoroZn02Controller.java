@@ -132,6 +132,12 @@ public final class GoroZn02Controller {
      try{name=device.getName();}catch(SecurityException ignored){}
      ZnpDeviceProfile profile=ZnpAdvertisement.profile(name,message==null?null:message.getRawData());
      if(!profile.isCandidate())return;
+     if(!profile.isRcspCandidate()){
+      try{controller.stopScan();}catch(RuntimeException ignored){}
+      scanning=false;
+      emit(profile.modelLabel()+" detectado. No se inicia RCSP: este controlador de estuche está validado únicamente para Z02. Usá el inventario GATT pasivo para identificar servicios sin enviar comandos.");
+      return;
+     }
      target=device;
      try{controller.stopScan();}catch(RuntimeException ignored){}
      scanning=false;
