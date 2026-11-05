@@ -942,7 +942,7 @@ public class MainActivity extends Activity {
       if(granted&&pendingZn02Connection){
         pendingZn02Connection=false;zn02Controller.startScan();
       }else if(granted&&pendingZn02Inspection&&zn02GattInspector!=null){
-        pendingZn02Inspection=false;zn02GattInspector.scan();
+        pendingZn02Inspection=false;zn02GattInspector.scan(pendingZnpInspectionModel);pendingZnpInspectionModel=null;
       }else if(!granted&&dashboard!=null){
         pendingZn02Connection=false;pendingZn02Inspection=false;pendingZnpInspectionModel=null;
         dashboard.showDeviceStatus("Android no concedió los permisos Bluetooth necesarios para Z02.");
