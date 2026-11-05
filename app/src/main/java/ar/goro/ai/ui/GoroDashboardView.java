@@ -31,7 +31,7 @@ public final class GoroDashboardView extends LinearLayout {
   void onCommand(String command); void onLinkAccount(); void onReadGmail();
   void onCalendarPermission(); void onUnlinkAccount(); void onWeather();
   void onForecast(); void onReminders(); void onConfigureNvidia(); void onTestNvidia();
-  void onConnectZn02(); void onInspectZn02(); void onInspectZnpModel(String model); void onZn02LightOn(); void onZn02LightOff();
+  void onConnectZn02(); void onInspectZn02(); default void onInspectZnpModel(String model){onInspectZn02();} void onZn02LightOn(); void onZn02LightOff();
   void onZn02ReadLight(); void onZn02AudioOn(); void onZn02AudioOff(); void onInstallGoroAnimation();
   default void onToggleListening(){}
  }
