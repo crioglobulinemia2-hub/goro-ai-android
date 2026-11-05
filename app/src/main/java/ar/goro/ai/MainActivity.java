@@ -583,10 +583,12 @@ public class MainActivity extends Activity {
       }
     }catch(Exception ignored){}
     nemotronGateway.request("goro-main",prompt,new ar.goro.ai.core.ModelGateway.Callback(){
+      private boolean receivedPartial;
       private boolean current(){return foreground&&command==commandGeneration&&conversation==speechGeneration
           &&!isFinishing()&&!isDestroyed();}
       public void partial(String delta,String accumulated){
         if(!current())return;
+        receivedPartial=true;
         if(output!=null)output.setText(accumulated);
         if(dashboard!=null)dashboard.showAssistantMessage(accumulated);
         enqueueStreamedSpeech(streamedText.append(delta));
@@ -596,6 +598,7 @@ public class MainActivity extends Activity {
         if(error!=null){modelReplyStreaming=false;say("La consulta a Nemotron falló. "+error);return;}
         if(dashboard!=null){dashboard.showNvidiaStatus("NVIDIA NIM: conectado");dashboard.showAssistantMessage(reply);}
         if(output!=null)output.setText(reply);
+        if(!receivedPartial&&reply!=null)enqueueStreamedSpeech(streamedText.append(reply));
         enqueueStreamedSpeech(streamedText.finish());
         modelReplyStreaming=false;
         if(!speechChunkActive)speakNextChunk(conversation);
