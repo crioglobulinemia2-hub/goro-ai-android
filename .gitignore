@@ -1,0 +1,11 @@
+.gradle/
+build/
+app/build/
+app/libs/
+local.properties
+*.jks
+*.keystore
+*.p12
+*.env
+app/src/main/assets/goro/goro_rigged.glb
+app/src/main/assets/goro-personal.json
