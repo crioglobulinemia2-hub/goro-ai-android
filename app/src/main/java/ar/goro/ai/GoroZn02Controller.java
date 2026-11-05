@@ -307,6 +307,7 @@ public final class GoroZn02Controller {
  }
  public synchronized boolean isVoiceCaptureActive(){return recording||draining;}
  public synchronized boolean startVoice(){
+  if(screenUpload!=null){emit("La escucha permanece pausada mientras se instala la animación.");return false;}
   if(closed||!connected||target==null||recording||draining||controller==null){emit("El micrófono Z02 no está listo o ya hay una captura activa.");return false;}
   if(!controller.getRcspOp().isRcspInit(target)||!controller.getRcspOp().isDeviceAuthPass(target)){emit("La sesión RCSP del Z02 dejó de estar autenticada.");return false;}
   final BluetoothDevice device=target;final long epoch=connectionEpoch;final long capture=++voiceEpoch;
@@ -447,6 +448,7 @@ public final class GoroZn02Controller {
    emit("ZN02 sin protocolo de pantalla verificado. No se inició la transferencia.");return;
   }
   if(screenUpload!=null){emit("Ya hay una transferencia de animación en curso.");return;}
+  cancelVoice();
   if(sourceGif==null||!sourceGif.isFile()||!sourceGif.canRead()){
    emit("No se encuentra la animación GORO para el ZN02.");return;
   }
@@ -478,6 +480,10 @@ public final class GoroZn02Controller {
     if(!currentScreenUpload(upload)||!upload.device.equals(device))return;
     if(sdk==null||(sdk.getChip()!=SDKMessage.CHIP_701N&&sdk.getChip()!=SDKMessage.CHIP_707N)){
      emit("El chip del estuche no está soportado por el conversor GIF 701N/707N. Transferencia cancelada.");
+     finishScreenUpload(upload);return;
+    }
+    if(!sdk.isSupportGif()){
+     emit("El firmware del Z02 informa que no admite animaciones GIF. No se envió un archivo incompatible.");
      finishScreenUpload(upload);return;
     }
     try{resourceExecutor.execute(()->convertAndTransfer(matchedGif,sdk.getChip(),upload));}
@@ -539,7 +545,7 @@ public final class GoroZn02Controller {
          @Override public void onSuccess(BluetoothDevice d,com.jieli.bluetooth.bean.settings.v0.ResourceInfo resource){
           if(!currentScreenUpload(upload)||!upload.device.equals(d))return;
           emit(matchesScreenResource(resource,selectedFlash.getDevHandler(),devicePath)
-           ?"Animación GORO confirmada en el visor ZN02."
+           ?"GORO instalado y seleccionado como salvapantallas. Escucha pausada; el visor puede mantener su pantalla de micrófono hasta volver al inicio."
            :"El visor ZN02 informa otro recurso activo. La animación GORO no quedó confirmada.");
           finishScreenUpload(upload);
          }
@@ -567,6 +573,7 @@ public final class GoroZn02Controller {
   return (actual.startsWith("/")?actual:"/"+actual).equals(path.startsWith("/")?path:"/"+path);
  }
  private boolean isCurrentConnection(BluetoothDevice device,long epoch){return !closed&&connected&&epoch==connectionEpoch&&isTarget(device);}
+ public synchronized boolean isScreenUploadActive(){return screenUpload!=null;}
  private synchronized boolean currentScreenUpload(ScreenUpload upload){return screenUpload==upload&&isCurrentConnection(upload.device,upload.epoch);}
  private static void deletePreparedScreen(File output){
   if(output==null)return;

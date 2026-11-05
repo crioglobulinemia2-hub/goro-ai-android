@@ -71,4 +71,9 @@ public class Z02ScreenTransferTest {
   assertFalse(GoroZn02Controller.matchesScreenResource(new ResourceInfo(7,"OLD.RES"),7,"/GORO-1234.RES"));
   assertFalse(GoroZn02Controller.matchesScreenResource(null,7,"/GORO-1234.RES"));
  }
+ @Test public void microphoneCannotStartDuringScreenTransfer()throws Exception{
+  Object current=upload(3L);ReflectionHelpers.setField(controller,"screenUpload",current);
+  assertTrue(controller.isScreenUploadActive());assertFalse(controller.startVoice());
+  call("finishScreenUpload",current);assertFalse(controller.isScreenUploadActive());
+ }
 }

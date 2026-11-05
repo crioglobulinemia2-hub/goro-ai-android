@@ -61,6 +61,7 @@ public class MainActivity extends Activity {
   private boolean listeningPaused;
   private int recognitionFailures;
   private boolean recognitionInProgress;
+  private ar.goro.ai.ui.WebSearchPanel webSearchPanel;
   private boolean zn02ReadyForVoice=false;
   private boolean nvidiaChatReady=false;
   private boolean magpieDiegoReady=false;
@@ -223,11 +224,16 @@ public class MainActivity extends Activity {
     setListeningPaused(!listeningPaused);
   }
   private void setListeningPaused(boolean paused){
+    if(!paused&&zn02Controller!=null&&zn02Controller.isScreenUploadActive()){
+      if(output!=null)output.setText("Esperá a que termine la instalación de la animación para activar la escucha.");
+      return;
+    }
     listeningPaused=paused;
     getSharedPreferences("goro_voice_control",MODE_PRIVATE).edit().putBoolean("paused",paused).apply();
     recognitionFailures=0;
     if(paused){
       commandGeneration++;
+      closeWebSearch();
       invalidateVoiceConversation();
       serviceCheckGeneration++;
       if(speechProbe!=null)speechProbe.cancel();
@@ -374,8 +380,11 @@ public class MainActivity extends Activity {
   private void runCommand(String raw,boolean fromVoice) {
     if(raw==null||raw.trim().isEmpty())return;
     commandGeneration++;
+    closeWebSearch();
     pendingGmailSpeechConsent=null;
     String text=raw.toLowerCase(new Locale("es","AR")).trim();
+    String webQuery=ar.goro.ai.core.WebSearchCommand.query(raw);
+    if(webQuery!=null){searchInternet(webQuery);return;}
     String identity=ar.goro.ai.core.GoroIdentity.localReply(raw);
     if(identity!=null){if(nemotronGateway!=null)nemotronGateway.cancelPending();say(identity);return;}
 
@@ -652,8 +661,25 @@ public class MainActivity extends Activity {
     });
   }
 
+  private void searchInternet(String query){
+    invalidateVoiceConversation();
+    final long command=commandGeneration;
+    if(state!=null)state.setText("GORO · Buscando en internet");
+    try{webSearchPanel=new ar.goro.ai.ui.WebSearchPanel(this,query,new ar.goro.ai.ui.WebSearchPanel.Listener(){
+      public void results(String sources,String speech){
+        if(!foreground||!currentCommand(command))return;
+        say(speech);
+        if(output!=null){output.setText(sources);android.text.util.Linkify.addLinks(output,android.text.util.Linkify.WEB_URLS);output.setMovementMethod(android.text.method.LinkMovementMethod.getInstance());}
+        if(dashboard!=null)dashboard.showAssistantMessage(sources);
+      }
+      public void closed(){webSearchPanel=null;if(foreground&&currentCommand(command)){invalidateVoiceConversation();resumeVoiceAfterZ02Connected();}}
+    });}catch(RuntimeException error){if(output!=null)output.setText("Android no pudo abrir la búsqueda integrada. Revisá que Android System WebView esté actualizado.");}
+  }
+  private void closeWebSearch(){ar.goro.ai.ui.WebSearchPanel current=webSearchPanel;webSearchPanel=null;if(current!=null)current.close();}
   private void installGoroAnimationOnZn02(){
     if(zn02Controller==null){say("El controlador propio del ZN02 no está disponible.");return;}
+    setListeningPaused(true);
+    if(dashboard!=null)dashboard.showDeviceStatus("Escucha pausada para instalar GORO. Se mantiene pausada al terminar.");
     String[] parts={"znp_faces_00.b64","znp_faces_00b.b64","znp_faces_01.b64","znp_faces_02.b64","znp_faces_03.b64","znp_faces_04.b64","znp_faces_05.b64","znp_faces_05b.b64","znp_faces_06.b64","znp_faces_07.b64","znp_faces_08.b64","znp_faces_09.b64","znp_faces_10.b64","znp_faces_11.b64","znp_faces_12.b64","znp_faces_12b.b64","znp_faces_13.b64","znp_faces_14.b64","znp_faces_15.b64","znp_faces_16.b64","znp_faces_17.b64"};
     try{
       StringBuilder encoded=new StringBuilder();
@@ -938,6 +964,7 @@ public class MainActivity extends Activity {
     }
   }
   @Override protected void onStop(){
+    closeWebSearch();
     foreground=false;serviceCheckGeneration++;
     if(speechProbe!=null){speechProbe.cancel();nvidiaAsrReady=speechProbe.isReady();}
     invalidateVoiceConversation();
@@ -945,6 +972,7 @@ public class MainActivity extends Activity {
     super.onStop();
   }
   @Override protected void onDestroy(){
+    closeWebSearch();
     pendingGmailSpeechConsent=null;
     foreground=false;serviceCheckGeneration++;
     if(speechProbe!=null)speechProbe.close();
