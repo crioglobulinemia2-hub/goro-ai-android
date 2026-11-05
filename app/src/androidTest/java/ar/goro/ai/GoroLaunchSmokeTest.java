@@ -21,7 +21,7 @@ import static org.junit.Assert.*;
 public class GoroLaunchSmokeTest {
  @Before public void grantRuntimePermissions(){
   android.app.UiAutomation automation=InstrumentationRegistry.getInstrumentation().getUiAutomation();
-  String packageName="ar.goro.ai.personal";
+  String packageName=InstrumentationRegistry.getInstrumentation().getTargetContext().getPackageName();
   for(String permission:new String[]{
     Manifest.permission.BLUETOOTH_SCAN,
     Manifest.permission.BLUETOOTH_CONNECT,

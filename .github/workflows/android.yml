@@ -184,5 +184,7 @@ jobs:
             build/goro-emulator-gfxinfo.txt
             build/goro-visual-test/**
             build/goro-visual-evidence-pull.txt
+            build/parallel-install/*.json
+            build/parallel-install/*.txt
           if-no-files-found: warn
 

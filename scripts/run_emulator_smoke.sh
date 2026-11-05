@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -uo pipefail
 mkdir -p build
+PACKAGE_NAME=ar.goro.ai.preview
 adb logcat -c >/dev/null 2>&1 || true
 adb logcat -v threadtime > build/goro-emulator-logcat.txt 2>&1 &
 LOG_PID=$!
@@ -21,21 +22,21 @@ if adb get-state >/dev/null 2>&1; then
     # Grant only permissions declared by this test app so UI evidence shows
     # the actual screen instead of an Android runtime permission dialog.
     for permission in BLUETOOTH_SCAN BLUETOOTH_CONNECT RECORD_AUDIO ACCESS_FINE_LOCATION ACCESS_COARSE_LOCATION; do
-      adb shell pm grant ar.goro.ai.personal "android.permission.$permission" >/dev/null 2>&1 || true
+      adb shell pm grant "$PACKAGE_NAME" "android.permission.$permission" >/dev/null 2>&1 || true
     done
-    adb shell am force-stop ar.goro.ai.personal >/dev/null 2>&1 || true
-    adb shell am start -W -n ar.goro.ai.personal/ar.goro.ai.MainActivity       > build/goro-emulator-launch.txt 2>&1
+    adb shell am force-stop "$PACKAGE_NAME" >/dev/null 2>&1 || true
+    adb shell am start -W -n "$PACKAGE_NAME"/ar.goro.ai.MainActivity       > build/goro-emulator-launch.txt 2>&1
     START_STATUS=$?
     sleep 6
     adb exec-out screencap -p > build/goro-emulator-ui.png 2>/dev/null || true
     test -s build/goro-emulator-ui.png || rm -f build/goro-emulator-ui.png
-    adb shell dumpsys gfxinfo ar.goro.ai.personal       > build/goro-emulator-gfxinfo.txt 2>&1 || true
+    adb shell dumpsys gfxinfo "$PACKAGE_NAME"       > build/goro-emulator-gfxinfo.txt 2>&1 || true
     adb shell dumpsys activity activities       > build/goro-emulator-activities.txt 2>&1 || true
     # Capture the same APK at Tab A8-like landscape geometry as well.
     adb shell wm size 1920x1200 >/dev/null 2>&1
     adb shell wm density 240 >/dev/null 2>&1
-    adb shell am force-stop ar.goro.ai.personal >/dev/null 2>&1
-    adb shell am start -W -n ar.goro.ai.personal/ar.goro.ai.MainActivity > build/goro-emulator-tablet-launch.txt 2>&1
+    adb shell am force-stop "$PACKAGE_NAME" >/dev/null 2>&1
+    adb shell am start -W -n "$PACKAGE_NAME"/ar.goro.ai.MainActivity > build/goro-emulator-tablet-launch.txt 2>&1
     sleep 4
     adb exec-out screencap -p > build/goro-emulator-tablet.png 2>/dev/null || true
     test -s build/goro-emulator-tablet.png || rm -f build/goro-emulator-tablet.png
@@ -50,6 +51,9 @@ if adb get-state >/dev/null 2>&1; then
     cat build/goro-emulator-install.txt
     RESULT=1
   fi
+fi
+if [ "$RESULT" -eq 0 ] && [ "${GITHUB_ACTIONS:-}" = true ]; then
+  bash scripts/test_parallel_install.sh || RESULT=1
 fi
 kill "$LOG_PID" >/dev/null 2>&1 || true
 wait "$LOG_PID" >/dev/null 2>&1 || true
