@@ -83,6 +83,7 @@ public class MainActivity extends Activity {
   private final android.os.Handler voiceRetryHandler=new android.os.Handler(android.os.Looper.getMainLooper());
   private Runnable pendingVoiceRetry;
   private boolean foreground;
+  private Runnable pendingGmailSpeechConsent;
   private boolean pendingZn02Connection=false;
   private TextView calendarAccountLabel;
   private boolean pendingWeatherForecast=false;
@@ -319,6 +320,7 @@ public class MainActivity extends Activity {
   private void runCommand(String raw,boolean fromVoice) {
     if(raw==null||raw.trim().isEmpty())return;
     commandGeneration++;
+    pendingGmailSpeechConsent=null;
     String text=raw.toLowerCase(new Locale("es","AR")).trim();
     if(text.equals("confirmar")||text.equals("confirmá")){confirmCalendarAction();return;}
     Matcher emailNumber=Pattern.compile("^(?:(?:leeme|léeme|lee|leé|leer|abrí|abrir|mostrame|mostrar)\\s+)?(?:el\\s+)?(?:correo|mail|mensaje)(?:\\s+(?:n[uú]mero|nro))?\\s+(\\d{1,2})$").matcher(text);
@@ -594,6 +596,9 @@ public class MainActivity extends Activity {
   @Override protected void onResume(){
     super.onResume();
     foreground=true;
+    Runnable deferredConsent=pendingGmailSpeechConsent;
+    pendingGmailSpeechConsent=null;
+    if(deferredConsent!=null)deferredConsent.run();
     // A permission/account screen may have interrupted the initial health
     // checks. Retry on return rather than leaving hands-free mode waiting
     // forever for callbacks that onStop correctly cancelled.
@@ -651,19 +656,28 @@ public class MainActivity extends Activity {
       if(dashboard!=null)dashboard.showGmailStatus(message);
       if(output!=null)output.setText(message);
       if(!speakAloud){resumeVoiceAfterScreenResult(generation,fromVoice);return;}
-      if(!foreground)return;
-      // Consent belongs to the visible message and account at the moment the
-      // result arrives, including a return from Google's authorization screen.
-      final long consentSpeech=speechGeneration,consentAccount=gmailGateway.sessionGeneration();
+      offerGmailSpeechConsent(message,command,fromVoice);
+    });
+  }
+  private void offerGmailSpeechConsent(String message,long command,boolean fromVoice){
+    final long consentAccount=gmailGateway.sessionGeneration();
+    Runnable offer=()->{
+      if(!foreground||!currentCommand(command)||consentAccount!=gmailGateway.sessionGeneration())return;
+      // Snapshot voice lifetime only when a consent is actually shown. Google
+      // may finish authorization before onResume; an unshown consent survives
+      // that transition, but a displayed one must never revive after onStop.
+      final long consentSpeech=speechGeneration;
       new AlertDialog.Builder(this)
         .setTitle("Leer correo usando NVIDIA Diego")
         .setMessage("El contenido del correo se enviará a NVIDIA para sintetizar la voz. Autorizás esta lectura?")
         .setPositiveButton("Leer por voz",(dialog,which)->{if(foreground&&currentCommand(command)&&consentSpeech==speechGeneration&&consentAccount==gmailGateway.sessionGeneration())say(message);})
         .setNegativeButton("Solo en pantalla",null)
-        .setOnDismissListener(dialog->resumeVoiceAfterScreenResult(generation,fromVoice))
+        .setOnDismissListener(dialog->resumeVoiceAfterScreenResult(consentSpeech,fromVoice))
         .show();
-    });
+    };
+    if(foreground)offer.run();else pendingGmailSpeechConsent=offer;
   }
+
   private boolean currentCommand(long command){
     return command==commandGeneration&&!isFinishing()&&!isDestroyed();
   }
@@ -677,6 +691,7 @@ public class MainActivity extends Activity {
     if(email==null)calendarGateway.unlinkGoogleAccount();else calendarGateway.setSelectedGoogleAccount(email);
     if(gmailGateway!=null)gmailGateway.setSelectedAccount(email);
     if(!java.util.Objects.equals(previous,calendarGateway.selectedGoogleAccount())){
+      pendingGmailSpeechConsent=null;
       lastCalendarEvents.clear();pendingCalendarEvent=null;pendingCalendarDeleteId=null;
       if(dashboard!=null)dashboard.showAgenda(email==null?"Seleccioná una cuenta Google para consultar su calendario.":"Cuenta del calendario cambiada. Consultá nuevamente la agenda.");
     }
@@ -812,6 +827,7 @@ public class MainActivity extends Activity {
     super.onStop();
   }
   @Override protected void onDestroy(){
+    pendingGmailSpeechConsent=null;
     foreground=false;serviceCheckGeneration++;
     if(speechProbe!=null)speechProbe.close();
     invalidateVoiceConversation();

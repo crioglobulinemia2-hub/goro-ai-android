@@ -121,6 +121,23 @@ public class GmailVoiceContinuationTest {
   dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();shadowOf(Looper.getMainLooper()).idle();
   assertTrue(output.getText().toString().startsWith("Correo autorizado después de Google"));
  }
+ @Test public void authorizationCompletingBeforeResumeDefersConsentUntilVisible()throws Exception{
+  seedMessage();call("runCommand",new Class<?>[]{String.class,boolean.class},"leeme correo 1",true);
+  call("onStop",new Class<?>[0]);complete("Correo recibido durante OAuth",null);
+  assertNull(ShadowAlertDialog.getLatestAlertDialog());
+  call("onResume",new Class<?>[0]);
+  AlertDialog dialog=ShadowAlertDialog.getLatestAlertDialog();assertNotNull(dialog);
+  output.setText("Aún sin leer");
+  dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();shadowOf(Looper.getMainLooper()).idle();
+  assertTrue(output.getText().toString().startsWith("Correo recibido durante OAuth"));
+ }
+ @Test public void newerCommandDiscardsAnUnshownConsent()throws Exception{
+  seedMessage();call("runCommand",new Class<?>[]{String.class,boolean.class},"leeme correo 1",true);
+  call("onStop",new Class<?>[0]);complete("Correo diferido",null);
+  call("runCommand",new Class<?>[]{String.class,boolean.class},"cancelar",false);
+  call("onResume",new Class<?>[0]);
+  assertNull(ShadowAlertDialog.getLatestAlertDialog());
+ }
  @Test public void changingAccountAndBackInvalidatesAnAlreadyDisplayedSpeechConsent()throws Exception{
   seedMessage();call("runCommand",new Class<?>[]{String.class,boolean.class},"leeme correo 1",true);
   complete("Contenido de la sesión anterior",null);
