@@ -35,8 +35,9 @@ public final class GoroZn02GattInspector {
  private BluetoothGatt gatt;
  private boolean scanning;
  private boolean closed;
+ private String detectedModel="ZNP";
  private final Runnable timeout=()->{
-  if(scanning){stopScan();emit("ZNP Z02 no observado en 12 segundos. Sin cambios en el dispositivo.");}
+  if(scanning){stopScan();emit("No se observó un ZNP Z01/Z02/N02 en 12 segundos. Sin cambios en el dispositivo.");}
  };
  private final ScanCallback scanListener=new ScanCallback(){
   @Override public void onScanResult(int callbackType,ScanResult result){
@@ -47,9 +48,11 @@ public final class GoroZn02GattInspector {
     try{name=device.getName();}catch(SecurityException ignored){}
    }
    // An advertised name is a candidate only, never authenticated model identity.
-   if(!ZnpDeviceProfile.detect(name).isCandidate())return;
+   ZnpDeviceProfile candidate=ZnpDeviceProfile.detect(name);
+   if(!candidate.isCandidate())return;
+   detectedModel=candidate.modelLabel();
    stopScan();
-   emit("Se observó un anuncio ZNP Z02/N02. Candidato preliminar; leyendo servicios BLE sin escribir ni asumir protocolo.");
+   emit("Se observó "+detectedModel+". Candidato preliminar; leyendo servicios BLE sin escribir ni asumir protocolo.");
    if(device==null)return;
    try{
     gatt=device.connectGatt(context,false,gattListener,BluetoothDevice.TRANSPORT_LE);
@@ -83,7 +86,7 @@ public final class GoroZn02GattInspector {
    if(closed){closeGatt(remote);return;}
    if(status!=BluetoothGatt.GATT_SUCCESS){emit("No se pudieron descubrir los servicios BLE: "+status);closeGatt(remote);return;}
    List<BluetoothGattService> services=remote.getServices();
-   StringBuilder report=new StringBuilder("ZN02 · inventario BLE: ");
+   StringBuilder report=new StringBuilder(detectedModel+" · inventario BLE: ");
    int count=services==null?0:services.size(), characteristics=0;
    if(services!=null)for(BluetoothGattService service:services){
     if(service.getCharacteristics()!=null)characteristics+=service.getCharacteristics().size();
@@ -124,13 +127,13 @@ public final class GoroZn02GattInspector {
   try{
    BluetoothManager manager=(BluetoothManager)context.getSystemService(Context.BLUETOOTH_SERVICE);
    BluetoothAdapter adapter=manager==null?null:manager.getAdapter();
-   if(adapter==null||!adapter.isEnabled()){emit("Activá Bluetooth antes de buscar el N02.");return;}
+   if(adapter==null||!adapter.isEnabled()){emit("Activá Bluetooth antes de buscar dispositivos ZNP.");return;}
    scanner=adapter.getBluetoothLeScanner();
    if(scanner==null){emit("Android no ofrece el escáner BLE.");return;}
    if(scanning){emit("Ya se está leyendo el entorno BLE.");return;}
    scanning=true;scanner.startScan(scanListener);
    main.postDelayed(timeout,12000);
-   emit("Buscando ZNP Z02 por Bluetooth LE, solo lectura y sin órdenes al firmware.");
+   emit("Buscando ZNP Z01, Z02 y N02 por Bluetooth LE, solo lectura y sin órdenes al firmware.");
   }catch(SecurityException denied){scanning=false;emit("Android no autorizó el escaneo BLE.");}
    catch(RuntimeException error){scanning=false;emit("No se pudo iniciar el inventario BLE.");}
  }
