@@ -31,7 +31,7 @@ public final class GoroDashboardView extends LinearLayout {
   void onCommand(String command); void onLinkAccount(); void onReadGmail();
   void onCalendarPermission(); void onUnlinkAccount(); void onWeather();
   void onForecast(); void onReminders(); void onConfigureNvidia(); void onTestNvidia();
-  void onConnectZn02(); void onInspectZn02(); void onZn02LightOn(); void onZn02LightOff();
+  void onConnectZn02(); void onInspectZn02(); void onInspectZnpModel(String model); void onZn02LightOn(); void onZn02LightOff();
   void onZn02ReadLight(); void onZn02AudioOn(); void onZn02AudioOff(); void onInstallGoroAnimation();
   default void onToggleListening(){}
  }
@@ -141,7 +141,11 @@ public final class GoroDashboardView extends LinearLayout {
   agendaPanel=panel();agendaPanel.addView(card("TU AGENDA",agendaValue));addAction(agendaPanel,"Consultar agenda de hoy","agenda",()->actions.onCommand("agenda hoy"));addAction(agendaPanel,"Consultar agenda de mañana","agenda",()->actions.onCommand("agenda mañana"));
   gmailPanel=panel();gmailPanel.addView(card("TU CORREO",gmailValue));addAction(gmailPanel,"Actualizar bandeja","mail",()->actions.onReadGmail());
   devicePanel=panel();devicePanel.addView(card("ZNP Z02",devicesValue));TextView deviceCaption=text("Activá o pausá la escucha con el botón superior. La pausa se mantiene al reconectar.",13,false,MUTED);deviceCaption.setPadding(dp(10),dp(8),dp(10),dp(14));devicePanel.addView(deviceCaption);
-  addAction(devicePanel,"Conectar ZNP Z02","link",()->actions.onConnectZn02());addAction(devicePanel,"Instalar animación GORO en visor Z02","face",()->actions.onInstallGoroAnimation());
+  addAction(devicePanel,"Conectar ZNP Z02 (RCSP verificado)","link",()->actions.onConnectZn02());
+  addAction(devicePanel,"Buscar / diagnosticar ZNP Z01","devices",()->actions.onInspectZnpModel("Z01"));
+  addAction(devicePanel,"Buscar / diagnosticar ZNP Z02 (BLE)","devices",()->actions.onInspectZnpModel("Z02"));
+  addAction(devicePanel,"Buscar / diagnosticar ZNP N02","devices",()->actions.onInspectZnpModel("N02"));
+  addAction(devicePanel,"Instalar animación GORO en visor Z02","face",()->actions.onInstallGoroAnimation());
   settingsPanel=panel();settingsPanel.addView(card("TU CUENTA",accountLabel));addAction(settingsPanel,"Vincular cuenta Google","link",()->actions.onLinkAccount());addAction(settingsPanel,"Autorizar Calendar","agenda",()->actions.onCalendarPermission());addAction(settingsPanel,"Autorizar Gmail","mail",()->actions.onReadGmail());settingsPanel.addView(card("INTELIGENCIA",nvidiaValue));settingsPanel.addView(card("VOZ DIEGO",voiceValue));addAction(settingsPanel,"Configurar NVIDIA","settings",()->actions.onConfigureNvidia());addAction(settingsPanel,"Verificar NVIDIA","link",()->actions.onTestNvidia());addAction(settingsPanel,"Desvincular cuenta Google","settings",()->actions.onUnlinkAccount());
   explorePanel=panel();TextView projectNote=text("Tus ideas y proyectos\n\nPedile a Goro que recuerde un dato o consultá lo que ya guardaste.",16,false,TEXT);explorePanel.addView(card("MEMORIA PERSONAL",projectNote));addAction(explorePanel,"Consultar memoria","folder",()->actions.onCommand("qué recordás"));
   automationPanel=panel();TextView automaticNote=text("Recordatorios, alarmas y temporizadores. Goro te pide confirmar las acciones que lo requieren.",15,false,TEXT);automationPanel.addView(card("AUTOMATIZAR",automaticNote));addAction(automationPanel,"Activar recordatorios","bolt",()->actions.onReminders());
