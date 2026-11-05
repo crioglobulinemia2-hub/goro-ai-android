@@ -5,12 +5,29 @@
   "stable_1_2_0_signature_valid": true,
   "recovered_1_1_0_certificate_sha256": "81ed6978c3af615fe6f346354d0c3528bbfe4c080c07a229c9227a94110b2b06",
   "stable_1_2_0_certificate_sha256": "8702426c72ebf740f3055daaf0df591feeddcf0f76918e8b5abf5acc2189ec10",
+  "stable_certificate_sha1": "1c64b2e6daa81852d163c7af46a1e544b6dddc12",
+  "recovered_1_1_0_certificate_subject": "C=US, O=Android, CN=Android Debug",
+  "recovery_apk_package": "ar.goro.ai.recovery",
+  "recovery_apk_certificate_sha256": "8702426c72ebf740f3055daaf0df591feeddcf0f76918e8b5abf5acc2189ec10",
+  "current_package_updates_recovery_package": false,
   "can_update_recovered_1_1_0_with_stable_key": false,
   "installed_device_certificate_verified": false,
+  "signing_guard_verified": {
+    "rejects_old_debug_certificate_without_output": true,
+    "rejects_recovery_package_without_output": true,
+    "signs_and_verifies_against_stable_saved_apk": true,
+    "supports_explicit_equal_password_files": true,
+    "output_file_mode": "0600",
+    "does_not_install_or_delete_data": true
+  },
   "limitations": [
     "Both APK signatures were checked with Android apksigner verify --print-certs.",
     "Package identifiers and versions were checked with Android aapt dump badging.",
     "No device is attached. The installed APK and its certificate remain unknown.",
-    "No package rename, uninstall, data deletion or signature rotation was performed."
+    "No package rename, uninstall, data deletion or signature rotation was performed.",
+    "The Recovery APK shares the stable certificate but uses a different package, so it is not an update baseline for ar.goro.ai.personal.",
+    "No matching 81ed6978 private key was found among local GORO keys, the current local debug key, or the catalogued GORO signing backup.",
+    "Historical workflow 41730617209 uses assembleDebug and uploads APK/reports only; it does not preserve its debug keystore.",
+    "Compatibility with a saved APK is not proof of compatibility with the application currently installed on the user's device."
   ]
 }

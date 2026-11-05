@@ -19,6 +19,7 @@ import java.util.Queue;
 import java.util.concurrent.AbstractExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
@@ -127,5 +128,28 @@ public class DeviceCalendarGatewayLifecycleTest {
  @Test public void closeSuppressesAlreadyPostedReadResult(){
   AtomicBoolean callback=new AtomicBoolean();gateway.list("",START,END,(events,error)->callback.set(true));
   executor.runAll();gateway.close();shadowOf(Looper.getMainLooper()).idle();assertFalse(callback.get());
+ }
+ @Test public void invalidEventBoundsCannotReachProviderWrites(){
+  AtomicInteger callbacks=new AtomicInteger();
+  CalendarEvent backward=new CalendarEvent(null,"Reunión",END,START,"UTC","");
+  CalendarEvent empty=new CalendarEvent("11","Reunión",START,START,"UTC","");
+  gateway.create(backward,(result,error)->{assertNull(result);assertTrue(error.contains("después"));callbacks.incrementAndGet();});
+  gateway.update(empty,(result,error)->{assertNull(result);assertTrue(error.contains("después"));callbacks.incrementAndGet();});
+  executor.runAll();shadowOf(Looper.getMainLooper()).idle();
+  assertEquals(2,callbacks.get());assertEquals(0,provider.inserts+provider.updates);
+ }
+ @Test public void nonexistentTimezoneCannotReachProviderWrites(){
+  AtomicReference<String> failure=new AtomicReference<>();
+  CalendarEvent invalid=new CalendarEvent(null,"Reunión",START,END,"Invalid/Timezone","");
+  gateway.create(invalid,(result,error)->{assertNull(result);failure.set(error);});
+  executor.runAll();shadowOf(Looper.getMainLooper()).idle();
+  assertNotNull(failure.get());assertTrue(failure.get().contains("zona horaria"));assertEquals(0,provider.inserts);
+ }
+ @Test public void eventBoundsCompareInstantsAcrossDifferentOffsets(){
+  AtomicReference<CalendarEvent> received=new AtomicReference<>();
+  CalendarEvent valid=new CalendarEvent(null,"Reunión","2026-11-04T10:00:00+02:00","2026-11-04T09:00:00Z","UTC","");
+  gateway.create(valid,(result,error)->{assertNull(error);received.set(result);});
+  executor.runAll();shadowOf(Looper.getMainLooper()).idle();
+  assertNotNull(received.get());assertEquals(1,provider.inserts);
  }
 }

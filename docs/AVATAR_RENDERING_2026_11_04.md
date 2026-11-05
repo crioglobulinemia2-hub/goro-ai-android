@@ -73,3 +73,18 @@ offline cache lacks `kotlin-build-tools-impl:2.2.10`. CI must resolve that publi
 dependency, compile the adapter, and run the full JVM and Android checks. The
 facial-buffer mapping is independently compilable Java and has five passing
 JUnit tests, including clearing a reused buffer when speech ends.
+
+## Failed model setup and explicit cleanup
+
+The source adapter now exposes idempotent `destroy()`, also called by its detach
+listener. `GoroAvatarView` releases its owned lights and invokes this cleanup
+when model/lighting setup fails while the view is still attached. Previously
+the catch block dropped the viewer reference and retained native resources
+until the screen detached. A null glTF asset is now treated as a load failure
+instead of reporting a loaded model. The adapter ignores rendering after
+cleanup, and a later detach does not destroy the engine twice.
+
+`AvatarReattachTest` covers explicit cleanup twice followed by view removal,
+in addition to rendering after repeated avatar removal and reattachment.
+These native tests require an Android Vulkan renderer; successful JVM or asset
+checks alone do not establish that the native cleanup tests passed.

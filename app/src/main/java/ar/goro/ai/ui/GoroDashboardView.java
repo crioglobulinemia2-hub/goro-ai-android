@@ -43,7 +43,7 @@ public final class GoroDashboardView extends LinearLayout {
  private final boolean tablet;
  private final GoroAvatarView avatar;
  private final FrameLayout body,home;
- private final ScrollView pages;
+ private final ScrollView pages,homeScroll;
  private final LinearLayout pageContent,navigation;
  private final TextView title,clock,date,weather,agenda,homeDevices,speechBubble,conversationStatus;
  private final TextView agendaValue,gmailValue,devicesValue,nvidiaValue,voiceValue;
@@ -73,13 +73,19 @@ public final class GoroDashboardView extends LinearLayout {
   addView(header,new LinearLayout.LayoutParams(-1,dp(56)));
   View line=new View(a);line.setBackground(new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,new int[]{0x002bd8ff,0x905cb8ef,0x002bd8ff}));addView(line,new LinearLayout.LayoutParams(-1,dp(1)));
   body=new FrameLayout(a);addView(body,new LinearLayout.LayoutParams(-1,0,1));
-  home=new FrameLayout(a);body.addView(home,new FrameLayout.LayoutParams(-1,-1));
+  // Preserve the scene and reachable controls in landscape and split screen.
+  // A fixed-height viewport otherwise collapses the avatar behind the footer.
+  homeScroll=new ScrollView(a);homeScroll.setFillViewport(true);homeScroll.setVerticalScrollBarEnabled(false);
+  body.addView(homeScroll,new FrameLayout.LayoutParams(-1,-1));
+  home=new FrameLayout(a);home.setMinimumHeight(dp(460));homeScroll.addView(home,new ScrollView.LayoutParams(-1,-2));
   ImageView room=new ImageView(a);room.setImageResource(R.drawable.goro_room);room.setScaleType(ImageView.ScaleType.CENTER_CROP);room.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
   home.addView(room,new FrameLayout.LayoutParams(-1,-1));
   View sceneShade=new View(a);sceneShade.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,new int[]{0x20241a10,0x00180f09,0xe6030c17}));sceneShade.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);home.addView(sceneShade,new FrameLayout.LayoutParams(-1,-1));
   avatarStage=new FrameLayout(a);
   FrameLayout.LayoutParams stageParams=new FrameLayout.LayoutParams(-1,-1);stageParams.setMargins(0,dp(36),dp(tablet?214:92),dp(124));home.addView(avatarStage,stageParams);
   state=text("Preparando conexiones",11,false,MUTED);state.setGravity(Gravity.CENTER);state.setMaxLines(1);state.setEllipsize(TextUtils.TruncateAt.END);
+  state.setOnClickListener(v->select(GoroSection.SETTINGS));
+  state.addTextChangedListener(new android.text.TextWatcher(){public void beforeTextChanged(CharSequence t,int start,int count,int after){}public void onTextChanged(CharSequence t,int start,int before,int count){state.setContentDescription(t);}public void afterTextChanged(android.text.Editable text){}});
   avatar=enableAvatar?new GoroAvatarView(a,this::onAvatarStatus):null;
   if(avatar!=null)avatarStage.addView(avatar,new FrameLayout.LayoutParams(-1,-1));
   LinearLayout timeCard=new LinearLayout(a);timeCard.setOrientation(VERTICAL);timeCard.setGravity(Gravity.CENTER);timeCard.setPadding(dp(12),dp(6),dp(12),dp(6));timeCard.setBackground(sceneGlass());
@@ -122,10 +128,10 @@ public final class GoroDashboardView extends LinearLayout {
   String[] icons={"chat","grid","bolt","settings"};for(int i=0;i<primary.length;i++){GoroSection section=primary[i];Button item=iconButton(section.label,icons[i],()->select(section),false,21);navigation.addView(item,new LinearLayout.LayoutParams(0,dp(59),1));}
   addView(navigation,new LinearLayout.LayoutParams(-1,dp(65)));clockTick.run();select(GoroSection.HOME);
  }
- private void openTranscript(){showTranscript=true;selected=GoroSection.HOME;home.setVisibility(GONE);pages.setVisibility(VISIBLE);hidePanels();title.setText("CONVERSACIÓN");back.setCompoundDrawables(null,new GoroIcon("back",TEXT,dp(22)),null,null);output.setVisibility(VISIBLE);}
+ private void openTranscript(){showTranscript=true;selected=GoroSection.HOME;homeScroll.setVisibility(GONE);pages.setVisibility(VISIBLE);hidePanels();title.setText("CONVERSACIÓN");back.setCompoundDrawables(null,new GoroIcon("back",TEXT,dp(22)),null,null);output.setVisibility(VISIBLE);pages.post(()->pages.scrollTo(0,0));}
  private void hidePanels(){for(LinearLayout p:new LinearLayout[]{agendaPanel,gmailPanel,devicePanel,settingsPanel,explorePanel,automationPanel})p.setVisibility(GONE);}
  private void select(GoroSection section){
-  selected=section;showTranscript=false;hidePanels();boolean isHome=section==GoroSection.HOME;home.setVisibility(isHome?VISIBLE:GONE);pages.setVisibility(isHome?GONE:VISIBLE);output.setVisibility(GONE);title.setText(isHome?"GORO IA":section.label.toUpperCase(new Locale("es","AR")));title.setTextSize(isHome?23:19);back.setCompoundDrawables(null,new GoroIcon(isHome?"menu":"back",TEXT,dp(22)),null,null);
+  selected=section;showTranscript=false;hidePanels();boolean isHome=section==GoroSection.HOME;homeScroll.setVisibility(isHome?VISIBLE:GONE);pages.setVisibility(isHome?GONE:VISIBLE);output.setVisibility(GONE);title.setText(isHome?"GORO IA":section.label.toUpperCase(new Locale("es","AR")));title.setTextSize(isHome?23:19);back.setCompoundDrawables(null,new GoroIcon(isHome?"menu":"back",TEXT,dp(22)),null,null);
   for(int i=0;i<navigation.getChildCount();i++){Button b=(Button)navigation.getChildAt(i);boolean active=primary[i]==section;b.setTextColor(active?CYAN:MUTED);b.setBackground(ripple(active?0xff10294c:0x00000000,active?0xff06162c:0x00000000,15,active?0xff235b82:0x0023455f));String icon=new String[]{"chat","grid","bolt","settings"}[i];b.setCompoundDrawables(null,new GoroIcon(icon,active?CYAN:MUTED,dp(21)),null,null);}
   switch(section){
    case HOME:break;
@@ -140,7 +146,17 @@ public final class GoroDashboardView extends LinearLayout {
  }
  public void showAgenda(String value){String t=value==null?"Agenda sin consultar":value;agendaValue.setText(t);agenda.setText(t);}
  public void showWeather(String value){weather.setText(value==null?"Clima sin consultar":value);}
- public void showDeviceStatus(String value){String status=value==null?"Sin datos del dispositivo.":value;devicesValue.setText(status);homeDevices.setText(status);}
+ public void showDeviceStatus(String value){String status=value==null?"Sin datos del dispositivo.":value;devicesValue.setText(status);homeDevices.setText(deviceSummary(status));homeDevices.setContentDescription(status);}
+ private static String deviceSummary(String status){
+  if(status.startsWith("Buscando exclusivamente ZN02")||status.equals("La búsqueda ZNP ya está activa."))return "Buscando Z02…";
+  if(status.startsWith("Conectando ZNP Z02"))return "Conectando Z02…";
+  if(status.startsWith("Anuncio ZNP Z02 detectado.")||status.startsWith("Enlace BLE Z02 abierto."))return "Z02 · verificando conexión…";
+  if(status.equals("Autenticación RCSP del Z02 confirmada."))return "Z02 · conexión verificada";
+  if(status.startsWith("Micrófono Z02 activo."))return "Z02 · escuchando";
+  if(status.startsWith("PCM16 recibido desde el micrófono Z02."))return "Z02 · recibiendo voz";
+  if(status.startsWith("Captura del micrófono Z02 recibida ("))return "Z02 · voz recibida";
+  return status;
+ }
  public void setVoiceActive(boolean active){conversationStatus.setText(active?"Te escucho desde Z02":"Z02 · esperando conexión automática");conversationStatus.setTextColor(active?CYAN:MUTED);microphone.setAlpha(active?1f:.72f);}
  public void showVoiceStatus(String value){
   String status=value==null||value.trim().isEmpty()?"Voz sin conexión":value.trim();
@@ -150,7 +166,13 @@ public final class GoroDashboardView extends LinearLayout {
  }
  public void showNvidiaStatus(String value){nvidiaValue.setText(value==null?"Sin estado de NVIDIA":value);}
  public void showGmailStatus(String value){gmailValue.setText(value==null?"Gmail sin conexión":value);}
- public void showAssistantMessage(String value){if(value==null||value.trim().isEmpty())return;speechBubble.setText(value.trim().replace('\n',' '));}
+ public void showAssistantMessage(String value){
+  if(value==null||value.trim().isEmpty())return;
+  speechBubble.setText(value.trim().replace('\n',' '));
+  // Commands also complete while the user is in Agenda, Gmail or Settings.
+  // Keep their reply visible there, especially when audio is unavailable.
+  if(selected!=GoroSection.HOME||showTranscript){output.setVisibility(VISIBLE);pages.post(()->pages.smoothScrollTo(0,0));}
+ }
  public void showAvatarMood(GoroAvatarView.Mood mood){if(avatar!=null)avatar.setMood(mood);}
  public void avatarSpeak(String text,byte[] wav){if(avatar!=null)avatar.startSpeaking(text,wav);}
  private void onAvatarStatus(String message){if(message!=null&&message.startsWith("Error"))state.setText("No se pudo mostrar el robot");}

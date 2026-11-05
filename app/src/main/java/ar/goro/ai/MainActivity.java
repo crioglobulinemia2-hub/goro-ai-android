@@ -78,6 +78,7 @@ public class MainActivity extends Activity {
   private byte[] pendingSpeechWav;
   private final ArrayDeque<String> speechChunks=new ArrayDeque<>();
   private long speechGeneration;
+  private long commandGeneration;
   private boolean speechInProgress;
   private final android.os.Handler voiceRetryHandler=new android.os.Handler(android.os.Looper.getMainLooper());
   private Runnable pendingVoiceRetry;
@@ -173,7 +174,7 @@ public class MainActivity extends Activity {
     dashboard=new ar.goro.ai.ui.GoroDashboardView(this,new ar.goro.ai.ui.GoroDashboardView.Actions(){
       public void onCommand(String text){runCommand(text);}
       public void onLinkAccount(){chooseGoogleAccount();}
-      public void onReadGmail(){readGmail();}
+      public void onReadGmail(){runCommand("gmail");}
       public void onCalendarPermission(){
         if(calendarGateway.selectedGoogleAccount()==null)chooseGoogleAccount();
         else requestCalendarPermissions();
@@ -184,8 +185,8 @@ public class MainActivity extends Activity {
         calendarAccountLabel.setText("Cuenta Google: sin vincular");
         say("Cuenta desvinculada. No se eliminaron eventos.");
       }
-      public void onWeather(){requestWeatherLocation(false);}
-      public void onForecast(){requestWeatherLocation(true);}
+      public void onWeather(){runCommand("clima");}
+      public void onForecast(){runCommand("pronóstico");}
       public void onConfigureNvidia(){configureNvidia();}
       public void onTestNvidia(){testNemotron();}
       public void onConnectZn02(){connectZn02();}
@@ -236,7 +237,7 @@ public class MainActivity extends Activity {
     speechGeneration++;
     speechChunks.clear();
     speechChunks.addAll(SpeechTextChunks.split(message,1600));
-    speechGateway.cancelPending();
+    speechGateway.cancelSynthesis();
     speakNextChunk(speechGeneration);
   }
   private void speakNextChunk(long generation){
@@ -316,7 +317,8 @@ public class MainActivity extends Activity {
     runCommand(raw,false);
   }
   private void runCommand(String raw,boolean fromVoice) {
-    if(raw.isEmpty()) return;
+    if(raw==null||raw.trim().isEmpty())return;
+    commandGeneration++;
     String text=raw.toLowerCase(new Locale("es","AR")).trim();
     if(text.equals("confirmar")||text.equals("confirmá")){confirmCalendarAction();return;}
     Matcher emailNumber=Pattern.compile("^(?:(?:leeme|léeme|lee|leé|leer|abrí|abrir|mostrame|mostrar)\\s+)?(?:el\\s+)?(?:correo|mail|mensaje)(?:\\s+(?:n[uú]mero|nro))?\\s+(\\d{1,2})$").matcher(text);
@@ -525,6 +527,7 @@ public class MainActivity extends Activity {
     startZ02Listening();
   }
   private void requestNemotron(String text){
+    final long command=commandGeneration,conversation=speechGeneration;
     if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: procesando…");
     output.setText("GORO está consultando Nemotron…");
     if(dashboard!=null)dashboard.showAvatarMood(GoroAvatarView.Mood.THINKING);
@@ -546,6 +549,11 @@ public class MainActivity extends Activity {
       }
     }catch(Exception ignored){}
     nemotronGateway.request("goro-main",prompt,(reply,error)->{
+      // A local command can supersede an in-flight model request without
+      // submitting another network request. Its old answer must not speak over
+      // that newer result, even if it was already queued on the main thread.
+      if(!foreground||command!=commandGeneration||conversation!=speechGeneration
+          ||isFinishing()||isDestroyed())return;
       if(error!=null){if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: error · "+error);say("La consulta a Nemotron falló. "+error);}
       else{if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: conectado");say(reply);}
     });
@@ -604,10 +612,11 @@ public class MainActivity extends Activity {
     }
   }
   private void searchGmail(String query,boolean fromVoice){
-    final long generation=speechGeneration;
+    final long generation=speechGeneration,command=commandGeneration;
     if(gmailGateway==null){if(dashboard!=null)dashboard.showGmailStatus("Gmail no disponible");resumeVoiceAfterScreenResult(generation,fromVoice);return;}
     if(dashboard!=null)dashboard.showGmailStatus("Buscando correos con autorización Google…");
     gmailGateway.searchInbox(query,(text,error)->{
+      if(!currentCommand(command))return;
       String result=error==null?text:"Gmail · "+error;
       if(dashboard!=null)dashboard.showGmailStatus(result);
       if(output!=null)output.setText(result);
@@ -618,19 +627,21 @@ public class MainActivity extends Activity {
     readGmail(false);
   }
   private void readGmail(boolean fromVoice){
-    final long generation=speechGeneration;
+    final long generation=speechGeneration,command=commandGeneration;
     if(gmailGateway==null){if(dashboard!=null)dashboard.showGmailStatus("Gmail no disponible");resumeVoiceAfterScreenResult(generation,fromVoice);return;}
     if(dashboard!=null)dashboard.showGmailStatus("Solicitando autorización Gmail…");
     gmailGateway.readInbox((text,error)->{
+      if(!currentCommand(command))return;
       if(dashboard!=null)dashboard.showGmailStatus(error==null?text:"Gmail · "+error);
       if(error==null&&output!=null)output.setText(text);
       resumeVoiceAfterScreenResult(generation,fromVoice);
     });
   }
   private void openGmailMessage(int number,boolean speakAloud,boolean fromVoice){
-    final long generation=speechGeneration;
+    final long generation=speechGeneration,command=commandGeneration;
     if(gmailGateway==null){if(dashboard!=null)dashboard.showGmailStatus("Gmail no disponible");resumeVoiceAfterScreenResult(generation,fromVoice);return;}
     gmailGateway.readMessage(number,(message,error)->{
+      if(!currentCommand(command))return;
       if(error!=null){
         if(dashboard!=null)dashboard.showGmailStatus("Gmail · "+error);
         if(output!=null)output.setText(error);
@@ -640,14 +651,21 @@ public class MainActivity extends Activity {
       if(dashboard!=null)dashboard.showGmailStatus(message);
       if(output!=null)output.setText(message);
       if(!speakAloud){resumeVoiceAfterScreenResult(generation,fromVoice);return;}
+      if(!foreground)return;
+      // Consent belongs to the visible message and account at the moment the
+      // result arrives, including a return from Google's authorization screen.
+      final long consentSpeech=speechGeneration,consentAccount=gmailGateway.sessionGeneration();
       new AlertDialog.Builder(this)
         .setTitle("Leer correo usando NVIDIA Diego")
         .setMessage("El contenido del correo se enviará a NVIDIA para sintetizar la voz. Autorizás esta lectura?")
-        .setPositiveButton("Leer por voz",(dialog,which)->{if(foreground&&generation==speechGeneration)say(message);})
+        .setPositiveButton("Leer por voz",(dialog,which)->{if(foreground&&currentCommand(command)&&consentSpeech==speechGeneration&&consentAccount==gmailGateway.sessionGeneration())say(message);})
         .setNegativeButton("Solo en pantalla",null)
         .setOnDismissListener(dialog->resumeVoiceAfterScreenResult(generation,fromVoice))
         .show();
     });
+  }
+  private boolean currentCommand(long command){
+    return command==commandGeneration&&!isFinishing()&&!isDestroyed();
   }
   private void resumeVoiceAfterScreenResult(long generation,boolean fromVoice){
     // Screen-only Gmail results do not enter TTS completion. Keep the same
@@ -715,6 +733,7 @@ public class MainActivity extends Activity {
     });
   }
   private void prepareCalendarEvent(String raw){
+    clearPendingCalendarAction();
     if(calendarGateway==null){say("Google Calendar todavía no está configurado.");return;}
     Matcher m=Pattern.compile("(?i)^(?:agendá|agenda|creá evento|crea evento)\\s+(.+?)\\s+(hoy|mañana|el\\s+\\d{4}-\\d{2}-\\d{2})\\s+a las\\s+(\\d{1,2}):(\\d{2})(?:\\s+por\\s+(\\d+)\\s+minutos?)?$").matcher(raw.trim());
     if(!m.matches()){say("Decime: agendá reunión mañana a las 15:30 por 60 minutos.");return;}
@@ -729,17 +748,23 @@ public class MainActivity extends Activity {
     }catch(Exception e){pendingCalendarEvent=null;say("La fecha, hora o duración no es válida.");}
   }
   private void prepareCalendarDelete(String raw){
+    clearPendingCalendarAction();
     if(calendarGateway==null){say("Google Calendar todavía no está configurado.");return;}
-    String target=raw.substring(raw.indexOf("evento")+6).trim();CalendarEvent match=null;
+    String normalized=raw.toLowerCase(new Locale("es","AR"));
+    String target=raw.substring(normalized.indexOf("evento")+6).trim();CalendarEvent match=null;
     try{int index=Integer.parseInt(target)-1;if(index>=0&&index<lastCalendarEvents.size())match=lastCalendarEvents.get(index);}catch(NumberFormatException ignored){for(CalendarEvent e:lastCalendarEvents)if(e.title.equalsIgnoreCase(target)){if(match!=null){say("Hay varios eventos con ese nombre. Consultá la agenda y elegí un número.");return;}match=e;}}
     if(match==null){say("No encuentro ese evento. Consultá primero tu agenda de hoy o de la semana.");return;}
     pendingCalendarDeleteId=match.id;pendingCalendarEvent=null;say("Voy a eliminar "+match.title+". Decí confirmar para ejecutar o cancelar.");
   }
   private void prepareCalendarUpdate(String raw){
+    clearPendingCalendarAction();
     if(calendarGateway==null){say("Google Calendar todavía no está configurado.");return;}
     Matcher m=Pattern.compile("(?i)^reprogram[áa] evento (\\d+) (hoy|mañana|el\\s+\\d{4}-\\d{2}-\\d{2}) a las (\\d{1,2}):(\\d{2})(?: por (\\d+) minutos?)?$").matcher(raw.trim());
     if(!m.matches()){say("Decime: reprogramá evento 2 mañana a las 15:30 por 45 minutos.");return;}
     try{int index=Integer.parseInt(m.group(1))-1;if(index<0||index>=lastCalendarEvents.size())throw new IllegalArgumentException();CalendarEvent old=lastCalendarEvents.get(index);ZoneId zone=ZoneId.systemDefault();String day=m.group(2).toLowerCase(new Locale("es","AR"));LocalDate date=day.equals("hoy")?LocalDate.now(zone):day.equals("mañana")?LocalDate.now(zone).plusDays(1):LocalDate.parse(day.substring(3).trim());int hour=Integer.parseInt(m.group(3)),minute=Integer.parseInt(m.group(4)),duration=m.group(5)==null?60:Integer.parseInt(m.group(5));if(hour>23||minute>59||duration<1||duration>1440)throw new IllegalArgumentException();ZonedDateTime start=ZonedDateTime.of(date,LocalTime.of(hour,minute),zone);pendingCalendarEvent=new CalendarEvent(old.id,old.title,start.toOffsetDateTime().toString(),start.plusMinutes(duration).toOffsetDateTime().toString(),zone.getId(),old.description);pendingCalendarDeleteId=null;say("Voy a reprogramar "+old.title+" para "+date+" a las "+String.format(Locale.ROOT,"%02d:%02d",hour,minute)+". Decí confirmar o cancelar.");}catch(Exception e){say("Número de evento, fecha u horario inválido. Consultá primero la agenda.");}
+  }
+  private void clearPendingCalendarAction(){
+    pendingCalendarEvent=null;pendingCalendarDeleteId=null;
   }
   private void confirmCalendarAction(){
     if(pendingCalendarEvent!=null){CalendarEvent event=pendingCalendarEvent;pendingCalendarEvent=null;if(event.id!=null&&!event.id.isEmpty()){calendarGateway.update(event,(updated,error)->say(error==null&&updated!=null?"Evento actualizado en el calendario del dispositivo: "+updated.title+". La sincronización con Google depende de Android.":error==null?"No se pudo confirmar la actualización.":error));}else{calendarGateway.create(event,(created,error)->say(error==null&&created!=null?"Evento guardado en el calendario del dispositivo: "+created.title+". La sincronización con Google depende de Android.":error==null?"No se pudo confirmar la creación.":error));}return;}

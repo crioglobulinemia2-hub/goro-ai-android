@@ -6,6 +6,7 @@ import pathlib
 import os
 import subprocess
 from prepare_avatar import AUTHORED_RELATIVE, validate_contract
+from sign_owner_apk import SigningError, apk_certificate, check_compatibility, package_info
 from datetime import datetime, timezone
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -40,6 +41,22 @@ def verified(name, required):
     except (OSError, ValueError, TypeError):
         return False, "Evidencia JSON inválida: " + name
 
+def installed_update_report(apk, build_tools):
+    """A valid signature alone does not establish an update preserving app data."""
+    try:
+        evidence = json.loads((EVIDENCE / "signature_compatibility.json").read_text(encoding="utf-8"))
+        if evidence.get("installed_device_certificate_verified") is not True:
+            return False, "No se verificó el certificado de la app instalada; una firma válida no basta."
+        baseline = {"package": evidence["installed_package"],
+                    "version_code": evidence["installed_version_code"]}
+        if not isinstance(baseline["version_code"], int) or isinstance(baseline["version_code"], bool):
+            return False, "Versión instalada inválida en evidencia de firma."
+        check_compatibility(package_info(apk, build_tools), baseline,
+                            apk_certificate(apk, build_tools), evidence["installed_certificate_sha256"])
+        return True, "Paquete, versión y certificado de la APK coinciden con la evidencia del dispositivo."
+    except (SigningError, OSError, ValueError, TypeError, KeyError, subprocess.TimeoutExpired):
+        return False, "No se acreditó una actualización compatible con la instalación existente."
+
 def stage_checks():
     avatar_ok, avatar_msg = glb_report()
     nvidia_ok, nvidia_msg = verified("nvidia_e2e.json",
@@ -63,6 +80,8 @@ def stage_checks():
                                       "frame_rate_measured", "memory_measured"])
     apk=ROOT / "app/build/outputs/apk/release/app-release.apk"
     signed=False
+    update_ok=False
+    update_msg="APK release firmada inexistente; compatibilidad de actualización sin verificar."
     if apk.is_file():
         sdk=pathlib.Path(os.environ.get("ANDROID_HOME", "/usr/local/lib/android/sdk"))
         candidates=sorted(sdk.glob("build-tools/*/apksigner"), reverse=True)
@@ -70,6 +89,8 @@ def stage_checks():
             result=subprocess.run([str(candidates[0]), "verify", "--verbose", str(apk)],
                                   capture_output=True, text=True, timeout=30)
             signed=result.returncode==0
+            if signed:
+                update_ok,update_msg=installed_update_report(apk,candidates[0].parent)
     return [
       {"step": "04 NVIDIA", "ok": nvidia_ok, "reason": nvidia_msg},
       {"step": "09 3D", "ok": avatar_ok and android_ok, "reason": avatar_msg if not avatar_ok else android_msg},
@@ -81,6 +102,7 @@ def stage_checks():
       {"step": "11 ZNP", "ok": ble_ok, "reason": ble_msg},
       {"step": "12 Pruebas físicas", "ok": android_ok, "reason": android_msg},
       {"step": "12 APK firmada", "ok": signed, "reason": "Firma APK verificada con apksigner." if signed else "APK release inexistente o firma aún no verificada."},
+      {"step": "12 Actualización compatible", "ok": update_ok, "reason": update_msg},
     ]
 
 def main():

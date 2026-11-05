@@ -152,9 +152,13 @@ public final class DeviceCalendarGateway implements CalendarGateway {
   });
  }
  private ContentValues values(CalendarEvent event){
+  long start=millis(event.start),end=millis(event.end);
+  if(end<=start)throw new IllegalArgumentException("El evento debe terminar después de su inicio.");
+  try{ZoneId.of(event.timezone);}
+  catch(java.time.DateTimeException e){throw new IllegalArgumentException("La zona horaria del evento no es válida.");}
   ContentValues values=new ContentValues();
-  values.put(CalendarContract.Events.TITLE,event.title);values.put(CalendarContract.Events.DTSTART,millis(event.start));
-  values.put(CalendarContract.Events.DTEND,millis(event.end));values.put(CalendarContract.Events.EVENT_TIMEZONE,event.timezone);
+  values.put(CalendarContract.Events.TITLE,event.title);values.put(CalendarContract.Events.DTSTART,start);
+  values.put(CalendarContract.Events.DTEND,end);values.put(CalendarContract.Events.EVENT_TIMEZONE,event.timezone);
   values.put(CalendarContract.Events.DESCRIPTION,event.description);return values;
  }
  private void verifyEditableEvent(Ticket ticket,long id)throws Exception{

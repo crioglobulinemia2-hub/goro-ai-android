@@ -44,12 +44,13 @@ public final class GoroAvatarView extends FrameLayout {
  private IndirectLight ambientLight;
  private double frameHalfHeight=1.30,frameHalfWidth=.75;
  private boolean morphErrorReported=false;
+ private boolean recreateOnAttach=false;
  private int faceEntity=0;
  private AvatarMorphMap faceMorphMap;
  private final float[] expressionWeights=new float[10];
  private float[] mappedMorphWeights;
  private Mood mood=Mood.IDLE;
- private long moodStartedNanos=0;
+ private AvatarAnimationTransition animationTransition=new AvatarAnimationTransition();
  private AvatarAnimationCatalog animationCatalog;
  private String speechText="";
  private long speechStartedUptime=0;
@@ -77,11 +78,14 @@ public final class GoroAvatarView extends FrameLayout {
      }
      animationCatalog=new AvatarAnimationCatalog(names,durations);
     }
-    if(moodStartedNanos==0)moodStartedNanos=frameTimeNanos;
-    int clip=animationCatalog.resolve(mood.name());
+    animationTransition.advance(animationCatalog.resolve(mood.name()),frameTimeNanos);
+    int clip=animationTransition.currentClip();
     if(clip>=0){
-     double elapsed=(frameTimeNanos-moodStartedNanos)/1_000_000_000.0;
-     animator.applyAnimation(clip,animationCatalog.timeSeconds(clip,elapsed));
+     animator.applyAnimation(clip,animationCatalog.timeSeconds(clip,animationTransition.currentElapsedSeconds()));
+     int previous=animationTransition.previousClip();
+     if(previous>=0)animator.applyCrossFade(previous,
+         animationCatalog.timeSeconds(previous,animationTransition.previousElapsedSeconds()),
+         animationTransition.blendAlpha());
     }
     animator.updateBoneMatrices();
    }
@@ -119,6 +123,15 @@ public final class GoroAvatarView extends FrameLayout {
   surface.setOpaque(false);
   surface.setFocusable(false);
   surface.setFocusableInTouchMode(false);
+  // Android detaches children before their parent. Register this listener
+  // before ModelViewer's listener, which destroys the engine on surface detach.
+  surface.addOnAttachStateChangeListener(new android.view.View.OnAttachStateChangeListener(){
+   public void onViewAttachedToWindow(android.view.View view){}
+   public void onViewDetachedFromWindow(android.view.View view){
+    frameLoop.setActive(false);
+    releaseOwnedLighting();
+   }
+  });
   addView(surface,new FrameLayout.LayoutParams(-1,-1));
   surface.setOnTouchListener((v,event)->{
    if(viewer!=null){viewer.onTouchEvent(event);return true;}
@@ -147,6 +160,7 @@ public final class GoroAvatarView extends FrameLayout {
    clearOptions.discard=true;
    viewer.getRenderer().setClearOptions(clearOptions);
    viewer.loadModelGlb(ByteBuffer.wrap(bytes));
+   if(viewer.getAsset()==null)throw new IllegalStateException("Filament could not load the packaged GLB");
    viewer.transformToUnitCube(new Float3(0f,0f,0f));
    FilamentAsset asset=viewer.getAsset();
    if(asset!=null){
@@ -188,14 +202,25 @@ public final class GoroAvatarView extends FrameLayout {
     viewer.setIndirectLightCubemap(bundle.getCubemap());
     viewer.getScene().setIndirectLight(ambientLight);
    }
-   moodStartedNanos=0;
+   animationTransition=new AvatarAnimationTransition();
    status(faceMorphMap!=null&&faceMorphMap.isComplete()?
      "GORO 3D · Esqueleto y expresiones cargados.":
      "GORO 3D · Modelo cargado; faltan expresiones faciales compatibles.");
   }catch(Throwable error){
-   viewer=null;
+   // A failed setup can occur while this view is still attached. Release
+   // native allocations now; the viewer's detach listener is idempotent.
+   frameLoop.setActive(false);
+   releaseOwnedLighting();
+   try{
+    if(viewer!=null)viewer.destroy();
+    else if(engine!=null)engine.destroy();
+   }catch(RuntimeException cleanupError){
+    android.util.Log.w("GoroAvatar","Could not release failed renderer",cleanupError);
+   }
+   viewer=null;engine=null;faceEntity=0;faceMorphMap=null;mappedMorphWeights=null;
+   animationCatalog=null;
    TextView label=new TextView(getContext());
-   label.setText("GORO 3D · ERROR DEL MODELO");
+   label.setText("No pude mostrar a Goro.");
    label.setTextColor(Color.WHITE);label.setTextSize(14);
    label.setGravity(android.view.Gravity.CENTER);
    addView(label,new FrameLayout.LayoutParams(-1,-1));
@@ -204,7 +229,7 @@ public final class GoroAvatarView extends FrameLayout {
  }
  public void setMood(Mood next){
   if(next==null)return;
-  if(mood!=next){mood=next;moodStartedNanos=0;}
+  if(mood!=next)mood=next;
   if(next!=Mood.SPEAKING){speechText="";speechEnvelope=null;speechHasAudio=false;}
  }
  public void startSpeaking(String text,byte[] wav){
@@ -286,19 +311,37 @@ public final class GoroAvatarView extends FrameLayout {
   if(frameLoop!=null)frameLoop.setActive(viewer!=null&&isAttachedToWindow()
       &&isShown()&&getWindowVisibility()==VISIBLE);
  }
- @Override protected void onAttachedToWindow(){super.onAttachedToWindow();updateFrameLoop();}
+ @Override protected void onAttachedToWindow(){
+  super.onAttachedToWindow();
+  if(recreateOnAttach){
+   // ModelViewer destroys its engine when the old TextureView is detached.
+   // Reattaching that surface cannot revive the destroyed renderer. Replace
+   // it and load the same packaged model before restarting the frame chain.
+   recreateOnAttach=false;
+   removeAllViews();
+   surface=null;
+   morphErrorReported=false;
+   loadIfPresent();
+  }
+  updateFrameLoop();
+ }
  @Override protected void onVisibilityChanged(android.view.View changedView,int visibility){
   super.onVisibilityChanged(changedView,visibility);updateFrameLoop();
  }
  @Override protected void onWindowVisibilityChanged(int visibility){
   super.onWindowVisibilityChanged(visibility);updateFrameLoop();
  }
- @Override protected void onDetachedFromWindow(){
-  frameLoop.setActive(false);
+ private void releaseOwnedLighting(){
   if(viewer!=null&&engine!=null){
    try{
-    if(sunEntity!=0){viewer.getScene().removeEntity(sunEntity);engine.destroyEntity(sunEntity);}
-    if(fillEntity!=0){viewer.getScene().removeEntity(fillEntity);engine.destroyEntity(fillEntity);}
+    if(sunEntity!=0){
+     viewer.getScene().removeEntity(sunEntity);engine.destroyEntity(sunEntity);
+     EntityManager.get().destroy(sunEntity);
+    }
+    if(fillEntity!=0){
+     viewer.getScene().removeEntity(fillEntity);engine.destroyEntity(fillEntity);
+     EntityManager.get().destroy(fillEntity);
+    }
    }catch(RuntimeException ignored){}
   }
   if(viewer!=null&&engine!=null&&ambientLight!=null){
@@ -306,7 +349,14 @@ public final class GoroAvatarView extends FrameLayout {
    catch(RuntimeException ignored){}
   }
   ambientLight=null;
-  sunEntity=0;fillEntity=0;faceEntity=0;faceMorphMap=null;mappedMorphWeights=null;viewer=null;engine=null;moodStartedNanos=0;animationCatalog=null;
+  sunEntity=0;fillEntity=0;
+ }
+ @Override protected void onDetachedFromWindow(){
+  recreateOnAttach=true;
+  frameLoop.setActive(false);
+  // The child listeners already released lighting and destroyed ModelViewer.
+  // Never call the engine here: Android dispatches the child's detach first.
+  sunEntity=0;fillEntity=0;faceEntity=0;faceMorphMap=null;mappedMorphWeights=null;viewer=null;engine=null;animationTransition=new AvatarAnimationTransition();animationCatalog=null;
   super.onDetachedFromWindow();
  }
 }

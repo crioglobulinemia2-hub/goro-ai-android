@@ -89,6 +89,13 @@ public class GmailVoiceContinuationTest {
   dialog.getButton(AlertDialog.BUTTON_NEGATIVE).performClick();shadowOf(Looper.getMainLooper()).idle();
   assertNotNull(get("pendingVoiceRetry"));assertFalse((Boolean)get("speechInProgress"));
  }
+ @Test public void delayedInboxCannotReplaceANewerCommandResult()throws Exception{
+  call("runCommand",new Class<?>[]{String.class,boolean.class},"mis correos",false);
+  call("runCommand",new Class<?>[]{String.class,boolean.class},"cancelar",false);
+  String expected=output.getText().toString();
+  complete("Resultado anterior",null);
+  assertEquals(expected,output.getText().toString());
+ }
  @Test public void delayedGmailResultCannotRestartANewerVoiceSession()throws Exception{
   call("runCommand",new Class<?>[]{String.class,boolean.class},"mis correos",true);call("onStop",new Class<?>[0]);
   set("foreground",true);set("voiceActive",true);
@@ -104,5 +111,41 @@ public class GmailVoiceContinuationTest {
   // No gateway is installed in this test. say() displays the entire message and
   // reports missing speech instead of making any external request.
   assertTrue(output.getText().toString().startsWith(message));
+ }
+ @Test public void requestedMessageCanBeSpokenAfterReturningFromGoogleConsent()throws Exception{
+  seedMessage();call("runCommand",new Class<?>[]{String.class,boolean.class},"leeme correo 1",true);
+  call("onStop",new Class<?>[0]);call("onResume",new Class<?>[0]);
+  complete("Correo autorizado después de Google",null);
+  AlertDialog dialog=ShadowAlertDialog.getLatestAlertDialog();assertNotNull(dialog);
+  output.setText("Todavía sin sintetizar");
+  dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();shadowOf(Looper.getMainLooper()).idle();
+  assertTrue(output.getText().toString().startsWith("Correo autorizado después de Google"));
+ }
+ @Test public void changingAccountAndBackInvalidatesAnAlreadyDisplayedSpeechConsent()throws Exception{
+  seedMessage();call("runCommand",new Class<?>[]{String.class,boolean.class},"leeme correo 1",true);
+  complete("Contenido de la sesión anterior",null);
+  AlertDialog dialog=ShadowAlertDialog.getLatestAlertDialog();assertNotNull(dialog);
+  gateway.setSelectedAccount("another@example.test");gateway.setSelectedAccount("owner@example.test");
+  output.setText("Cuenta cambiada");
+  dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();shadowOf(Looper.getMainLooper()).idle();
+  assertEquals("Cuenta cambiada",output.getText().toString());
+ }
+ @Test public void laterCommandInvalidatesAnAlreadyDisplayedSpeechConsent()throws Exception{
+  seedMessage();call("runCommand",new Class<?>[]{String.class,boolean.class},"leeme correo 1",true);
+  complete("Contenido pendiente",null);
+  AlertDialog dialog=ShadowAlertDialog.getLatestAlertDialog();assertNotNull(dialog);
+  call("runCommand",new Class<?>[]{String.class,boolean.class},"cancelar",false);
+  output.setText("Otra orden recibida");
+  dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();shadowOf(Looper.getMainLooper()).idle();
+  assertEquals("Otra orden recibida",output.getText().toString());
+ }
+ @Test public void leavingAnAlreadyDisplayedSpeechConsentDoesNotReviveItOnResume()throws Exception{
+  seedMessage();call("runCommand",new Class<?>[]{String.class,boolean.class},"leeme correo 1",true);
+  complete("Contenido pendiente",null);
+  AlertDialog dialog=ShadowAlertDialog.getLatestAlertDialog();assertNotNull(dialog);
+  call("onStop",new Class<?>[0]);call("onResume",new Class<?>[0]);
+  output.setText("Diálogo de una sesión anterior");
+  dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();shadowOf(Looper.getMainLooper()).idle();
+  assertEquals("Diálogo de una sesión anterior",output.getText().toString());
  }
 }

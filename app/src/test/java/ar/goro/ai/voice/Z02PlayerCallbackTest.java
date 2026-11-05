@@ -34,4 +34,16 @@ public class Z02PlayerCallbackTest {
    assertEquals(1,listener.errors);assertEquals(0,listener.completed);
   }finally{player.close();}
  }
+ @Test public void closedPlayerCannotScheduleOrStartAnotherPlayback(){
+  Listener listener=new Listener();Z02Player player=new Z02Player(RuntimeEnvironment.getApplication(),listener);
+  player.close();
+  player.setTarget("12:34:56:78:90:AB","Z02");
+  player.playWav(new byte[0]);player.play(new byte[]{1,0},16000,1,1);
+  shadowOf(Looper.getMainLooper()).idle();
+  assertTrue(player.outputs().isEmpty());
+  assertNull(org.robolectric.util.ReflectionHelpers.getField(player,"active"));
+  assertNull(org.robolectric.util.ReflectionHelpers.getField(player,"pendingStart"));
+  assertEquals(0,listener.errors);assertEquals(0,listener.completed);
+ }
+
 }

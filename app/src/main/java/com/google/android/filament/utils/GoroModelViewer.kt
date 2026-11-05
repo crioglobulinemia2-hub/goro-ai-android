@@ -124,6 +124,7 @@ class GoroModelViewer(
     private val upward = DoubleArray(3)
 
     private var debugFrameCallback: ((Bitmap) -> Unit)? = null
+    private var destroyed = false
 
     init {
         renderer = engine.createRenderer()
@@ -291,7 +292,7 @@ class GoroModelViewer(
      *                       typically comes from {@link android.view.Choreographer.FrameCallback}
      */
     fun render(frameTimeNanos: Long) {
-        if (!uiHelper.isReadyToRender) {
+        if (destroyed || !uiHelper.isReadyToRender) {
             return
         }
 
@@ -358,39 +359,38 @@ class GoroModelViewer(
         scene.addEntities(asset.lightEntities)
     }
 
+    /** Releases native resources exactly once, including failed model setup before detach. */
+    fun destroy() {
+        if (destroyed) return
+        destroyed = true
+        debugFrameCallback = null
+        uiHelper.detach()
+
+        destroyModel()
+        assetLoader.destroy()
+        materialProvider.destroyMaterials()
+        materialProvider.destroy()
+        resourceLoader.destroy()
+
+        indirectLightCubemap?.let { engine.destroyTexture(it) }
+        indirectLightCubemap = null
+        skyboxCubemap?.let { engine.destroyTexture(it) }
+        skyboxCubemap = null
+
+        engine.destroyEntity(light)
+        engine.destroyRenderer(renderer)
+        engine.destroyView(view)
+        engine.destroyScene(scene)
+        engine.destroyCameraComponent(camera.entity)
+        EntityManager.get().destroy(camera.entity)
+        EntityManager.get().destroy(light)
+        engine.destroy()
+    }
+
     private fun addDetachListener(view: android.view.View) {
         view.addOnAttachStateChangeListener(object : android.view.View.OnAttachStateChangeListener {
             override fun onViewAttachedToWindow(v: android.view.View) {}
-            override fun onViewDetachedFromWindow(v: android.view.View) {
-                uiHelper.detach()
-
-                destroyModel()
-                assetLoader.destroy()
-                materialProvider.destroyMaterials()
-                materialProvider.destroy()
-                resourceLoader.destroy()
-
-                if (indirectLightCubemap != null) {
-                    engine.destroyTexture(indirectLightCubemap!!)
-                    indirectLightCubemap = null
-                }
-
-                if (skyboxCubemap != null) {
-                    engine.destroyTexture(skyboxCubemap!!)
-                    skyboxCubemap = null
-                }
-
-                engine.destroyEntity(light)
-                engine.destroyRenderer(renderer)
-                engine.destroyView(this@GoroModelViewer.view)
-                engine.destroyScene(scene)
-                engine.destroyCameraComponent(camera.entity)
-                EntityManager.get().destroy(camera.entity)
-
-                EntityManager.get().destroy(light)
-
-                engine.destroy()
-            }
+            override fun onViewDetachedFromWindow(v: android.view.View) { destroy() }
         })
     }
 

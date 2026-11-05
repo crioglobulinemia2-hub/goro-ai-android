@@ -10,6 +10,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
+import org.robolectric.annotation.Config;
 import static org.junit.Assert.*;
 
 @RunWith(RobolectricTestRunner.class)
@@ -179,6 +180,53 @@ public class GoroDashboardViewTest {
   ((View)findVisibleText(dashboard,agenda).getParent()).performClick();
   assertEquals(1,calls.commands);
   assertNotNull(findVisibleText(dashboard,agenda));
+ }
+ @Test public void replyFromSubpageActionIsVisibleWithoutReturningHome(){
+  Activity activity=Robolectric.buildActivity(Activity.class).setup().get();
+  GoroDashboardView dashboard=new GoroDashboardView(activity,new Calls(),null,false);
+  activity.setContentView(dashboard);
+  findButton(dashboard,"Proyectos").performClick();
+  findButton(dashboard,"Consultar memoria").performClick();
+  String reply="Recordás que tu próxima reunión es el jueves a las 9.";
+  dashboard.output.setText(reply);
+  assertTrue(dashboard.output.isShown());
+  assertNotNull(findVisibleText(dashboard,reply));
+  assertTrue(dashboard.output.isTextSelectable());
+ }
+ @Test public void deviceSummaryDoesNotTurnUnverifiedTransportIntoConnectedState(){
+  Activity activity=Robolectric.buildActivity(Activity.class).setup().get();
+  GoroDashboardView dashboard=new GoroDashboardView(activity,new Calls(),null,false);
+  activity.setContentView(dashboard);
+  String connecting="Enlace BLE Z02 abierto. Verificando autenticación RCSP…";
+  dashboard.showDeviceStatus(connecting);
+  android.widget.TextView summary=findVisibleText(dashboard,"Z02 · verificando conexión…");
+  assertNotNull(summary);
+  assertEquals(connecting,summary.getContentDescription());
+  assertNull(findVisibleText(dashboard,"Z02 · conexión verificada"));
+  findButton(dashboard,"Dispositivos").performClick();
+  assertNotNull(findVisibleText(dashboard,connecting));
+  String failure="El SDK no completó la autenticación del Z02 en 20 segundos. Volvé a conectar el dispositivo.";
+  dashboard.showDeviceStatus(failure);
+  findButton(dashboard,"Conversar").performClick();
+  assertNotNull(findVisibleText(dashboard,failure));
+ }
+ @Test @Config(qualifiers="w640dp-h360dp-land-mdpi")
+ public void shortLandscapeKeepsSceneAndActionsReachableByScrolling(){
+  Activity activity=Robolectric.buildActivity(Activity.class).setup().get();
+  GoroDashboardView dashboard=new GoroDashboardView(activity,new Calls(),null,false);
+  activity.setContentView(dashboard);
+  dashboard.measure(View.MeasureSpec.makeMeasureSpec(640,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(360,View.MeasureSpec.EXACTLY));
+  dashboard.layout(0,0,640,360);
+  View scene=(View)dashboard.avatarStage.getParent();
+  assertTrue(scene.getParent() instanceof android.widget.ScrollView);
+  android.widget.ScrollView viewport=(android.widget.ScrollView)scene.getParent();
+  assertTrue(scene.getHeight()>=460);
+  assertTrue(dashboard.avatarStage.getHeight()>=250);
+  assertTrue(scene.getHeight()>viewport.getHeight());
+  viewport.scrollTo(0,scene.getHeight());
+  assertTrue(viewport.getScrollY()>0);
+  android.graphics.Rect visible=new android.graphics.Rect();
+  assertTrue(findButton(dashboard,"Gmail").getLocalVisibleRect(visible));
  }
  private android.widget.TextView findVisibleText(View root,String label){
   if(!root.isShown())return null;

@@ -7,10 +7,10 @@ import android.content.Intent;
 import android.content.IntentSender;
 import android.os.Handler;
 import android.os.Looper;
-import android.util.Base64;
 import ar.goro.ai.core.HttpRequestScope;
 import com.google.android.gms.auth.api.identity.AuthorizationRequest;
 import com.google.android.gms.auth.api.identity.AuthorizationResult;
+import com.google.android.gms.auth.api.identity.ClearTokenRequest;
 import com.google.android.gms.auth.api.identity.Identity;
 import com.google.android.gms.common.api.ApiException;
 import com.google.android.gms.common.api.Scope;
@@ -38,8 +38,12 @@ public final class GoroGmailGateway {
  public static final String GMAIL_SCOPE="https://www.googleapis.com/auth/gmail.readonly";
  public interface Callback {void complete(String result,String error);}
  interface AuthorizationStarter {Task<AuthorizationResult> authorize(AuthorizationRequest request);}
+ interface TokenInvalidator {Task<Void> clear(String token);}
+ interface JsonReader {JSONObject get(String url,String token,HttpRequestScope.Ticket ticket)throws Exception;}
  private final Activity activity;
  private final AuthorizationStarter authorization;
+ private final TokenInvalidator invalidator;
+ private final JsonReader json;
  private final Handler main=new Handler(Looper.getMainLooper());
  private final HttpRequestScope requests=new HttpRequestScope();
  private volatile boolean closed=false;
@@ -50,11 +54,16 @@ public final class GoroGmailGateway {
  private String pendingQuery;
  private String pendingMessageId;
  private int pendingMessageNumber;
+ private boolean refreshedToken;
  public GoroGmailGateway(Activity activity){
   this(activity,request->Identity.getAuthorizationClient(activity).authorize(request));
  }
  GoroGmailGateway(Activity activity,AuthorizationStarter authorization){
-  this.activity=activity;this.authorization=authorization;
+  this(activity,authorization,token->Identity.getAuthorizationClient(activity)
+    .clearToken(ClearTokenRequest.builder().setToken(token).build()),GoroGmailGateway::getJson);
+ }
+ GoroGmailGateway(Activity activity,AuthorizationStarter authorization,TokenInvalidator invalidator,JsonReader json){
+  this.activity=activity;this.authorization=authorization;this.invalidator=invalidator;this.json=json;
  }
  public void setSelectedAccount(String email){
   long previous=session.generation();
@@ -64,6 +73,8 @@ public final class GoroGmailGateway {
   }
  }
  private boolean current(long epoch){return !closed&&!activity.isFinishing()&&!activity.isDestroyed()&&session.current(epoch);}
+ /** Opaque version for invalidating visible consent when the account/session changes. */
+ public long sessionGeneration(){return session.generation();}
  public void readInbox(Callback callback){authorizeAndRead(callback,null);}
  public void searchInbox(String query,Callback callback){
   if(callback==null)throw new IllegalArgumentException("callback");
@@ -85,11 +96,16 @@ public final class GoroGmailGateway {
   final long epoch=messageId==null?session.begin():session.beginMessageRead();
   requests.cancel();
   pending=callback;pendingQuery=query;pendingMessageId=messageId;pendingMessageNumber=messageNumber;pendingEpoch=epoch;
+  refreshedToken=false;
+  requestAuthorization(epoch);
+ }
+ private void requestAuthorization(long epoch){
+  if(!current(epoch)||pendingEpoch!=epoch)return;
   AuthorizationRequest request=AuthorizationRequest.builder()
-    .setAccount(new Account(email,"com.google"))
+    .setAccount(new Account(session.account(),"com.google"))
     .setRequestedScopes(Collections.singletonList(new Scope(GMAIL_SCOPE)))
     .build();
-  authorization.authorize(request)
+  try{authorization.authorize(request)
    .addOnSuccessListener(result->{
     if(!current(epoch))return;
     if(result==null){complete(epoch,null,"No se recibió autorización Gmail");return;}
@@ -98,10 +114,16 @@ public final class GoroGmailGateway {
      if(intent==null){complete(epoch,null,"Google no devolvió una autorización");return;}
      resolutionEpoch=epoch;
      try{activity.startIntentSenderForResult(intent.getIntentSender(),REQUEST_AUTHORIZATION,null,0,0,0);}
-     catch(IntentSender.SendIntentException e){resolutionEpoch=-1;complete(epoch,null,"No se pudo abrir el consentimiento Google");}
+     // This listener runs asynchronously. The outer authorize() catch cannot
+     // recover a denied or unavailable consent Activity launched from here.
+     catch(IntentSender.SendIntentException|RuntimeException e){
+      resolutionEpoch=-1;complete(epoch,null,"No se pudo abrir el consentimiento Google");
+     }
     }else onAuthorized(epoch,result);
    })
-   .addOnFailureListener(e->complete(epoch,null,"No se pudo iniciar OAuth Gmail: "+e.getClass().getSimpleName()));
+   .addOnFailureListener(e->complete(epoch,null,"No se pudo iniciar OAuth Gmail: "+e.getClass().getSimpleName()))
+   .addOnCanceledListener(()->complete(epoch,null,"Autorización Gmail cancelada"));
+  }catch(RuntimeException e){complete(epoch,null,"No se pudo iniciar la autorización Google.");}
  }
  public void onActivityResult(int requestCode,int resultCode,Intent intent){
   if(requestCode!=REQUEST_AUTHORIZATION||resolutionEpoch==-1)return;
@@ -126,7 +148,7 @@ public final class GoroGmailGateway {
   requests.submit(ticket->{
    try{
     // Gmail's profile verifies the actual owner even when the identity result omits email.
-    String verified=getJson("https://gmail.googleapis.com/gmail/v1/users/me/profile",token,ticket).optString("emailAddress","");
+    String verified=json.get("https://gmail.googleapis.com/gmail/v1/users/me/profile",token,ticket).optString("emailAddress","");
     if(!ticket.current()||!current(epoch))return;
     if(!session.authorize(epoch,verified,token)){
      main.post(()->{if(ticket.current())complete(epoch,null,"Google autorizó otra cuenta. Elegí la misma cuenta que Calendar.");});return;
@@ -142,9 +164,25 @@ public final class GoroGmailGateway {
     }
    }catch(Exception e){
     String error=e.getMessage()==null?"Error Gmail":e.getMessage();
-    main.post(()->{if(ticket.current())complete(epoch,null,error);});
+    main.post(()->{
+     if(!ticket.current()||!current(epoch))return;
+     if(e instanceof GmailHttpException&&((GmailHttpException)e).status==401&&!refreshedToken)
+      refreshInvalidToken(epoch,token);
+     else complete(epoch,null,error);
+    });
    }
   });
+ }
+ private void refreshInvalidToken(long epoch,String token){
+  if(!current(epoch)||pendingEpoch!=epoch)return;
+  refreshedToken=true;
+  // Google caches access tokens. A new authorize() alone can return the same
+  // rejected token; clear only that token and retry this exact operation once.
+  try{invalidator.clear(token)
+    .addOnSuccessListener(unused->{if(current(epoch)&&pendingEpoch==epoch)requestAuthorization(epoch);})
+    .addOnFailureListener(e->complete(epoch,null,"No se pudo renovar el acceso a Gmail. Volvé a intentarlo."))
+    .addOnCanceledListener(()->complete(epoch,null,"Renovación Gmail cancelada"));
+  }catch(RuntimeException e){complete(epoch,null,"No se pudo renovar el acceso a Gmail. Volvé a intentarlo.");}
  }
  private static final class InboxResult {
   final String text;final List<String> ids;
@@ -153,7 +191,7 @@ public final class GoroGmailGateway {
  private InboxResult fetchInbox(String token,String query,String accountEmail,long epoch,HttpRequestScope.Ticket ticket)throws Exception{
   String url="https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=10"+
     (query==null?"&labelIds=INBOX":"&q="+URLEncoder.encode(query,"UTF-8"));
-  JSONObject response=getJson(url,token,ticket);
+  JSONObject response=json.get(url,token,ticket);
   JSONArray messages=response.optJSONArray("messages");
   if(messages==null||messages.length()==0){
    return new InboxResult(query==null?"Gmail: no hay mensajes en la bandeja de entrada.":
@@ -168,7 +206,7 @@ public final class GoroGmailGateway {
    String id=messages.getJSONObject(i).optString("id","");
    if(id.isEmpty())continue;
    ids.add(id);
-   JSONObject item=getJson("https://gmail.googleapis.com/gmail/v1/users/me/messages/"
+   JSONObject item=json.get("https://gmail.googleapis.com/gmail/v1/users/me/messages/"
      +URLEncoder.encode(id,"UTF-8")+"?format=metadata&metadataHeaders=From&metadataHeaders=Subject",token,ticket);
    JSONObject payload=item.optJSONObject("payload");
    JSONArray headers=payload==null?null:payload.optJSONArray("headers");
@@ -195,8 +233,9 @@ public final class GoroGmailGateway {
   authorizeRead(callback,null,id,number);
  }
  private String fetchMessage(String token,String id,int number,HttpRequestScope.Ticket ticket)throws Exception{
-  JSONObject item=getJson("https://gmail.googleapis.com/gmail/v1/users/me/messages/"
+  JSONObject item=json.get("https://gmail.googleapis.com/gmail/v1/users/me/messages/"
     +URLEncoder.encode(id,"UTF-8")+"?format=full",token,ticket);
+  if(!ticket.current())throw new java.util.concurrent.CancellationException();
   JSONObject payload=item.optJSONObject("payload");
   JSONArray headers=payload==null?null:payload.optJSONArray("headers");
   String subject="Sin asunto",from="Remitente no disponible";
@@ -207,26 +246,18 @@ public final class GoroGmailGateway {
    if(name.equalsIgnoreCase("Subject"))subject=header.optString("value",subject);
    if(name.equalsIgnoreCase("From"))from=header.optString("value",from);
   }
-  String body=extractPlainText(payload,0);
-  if(body==null||body.isEmpty())body=item.optString("snippet","Mensaje sin vista previa de texto");
+  String body=GmailMessageText.extract(payload,attachmentId->{
+   if(!ticket.current())throw new java.util.concurrent.CancellationException();
+   return json.get("https://gmail.googleapis.com/gmail/v1/users/me/messages/"+URLEncoder.encode(id,"UTF-8")
+     +"/attachments/"+URLEncoder.encode(attachmentId,"UTF-8"),token,ticket);
+  });
+  if(body==null||body.isEmpty()){
+   String snippet=item.optString("snippet","");
+   body=snippet.isEmpty()?"El correo no contiene un cuerpo de texto legible.":
+     "Gmail sólo ofrece esta vista previa del contenido:\n"+snippet;
+  }
   return "Correo "+number+" · "+limit(subject,150)+"\nDe: "+limit(from,150)
-    +"\n\n"+limit(body,3200);
- }
- private static String extractPlainText(JSONObject payload,int depth){
-  if(payload==null||depth>8)return null;
-  String type=payload.optString("mimeType","");
-  JSONObject body=payload.optJSONObject("body");
-  String encoded=body==null?null:body.optString("data",null);
-  if(type.toLowerCase(java.util.Locale.ROOT).startsWith("text/plain")&&encoded!=null&&!encoded.isEmpty()){
-   try{return new String(Base64.decode(encoded,Base64.URL_SAFE|Base64.NO_WRAP),StandardCharsets.UTF_8);}
-   catch(IllegalArgumentException ignored){}
-  }
-  JSONArray parts=payload.optJSONArray("parts");
-  if(parts!=null)for(int n=0;n<parts.length();n++){
-   String found=extractPlainText(parts.optJSONObject(n),depth+1);
-   if(found!=null&&!found.isEmpty())return found;
-  }
-  return null;
+    +"\n\n"+body;
  }
  private static JSONObject getJson(String url,String token,HttpRequestScope.Ticket ticket)throws Exception{
   if(!ticket.current())throw new java.util.concurrent.CancellationException();
@@ -239,13 +270,20 @@ public final class GoroGmailGateway {
    connection.setRequestProperty("Accept","application/json");
    int status=connection.getResponseCode();
    InputStream source=status>=200&&status<300?connection.getInputStream():connection.getErrorStream();
-   if(source==null)throw new IllegalStateException("Gmail HTTP "+status);
-   byte[] data=readLimited(source,512*1024);
+   if(source==null)throw new GmailHttpException(status);
+   byte[] data=readLimited(source,2*1024*1024);
    if(status<200||status>=300)
-    throw new IllegalStateException(status==401?"Token Gmail vencido; volver a autorizar":
-       status==403?"Permiso Gmail rechazado, o API no habilitada": "Gmail HTTP "+status);
+    throw new GmailHttpException(status);
    return new JSONObject(new String(data,StandardCharsets.UTF_8));
   }finally{ticket.detach(connection);connection.disconnect();}
+ }
+ static final class GmailHttpException extends IllegalStateException {
+  final int status;
+  GmailHttpException(int status){
+   super(status==401?"No se pudo renovar la autorización de Gmail.":
+     status==403?"Permiso Gmail rechazado, o API no habilitada":"Gmail HTTP "+status);
+   this.status=status;
+  }
  }
  private static byte[] readLimited(InputStream input,int max)throws Exception{
   try(InputStream in=input;ByteArrayOutputStream output=new ByteArrayOutputStream()){
