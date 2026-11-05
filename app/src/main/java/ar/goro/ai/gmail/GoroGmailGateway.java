@@ -11,6 +11,7 @@ import ar.goro.ai.core.HttpRequestScope;
 import com.google.android.gms.auth.api.identity.AuthorizationRequest;
 import com.google.android.gms.auth.api.identity.AuthorizationResult;
 import com.google.android.gms.auth.api.identity.ClearTokenRequest;
+import com.google.android.gms.auth.api.identity.RevokeAccessRequest;
 import com.google.android.gms.auth.api.identity.Identity;
 import com.google.android.gms.common.api.ApiException;
 import com.google.android.gms.common.api.Scope;
@@ -26,6 +27,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.HashSet;
+import java.util.Locale;
+import java.util.Set;
 
 /**
  * Read-only Gmail API using the native Google Identity AuthorizationClient.
@@ -39,10 +43,13 @@ public final class GoroGmailGateway {
  public interface Callback {void complete(String result,String error);}
  interface AuthorizationStarter {Task<AuthorizationResult> authorize(AuthorizationRequest request);}
  interface TokenInvalidator {Task<Void> clear(String token);}
+ interface AccessRevoker {Task<Void> revoke(RevokeAccessRequest request);}
  interface JsonReader {JSONObject get(String url,String token,HttpRequestScope.Ticket ticket)throws Exception;}
  private final Activity activity;
  private final AuthorizationStarter authorization;
  private final TokenInvalidator invalidator;
+ private final AccessRevoker revoker;
+ private final Set<String> revokingAccounts=new HashSet<>();
  private final JsonReader json;
  private final Handler main=new Handler(Looper.getMainLooper());
  private final HttpRequestScope requests=new HttpRequestScope();
@@ -63,7 +70,10 @@ public final class GoroGmailGateway {
     .clearToken(ClearTokenRequest.builder().setToken(token).build()),GoroGmailGateway::getJson);
  }
  GoroGmailGateway(Activity activity,AuthorizationStarter authorization,TokenInvalidator invalidator,JsonReader json){
-  this.activity=activity;this.authorization=authorization;this.invalidator=invalidator;this.json=json;
+  this(activity,authorization,invalidator,json,request->Identity.getAuthorizationClient(activity).revokeAccess(request));
+ }
+ GoroGmailGateway(Activity activity,AuthorizationStarter authorization,TokenInvalidator invalidator,JsonReader json,AccessRevoker revoker){
+  this.activity=activity;this.authorization=authorization;this.invalidator=invalidator;this.json=json;this.revoker=revoker;
  }
  public void setSelectedAccount(String email){
   long previous=session.generation();
@@ -75,6 +85,30 @@ public final class GoroGmailGateway {
  private boolean current(long epoch){return !closed&&!activity.isFinishing()&&!activity.isDestroyed()&&session.current(epoch);}
  /** Opaque version for invalidating visible consent when the account/session changes. */
  public long sessionGeneration(){return session.generation();}
+ /** Called after local unlink, so failure cannot restore the account or cached mail. */
+ public void revokeAuthorization(String account,Callback callback){
+  if(callback==null)throw new IllegalArgumentException("callback");
+  if(closed||activity.isFinishing()||activity.isDestroyed()){callback.complete(null,"Gmail cerrado");return;}
+  if(account==null||account.trim().isEmpty()){callback.complete("No hay una cuenta Google vinculada.",null);return;}
+  final String email=account.trim(),key=email.toLowerCase(Locale.ROOT);
+  final long epoch=session.generation();
+  if(!revokingAccounts.add(key)){callback.complete(null,"La revocación del acceso Google sigue en curso.");return;}
+  RevokeAccessRequest request=RevokeAccessRequest.builder()
+    .setAccount(new Account(email,"com.google"))
+    .setScopes(Collections.singletonList(new Scope(GMAIL_SCOPE))).build();
+  try{revoker.revoke(request)
+    .addOnSuccessListener(unused->finishRevocation(key,epoch,callback,null))
+    .addOnFailureListener(error->finishRevocation(key,epoch,callback,revocationFailure()))
+    .addOnCanceledListener(()->finishRevocation(key,epoch,callback,revocationFailure()));
+  }catch(RuntimeException error){finishRevocation(key,epoch,callback,revocationFailure());}
+ }
+ private static String revocationFailure(){
+  return "Cuenta desvinculada en este dispositivo. No pude revocar el acceso de Google. Podés quitar el permiso desde tu cuenta Google.";
+ }
+ private void finishRevocation(String key,long epoch,Callback callback,String error){
+  revokingAccounts.remove(key);
+  if(current(epoch))callback.complete(error==null?"Cuenta desvinculada y acceso a Gmail revocado. No se eliminaron eventos.":null,error);
+ }
  public void readInbox(Callback callback){authorizeAndRead(callback,null);}
  public void searchInbox(String query,Callback callback){
   if(callback==null)throw new IllegalArgumentException("callback");
@@ -92,6 +126,7 @@ public final class GoroGmailGateway {
   if(closed||activity.isFinishing()||activity.isDestroyed()){callback.complete(null,"Gmail cerrado");return;}
   String email=session.account();
   if(email==null){callback.complete(null,"Elegí tu cuenta Google en Ajustes para vincular Calendar y Gmail.");return;}
+  if(revokingAccounts.contains(email.toLowerCase(Locale.ROOT))){callback.complete(null,"Esperá a que termine la revocación de esta cuenta Google antes de autorizar Gmail.");return;}
   if(pending!=null||resolutionEpoch!=-1){callback.complete(null,"Completá o cerrá la autorización Google en curso.");return;}
   final long epoch=messageId==null?session.begin():session.beginMessageRead();
   requests.cancel();
@@ -301,6 +336,7 @@ public final class GoroGmailGateway {
  }
  public void close(){
   closed=true;session.close();requests.close();pending=null;pendingQuery=null;pendingMessageId=null;pendingEpoch=-1;
+  revokingAccounts.clear();
   main.removeCallbacksAndMessages(null);
  }
 }

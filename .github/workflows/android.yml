@@ -61,7 +61,9 @@ jobs:
           print('Static security gate PASS')
           PY
       - name: Test avatar source preservation and release checks
-        run: python3 -m unittest discover -s scripts -p 'test_avatar_assets.py'
+        run: |
+          python3 -m unittest discover -s scripts -p 'test_avatar_assets.py'
+          python3 -m unittest discover -s scripts -p 'test_imported_avatar_rig.py'
       - name: Prepare authored avatar or explicit development fallback
         run: python3 scripts/prepare_avatar.py --allow-procedural
       - name: Validate GORO ZNP animation asset

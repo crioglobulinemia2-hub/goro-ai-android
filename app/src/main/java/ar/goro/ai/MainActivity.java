@@ -179,12 +179,7 @@ public class MainActivity extends Activity {
         if(calendarGateway.selectedGoogleAccount()==null)chooseGoogleAccount();
         else requestCalendarPermissions();
       }
-      public void onUnlinkAccount(){
-        setGoogleAccount(null);
-        dashboard.showGmailStatus("Gmail · cuenta desvinculada");
-        calendarAccountLabel.setText("Cuenta Google: sin vincular");
-        say("Cuenta desvinculada. No se eliminaron eventos.");
-      }
+      public void onUnlinkAccount(){unlinkGoogleAccount();}
       public void onWeather(){runCommand("clima");}
       public void onForecast(){runCommand("pronóstico");}
       public void onConfigureNvidia(){configureNvidia();}
@@ -692,6 +687,32 @@ public class MainActivity extends Activity {
     // Screen-only Gmail results do not enter TTS completion. Keep the same
     // hands-free conversation alive without disclosing mail to NVIDIA.
     if(fromVoice&&generation==speechGeneration)scheduleZ02ListenRetry();
+  }
+  private void unlinkGoogleAccount(){
+    String account=calendarGateway.selectedGoogleAccount();
+    final long command=++commandGeneration;
+    // Stop an already consented mail reading immediately, even if Google is
+    // offline or the revocation request takes time to finish.
+    invalidateVoiceConversation();
+    if(dashboard!=null)dashboard.showAvatarMood(GoroAvatarView.Mood.IDLE);
+    setGoogleAccount(null);
+    calendarAccountLabel.setText("Cuenta Google: sin vincular");
+    if(account==null){
+      if(dashboard!=null)dashboard.showGmailStatus("Gmail · cuenta desvinculada");
+      say("No hay una cuenta Google vinculada.");return;
+    }
+    if(dashboard!=null){
+      dashboard.showGmailStatus("Gmail · cuenta desvinculada en este dispositivo · revocando acceso Google…");
+      dashboard.showAssistantMessage("Cuenta desvinculada en este dispositivo. Revocando acceso Google…");
+    }
+    if(output!=null)output.setText("Cuenta desvinculada en este dispositivo. Revocando acceso Google…");
+    if(state!=null)state.setText("GORO · Desvinculando cuenta Google");
+    gmailGateway.revokeAuthorization(account,(text,error)->{
+      if(!currentCommand(command))return;
+      String result=error==null?text:error;
+      if(dashboard!=null)dashboard.showGmailStatus("Gmail · "+result);
+      say(result);
+    });
   }
   private void setGoogleAccount(String email){
     String previous=calendarGateway.selectedGoogleAccount();
