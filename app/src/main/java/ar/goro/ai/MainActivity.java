@@ -54,6 +54,7 @@ public class MainActivity extends Activity {
   private GoroZn02Controller zn02Controller;
   private GoroZn02GattInspector zn02GattInspector;
   private boolean pendingZn02Inspection=false;
+  private String pendingZnpInspectionModel=null;
   private static final int ZN02_BLE_PERMISSION_REQUEST=65;
   private SharedPreferences memory;
   private MemoryStore memoryStore;
@@ -189,6 +190,7 @@ public class MainActivity extends Activity {
       public void onTestNvidia(){testNemotron();}
       public void onConnectZn02(){connectZn02();}
       public void onInspectZn02(){inspectZn02();}
+      public void onInspectZnpModel(String model){inspectZnpModel(model);}
       public void onZn02LightOn(){if(zn02Controller!=null)zn02Controller.setFlashlight(true);}
       public void onZn02LightOff(){if(zn02Controller!=null)zn02Controller.setFlashlight(false);}
       public void onZn02ReadLight(){if(zn02Controller!=null)zn02Controller.readFlashlight();}
@@ -698,11 +700,14 @@ public class MainActivity extends Activity {
       if(dashboard!=null)dashboard.showDeviceStatus("No se pudo preparar la animación GORO para el ZN02: "+error.getClass().getSimpleName());
     }
   }
-  private void inspectZn02(){
-    if(zn02GattInspector==null){if(dashboard!=null)dashboard.showDeviceStatus("Inspector BLE del ZN02 no disponible.");return;}
+  private void inspectZn02(){inspectZnpModel(null);}
+  private void inspectZnpModel(String model){
+    if(zn02GattInspector==null){if(dashboard!=null)dashboard.showDeviceStatus("Inspector BLE no disponible.");return;}
+    pendingZnpInspectionModel=model;
     String[] missing=zn02GattInspector.neededPermissions();
     if(missing.length>0){pendingZn02Inspection=true;requestPermissions(missing,ZN02_BLE_PERMISSION_REQUEST);return;}
-    pendingZn02Inspection=false;zn02GattInspector.scan();
+    pendingZn02Inspection=false;
+    zn02GattInspector.scan(model);
   }
   private void connectZn02(){
     if(zn02Controller==null){say("El controlador Bluetooth Z02 no está disponible.");return;}
@@ -731,7 +736,7 @@ public class MainActivity extends Activity {
     if(pendingZn02Inspection&&zn02GattInspector!=null){
       String[] missing=zn02GattInspector.neededPermissions();
       if(missing.length>0)requestPermissions(missing,ZN02_BLE_PERMISSION_REQUEST);
-      else{pendingZn02Inspection=false;zn02GattInspector.scan();}
+      else{pendingZn02Inspection=false;zn02GattInspector.scan(pendingZnpInspectionModel);pendingZnpInspectionModel=null;}
     }
   }
   private void searchGmail(String query,boolean fromVoice){
@@ -939,7 +944,7 @@ public class MainActivity extends Activity {
       }else if(granted&&pendingZn02Inspection&&zn02GattInspector!=null){
         pendingZn02Inspection=false;zn02GattInspector.scan();
       }else if(!granted&&dashboard!=null){
-        pendingZn02Connection=false;pendingZn02Inspection=false;
+        pendingZn02Connection=false;pendingZn02Inspection=false;pendingZnpInspectionModel=null;
         dashboard.showDeviceStatus("Android no concedió los permisos Bluetooth necesarios para Z02.");
       }
       return;
