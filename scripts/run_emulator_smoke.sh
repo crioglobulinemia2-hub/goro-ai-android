@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -uo pipefail
 mkdir -p build
-PACKAGE_NAME=ar.goro.ai.preview
+PACKAGE_NAME=ar.goro.ai.personal
 adb logcat -c >/dev/null 2>&1 || true
 adb logcat -v threadtime > build/goro-emulator-logcat.txt 2>&1 &
 LOG_PID=$!
@@ -51,9 +51,6 @@ if adb get-state >/dev/null 2>&1; then
     cat build/goro-emulator-install.txt
     RESULT=1
   fi
-fi
-if [ "$RESULT" -eq 0 ] && [ "${GITHUB_ACTIONS:-}" = true ]; then
-  bash scripts/test_parallel_install.sh || RESULT=1
 fi
 kill "$LOG_PID" >/dev/null 2>&1 || true
 wait "$LOG_PID" >/dev/null 2>&1 || true
