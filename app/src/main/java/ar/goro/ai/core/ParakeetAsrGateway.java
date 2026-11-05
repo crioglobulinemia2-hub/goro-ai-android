@@ -41,13 +41,13 @@ public final class ParakeetAsrGateway {
  }
  public void transcribe(byte[] pcm16Mono,int sampleRate,Callback callback){
   if(callback==null)throw new IllegalArgumentException("callback required");
+  if(closed)return;
+  cancelPending();
   if(pcm16Mono==null||pcm16Mono.length<3200||pcm16Mono.length>480000
       ||pcm16Mono.length%2!=0||sampleRate!=16000){
    callback.completed(null,"El audio del micrófono Z02 no tiene formato PCM16 mono a 16 kHz.");
    return;
   }
-  if(closed)return;
-  cancelPending();
   long requestGeneration=generation.get();
   byte[] audio=pcm16Mono.clone();
   executor.execute(()->{
