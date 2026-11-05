@@ -68,7 +68,7 @@ public final class ParakeetAsrGateway {
     RivaSpeechRecognitionGrpc.RivaSpeechRecognitionBlockingStub stub=
       RivaSpeechRecognitionGrpc.newBlockingStub(channel)
         .withInterceptors(MetadataUtils.newAttachHeadersInterceptor(headers))
-        .withDeadlineAfter(35,TimeUnit.SECONDS);
+        .withDeadlineAfter(12,TimeUnit.SECONDS);
     RecognizeResponse response=requestContext.call(()->stub.recognize(request));
     transcript=transcriptOf(response);
     if(transcript==null||transcript.isEmpty())

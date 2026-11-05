@@ -70,7 +70,7 @@ public final class NemotronSpeechGateway {
     if(text.length()>1800)throw new IllegalArgumentException("Texto demasiado largo para una sola síntesis");
     connection=connections.open(ENDPOINT);
     ticket.attach(connection);
-    connection.setRequestMethod("POST");connection.setConnectTimeout(15000);connection.setReadTimeout(60000);
+    connection.setRequestMethod("POST");connection.setConnectTimeout(10000);connection.setReadTimeout(25000);
     connection.setDoOutput(true);connection.setRequestProperty("Authorization","Bearer "+apiKey);
     connection.setRequestProperty("Content-Type","multipart/form-data; boundary="+boundary);
     connection.setRequestProperty("Accept","audio/wav, application/json");

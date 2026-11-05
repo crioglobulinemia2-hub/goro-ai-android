@@ -85,7 +85,7 @@ public final class NemotronGateway implements ModelGateway {
     connection=(HttpURLConnection)new URL(ENDPOINT).openConnection();
     ticket.attach(connection);
     connection.setRequestMethod("POST");connection.setConnectTimeout(15000);
-    connection.setReadTimeout(90000);connection.setDoOutput(true);
+    connection.setReadTimeout(30000);connection.setDoOutput(true);
     connection.setRequestProperty("Authorization","Bearer "+apiKey);
     connection.setRequestProperty("Content-Type","application/json");
     connection.setRequestProperty("Accept","text/event-stream");

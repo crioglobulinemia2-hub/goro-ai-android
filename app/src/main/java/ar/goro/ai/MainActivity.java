@@ -58,6 +58,9 @@ public class MainActivity extends Activity {
   private SharedPreferences memory;
   private MemoryStore memoryStore;
   private boolean voiceActive=false;
+  private boolean listeningPaused;
+  private int recognitionFailures;
+  private boolean recognitionInProgress;
   private boolean zn02ReadyForVoice=false;
   private boolean nvidiaChatReady=false;
   private boolean magpieDiegoReady=false;
@@ -98,6 +101,7 @@ public class MainActivity extends Activity {
   @Override public void onCreate(Bundle saved) {
     super.onCreate(saved);
     memory=getSharedPreferences("goro_memory",MODE_PRIVATE);
+    listeningPaused=getSharedPreferences("goro_voice_control",MODE_PRIVATE).getBoolean("paused",true);
     memoryStore=new MemoryStore(this);
     reminderScheduler=new ReminderScheduler(this);
     weatherService=new WeatherService();
@@ -170,6 +174,7 @@ public class MainActivity extends Activity {
     memoryStore.migrateLegacy(memory);
     dashboard=new ar.goro.ai.ui.GoroDashboardView(this,new ar.goro.ai.ui.GoroDashboardView.Actions(){
       public void onCommand(String text){runCommand(text);}
+      public void onToggleListening(){toggleListening();}
       public void onLinkAccount(){chooseGoogleAccount();}
       public void onReadGmail(){runCommand("gmail");}
       public void onCalendarPermission(){
@@ -200,6 +205,7 @@ public class MainActivity extends Activity {
     dashboard.showNvidiaStatus(nemotronGateway==null?"NVIDIA NIM: requiere API key":"NVIDIA NIM: clave guardada · sin prueba de conexión");
     dashboard.showVoiceStatus(speechGateway!=null?"NVIDIA Magpie · voz Diego · pendiente de prueba":"NVIDIA Magpie: falta API key · salida de voz deshabilitada");
     setContentView(dashboard);
+    dashboard.setListeningPaused(listeningPaused);
     connectZn02();
   }
   @Override protected void onActivityResult(int request,int result,Intent data) {
@@ -212,6 +218,27 @@ public class MainActivity extends Activity {
       if(result==RESULT_OK&&data!=null){String email=data.getStringExtra(AccountManager.KEY_ACCOUNT_NAME);String type=data.getStringExtra(AccountManager.KEY_ACCOUNT_TYPE);if(email==null||!"com.google".equals(type)){say("No se seleccionó una cuenta Google válida.");return;}try{setGoogleAccount(email);dashboard.showGmailStatus("Gmail · cuenta seleccionada: "+email+" · requiere autorización");calendarAccountLabel.setText("Calendario Android · "+email);say("Cuenta "+email+" seleccionada para GORO. Ahora autorizá el acceso al calendario.");requestCalendarPermissions();}catch(Exception e){say("No pude seleccionar esa cuenta Google.");}}
       else say("Selección de cuenta Google cancelada.");
     }
+  }
+  private void toggleListening(){
+    setListeningPaused(!listeningPaused);
+  }
+  private void setListeningPaused(boolean paused){
+    listeningPaused=paused;
+    getSharedPreferences("goro_voice_control",MODE_PRIVATE).edit().putBoolean("paused",paused).apply();
+    recognitionFailures=0;
+    if(paused){
+      commandGeneration++;
+      invalidateVoiceConversation();
+      serviceCheckGeneration++;
+      if(speechProbe!=null)speechProbe.cancel();
+      if(state!=null)state.setText("GORO · Escucha pausada");
+      if(dashboard!=null)dashboard.showAvatarMood(GoroAvatarView.Mood.IDLE);
+    }else{
+      if(!zn02ReadyForVoice)connectZn02();
+      if(nemotronGateway!=null)resumeVoiceAfterZ02Connected();
+      else if(state!=null)state.setText("Configurá NVIDIA para activar la conversación.");
+    }
+    if(dashboard!=null)dashboard.setListeningPaused(paused);
   }
   private void cancelStreamedReply(){
     if(!modelReplyStreaming)return;
@@ -278,7 +305,7 @@ public class MainActivity extends Activity {
     });
   }
   private void startZ02Listening(){
-    if(!foreground||!voiceActive||speechInProgress||zn02Controller==null)return;
+    if(listeningPaused||recognitionInProgress||!foreground||!voiceActive||speechInProgress||zn02Controller==null)return;
     cancelVoiceRetry();
     if(zn02Controller.isVoiceCaptureActive())return;
     if(!zn02Controller.startVoice()){
@@ -294,7 +321,7 @@ public class MainActivity extends Activity {
     pendingVoiceRetry=null;
   }
   private void scheduleZ02ListenRetry(){
-    if(!foreground||!voiceActive||speechInProgress||pendingVoiceRetry!=null)return;
+    if(listeningPaused||recognitionInProgress||!foreground||!voiceActive||speechInProgress||pendingVoiceRetry!=null)return;
     final long generation=speechGeneration;
     pendingVoiceRetry=()->{
       pendingVoiceRetry=null;
@@ -304,7 +331,7 @@ public class MainActivity extends Activity {
     voiceRetryHandler.postDelayed(pendingVoiceRetry,500);
   }
   private void invalidateVoiceConversation(){
-    voiceActive=false;speechInProgress=false;modelReplyStreaming=false;speechChunkActive=false;
+    voiceActive=false;speechInProgress=false;modelReplyStreaming=false;speechChunkActive=false;recognitionInProgress=false;
     speechGeneration++;speechChunks.clear();pendingSpeechWav=null;cancelVoiceRetry();
     if(asrGateway!=null)asrGateway.cancelPending();
     if(nemotronGateway!=null)nemotronGateway.cancelPending();
@@ -314,17 +341,30 @@ public class MainActivity extends Activity {
     if(dashboard!=null)dashboard.setVoiceActive(false);
   }
   private void handleZ02Pcm(byte[] pcm){
-    if(!foreground||!voiceActive||speechInProgress)return;
+    if(listeningPaused||recognitionInProgress||!foreground||!voiceActive||speechInProgress)return;
+    byte[] prepared=ar.goro.ai.voice.PcmSpeechSignal.prepare(pcm);
+    if(prepared==null){
+      if(state!=null)state.setText("GORO · No detecté voz clara; sigo escuchando");
+      scheduleZ02ListenRetry();return;
+    }
     if(asrGateway==null){say("NVIDIA ASR no está configurado.");return;}
     if(state!=null)state.setText("GORO · Transcribiendo voz Z02 con NVIDIA");
     if(dashboard!=null)dashboard.showAvatarMood(GoroAvatarView.Mood.THINKING);
     final long generation=speechGeneration;
-    asrGateway.transcribe(pcm,16000,(transcript,error)->{
+    recognitionInProgress=true;cancelVoiceRetry();
+    asrGateway.transcribe(prepared,16000,(transcript,error)->{
       if(!foreground||!voiceActive||speechInProgress||generation!=speechGeneration)return;
+      recognitionInProgress=false;
       if(error!=null||transcript==null||transcript.trim().isEmpty()){
         if(output!=null)output.setText("No pude reconocer la frase del Z02: "+(error==null?"audio sin transcripción":error));
-        startZ02Listening();return;
+        recognitionFailures++;
+        if(recognitionFailures>=2){
+          setListeningPaused(true);
+          if(output!=null)output.setText("Pausé la escucha después de dos fallos de reconocimiento. Podés reactivarla con Activar escucha.");
+        }else scheduleZ02ListenRetry();
+        return;
       }
+      recognitionFailures=0;
       runCommand(transcript,true);
     });
   }
@@ -532,6 +572,7 @@ public class MainActivity extends Activity {
     });
   }
   private void resumeVoiceAfterZ02Connected(){
+    if(listeningPaused)return;
     // A new authenticated device connection is a bounded opportunity to retry
     // a failed speech probe instead of reusing its cached failure forever.
     if(!nvidiaAsrReady&&speechProbe!=null&&!speechProbe.isRunning())speechProbe.reset();
@@ -540,7 +581,7 @@ public class MainActivity extends Activity {
     maybeStartHandsFreeConversation();
   }
   private void maybeStartHandsFreeConversation(){
-    if(!foreground)return;
+    if(listeningPaused||!foreground)return;
     if(voiceActive||!zn02ReadyForVoice)return;
     if(!nvidiaChatReady||!magpieDiegoReady||!nvidiaAsrReady||asrGateway==null){
       if(dashboard!=null)dashboard.showDeviceStatus("Z02 conectado. La conversación manos libres espera la validación de Nemotron, Parakeet y Magpie Diego.");
@@ -653,8 +694,8 @@ public class MainActivity extends Activity {
     // A permission/account screen may have interrupted the initial health
     // checks. Retry on return rather than leaving hands-free mode waiting
     // forever for callbacks that onStop correctly cancelled.
-    if(nemotronGateway!=null&&(!nvidiaChatReady||!magpieDiegoReady))verifyNvidiaServices();
-    if(magpieDiegoReady&&!nvidiaAsrReady)startSpeechReadinessProbe();
+    if(!listeningPaused&&nemotronGateway!=null&&(!nvidiaChatReady||!magpieDiegoReady))verifyNvidiaServices();
+    if(!listeningPaused&&magpieDiegoReady&&!nvidiaAsrReady)startSpeechReadinessProbe();
     if(zn02ReadyForVoice&&nvidiaChatReady&&magpieDiegoReady&&nvidiaAsrReady&&!voiceActive)maybeStartHandsFreeConversation();
     if(pendingZn02Connection&&zn02Controller!=null){
       String[] missing=zn02Controller.neededPermissions();

@@ -311,6 +311,7 @@ public final class GoroZn02Controller {
   if(!controller.getRcspOp().isRcspInit(target)||!controller.getRcspOp().isDeviceAuthPass(target)){emit("La sesión RCSP del Z02 dejó de estar autenticada.");return false;}
   final BluetoothDevice device=target;final long epoch=connectionEpoch;final long capture=++voiceEpoch;
   microphonePcm=new ByteArrayOutputStream();final ByteArrayOutputStream out=microphonePcm;
+  final ar.goro.ai.voice.PcmSpeechEndpoint endpointer=new ar.goro.ai.voice.PcmSpeechEndpoint();
   try{
    RecordOpImpl op=RecordOpImpl.getInstance(controller.getRcspOp());recorder=op;
    OpusManager opus=new OpusManager();decoder=opus;recording=true;draining=false;
@@ -343,6 +344,7 @@ public final class GoroZn02Controller {
       if(closed||epoch!=connectionEpoch||capture!=voiceEpoch||(!recording&&!draining))return;
       if(out.size()+copy.length>480000){stopVoice();return;}
       boolean first=out.size()==0;out.write(copy,0,copy.length);if(first)emit("PCM16 recibido desde el micrófono Z02.");
+      if(recording&&endpointer.accept(copy))stopVoice();
      });
     }
     @Override public void onComplete(String path){mainHandler.post(()->{if(epoch==connectionEpoch&&capture==voiceEpoch&&draining)finishVoice();});}

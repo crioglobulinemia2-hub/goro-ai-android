@@ -16,8 +16,9 @@ import static org.junit.Assert.*;
 @RunWith(RobolectricTestRunner.class)
 public class GoroDashboardViewTest {
  private static final class Calls implements GoroDashboardView.Actions {
-  int commands,link,gmail,calendar,unlink,weather,forecast,reminders,connect,inspect,lightOn,lightOff,lightRead,animation,nvidia;
+  int commands,link,gmail,calendar,unlink,weather,forecast,reminders,connect,inspect,lightOn,lightOff,lightRead,animation,nvidia,toggle;
   public void onCommand(String value){commands++;}
+  public void onToggleListening(){toggle++;}
   public void onLinkAccount(){link++;}
   public void onReadGmail(){gmail++;}
   public void onCalendarPermission(){calendar++;}
@@ -58,6 +59,17 @@ public class GoroDashboardViewTest {
   }
   return null;
  }
+ @Test public void listeningControlStaysVisibleAcrossSectionsAndCallsRealToggle(){
+  Activity activity=Robolectric.buildActivity(Activity.class).setup().get();Calls calls=new Calls();
+  GoroDashboardView dashboard=new GoroDashboardView(activity,calls,null,false);activity.setContentView(dashboard);
+  dashboard.setListeningPaused(true);Button control=findButton(dashboard,"Activar escucha");assertNotNull(control);assertTrue(control.isShown());
+  control.performClick();assertEquals(1,calls.toggle);
+  dashboard.setListeningPaused(false);
+  for(String section:new String[]{"Ajustes","Conversar","Dispositivos","Conversar","Gmail"}){
+   findButton(dashboard,section).performClick();Button pause=findButton(dashboard,"Pausar escucha");assertNotNull(pause);assertTrue(pause.isShown());
+  }
+  findButton(dashboard,"Pausar escucha").performClick();assertEquals(2,calls.toggle);
+ }
  @Test public void homeHasFourSectionsAndOnlyQuickActions(){
   Activity activity=Robolectric.buildActivity(Activity.class).setup().get();
   Calls calls=new Calls();
@@ -86,7 +98,7 @@ public class GoroDashboardViewTest {
   findButton(dashboard,"Dispositivos").performClick();
   findButton(dashboard,"Conectar ZNP Z02").performClick();
   assertNull(findButton(dashboard,"Hablar con GORO"));
-  assertNotNull(findText(dashboard,"Conversación manos libres automática cuando Z02 y NVIDIA estén conectados"));
+  assertNotNull(findText(dashboard,"Activá o pausá la escucha con el botón superior. La pausa se mantiene al reconectar."));
   assertEquals(1,calls.connect);
   findButton(dashboard,"Ajustes").performClick();
   findButton(dashboard,"Vincular cuenta Google").performClick();

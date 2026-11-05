@@ -20,6 +20,7 @@ import static org.junit.Assert.*;
 @RunWith(AndroidJUnit4.class)
 public class GoroLaunchSmokeTest {
  @Before public void grantRuntimePermissions(){
+  InstrumentationRegistry.getInstrumentation().getTargetContext().getSharedPreferences("goro_voice_control",0).edit().clear().commit();
   android.app.UiAutomation automation=InstrumentationRegistry.getInstrumentation().getUiAutomation();
   String packageName=InstrumentationRegistry.getInstrumentation().getTargetContext().getPackageName();
   for(String permission:new String[]{
@@ -38,14 +39,33 @@ public class GoroLaunchSmokeTest {
     View root=activity.findViewById(android.R.id.content);
     assertNotNull(root);
     assertNotNull(findText(root,"GORO IA"));
-    assertNotNull(findText(root,"GORO IA · Conversación manos libres por ZNP Z02. La conexión se inicia automáticamente."));
-    assertNotNull(findText(root,"Z02 · esperando conexión automática"));
+    assertNotNull(findText(root,"GORO IA · Tocá Activar escucha para conversar por ZNP Z02. Podés pausarla en cualquier momento."));
+    assertNotNull(findText(root,"Escucha pausada"));
     assertNotNull(findText(root,"Conversar"));
     assertNotNull(findText(root,"Explorar"));
     assertNotNull(findText(root,"Automatizar"));
     assertNotNull(findText(root,"Ajustes"));
     assertNotNull(findText(root,"Dispositivos"));
     assertEquals(4,countVisibleNavigation(root));
+   });
+  }
+ }
+ @Test public void listeningTogglePausesImmediatelyAndSurvivesRecreation(){
+  try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)){
+   scenario.onActivity(activity->{
+    View root=activity.findViewById(android.R.id.content);
+    TextView activate=findText(root,"Activar escucha");assertNotNull(activate);assertTrue(activate.isShown());
+    activate.performClick();TextView pause=findText(root,"Pausar escucha");assertNotNull(pause);
+    assertFalse(activity.getSharedPreferences("goro_voice_control",0).getBoolean("paused",true));
+    findText(root,"Dispositivos").performClick();assertTrue(pause.isShown());pause.performClick();
+    assertTrue(activity.getSharedPreferences("goro_voice_control",0).getBoolean("paused",false));
+   });
+   scenario.recreate();
+   scenario.onActivity(activity->{
+    View root=activity.findViewById(android.R.id.content);
+    assertNotNull(findText(root,"Activar escucha"));assertNotNull(findText(root,"Escucha pausada"));
+    try{java.lang.reflect.Field field=MainActivity.class.getDeclaredField("voiceActive");field.setAccessible(true);assertFalse(field.getBoolean(activity));}
+    catch(ReflectiveOperationException error){throw new AssertionError(error);}
    });
   }
  }
@@ -89,7 +109,7 @@ public class GoroLaunchSmokeTest {
     assertEquals("Lower controls must be visible at initial scroll position",0,viewport.getScrollY());
     assertFullyVisible(dashboard[0].state);
     assertFullyVisible(findText(dashboard[0],"Gmail"));
-    assertFullyVisible(findDescription(dashboard[0],"Estado del micrófono Z02"));
+    assertFullyVisible(findDescription(dashboard[0],"Activar escucha"));
    });
   }
  }

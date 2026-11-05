@@ -33,6 +33,7 @@ public final class GoroDashboardView extends LinearLayout {
   void onForecast(); void onReminders(); void onConfigureNvidia(); void onTestNvidia();
   void onConnectZn02(); void onInspectZn02(); void onZn02LightOn(); void onZn02LightOff();
   void onZn02ReadLight(); void onZn02AudioOn(); void onZn02AudioOff(); void onInstallGoroAnimation();
+  default void onToggleListening(){}
  }
  private static final int BG=0xff030c17,SURFACE=0xee091d30,EDGE=0xff25465f;
  private static final int TEXT=0xffeef8ff,MUTED=0xff91abc3,CYAN=0xff2bd8ff;
@@ -47,7 +48,9 @@ public final class GoroDashboardView extends LinearLayout {
  private final LinearLayout pageContent,navigation;
  private final TextView title,clock,date,weather,agenda,homeDevices,speechBubble,conversationStatus;
  private final TextView agendaValue,gmailValue,devicesValue,nvidiaValue,voiceValue;
- private final Button back,microphone;
+ private final Button back,microphone,listeningToggle;
+ private final TextView listeningLabel;
+ private boolean listeningPaused=true;
  private final LinearLayout agendaPanel,gmailPanel,devicePanel,settingsPanel,explorePanel,automationPanel;
  private final GoroSection[] primary={GoroSection.HOME,GoroSection.EXPLORE,GoroSection.AUTOMATIONS,GoroSection.SETTINGS};
  private final Handler handler=new Handler(Looper.getMainLooper());
@@ -71,6 +74,14 @@ public final class GoroDashboardView extends LinearLayout {
   header.addView(title,new LinearLayout.LayoutParams(0,dp(52),1));
   Button deviceShortcut=iconButton("","devices",()->select(GoroSection.DEVICES),false,23);deviceShortcut.setContentDescription("Mis dispositivos");header.addView(deviceShortcut,new LinearLayout.LayoutParams(dp(46),dp(46)));
   addView(header,new LinearLayout.LayoutParams(-1,dp(56)));
+  LinearLayout voiceBar=new LinearLayout(a);voiceBar.setGravity(Gravity.CENTER_VERTICAL);
+  listeningLabel=text("Escucha pausada",14,true,MUTED);
+  voiceBar.addView(listeningLabel,new LinearLayout.LayoutParams(0,dp(44),1));
+  listeningLabel.setGravity(Gravity.CENTER_VERTICAL);
+  listeningToggle=iconButton("Activar escucha","mic",()->actions.onToggleListening(),true,18);
+  listeningToggle.setTextSize(13);listeningToggle.setCompoundDrawables(null,null,null,null);
+  voiceBar.addView(listeningToggle,new LinearLayout.LayoutParams(dp(156),dp(44)));
+  addView(voiceBar,new LinearLayout.LayoutParams(-1,dp(48)));
   View line=new View(a);line.setBackground(new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,new int[]{0x002bd8ff,0x905cb8ef,0x002bd8ff}));addView(line,new LinearLayout.LayoutParams(-1,dp(1)));
   body=new FrameLayout(a);addView(body,new LinearLayout.LayoutParams(-1,0,1));
   // Preserve the scene and reachable controls in landscape and split screen.
@@ -117,19 +128,19 @@ public final class GoroDashboardView extends LinearLayout {
   LinearLayout quick=new LinearLayout(a);quick.setGravity(Gravity.CENTER_VERTICAL);
   quick.addView(quick("Agenda","agenda",()->{select(GoroSection.AGENDA);actions.onCommand("agenda hoy");}),quickParams());
   quick.addView(quick("Gmail","mail",()->{select(GoroSection.GMAIL);actions.onReadGmail();}),quickParams());
-  microphone=iconButton("","mic",()->select(GoroSection.DEVICES),true,31);microphone.setContentDescription("Estado del micrófono Z02");microphone.setBackground(ripple(0xff063453,0xff07486b,40,0xff33cffa));microphone.setElevation(dp(9));
+  microphone=iconButton("","mic",()->actions.onToggleListening(),true,31);microphone.setContentDescription("Activar escucha");microphone.setBackground(ripple(0xff063453,0xff07486b,40,0xff33cffa));microphone.setElevation(dp(9));
   LinearLayout.LayoutParams micParams=new LinearLayout.LayoutParams(dp(74),dp(74));micParams.setMargins(dp(6),0,dp(6),0);quick.addView(microphone,micParams);
   quick.addView(quick("Proyectos","folder",()->select(GoroSection.EXPLORE)),quickParams());quick.addView(quick("Dispositivos","devices",()->select(GoroSection.DEVICES)),quickParams());
   lower.addView(quick,new LinearLayout.LayoutParams(-1,dp(82)));
-  conversationStatus=text("Z02 · esperando conexión automática",10,false,MUTED);conversationStatus.setGravity(Gravity.CENTER);conversationStatus.setSingleLine();conversationStatus.setEllipsize(TextUtils.TruncateAt.END);lower.addView(conversationStatus,new LinearLayout.LayoutParams(-1,dp(22)));lower.addView(state,new LinearLayout.LayoutParams(-1,dp(20)));
+  conversationStatus=text("Escucha pausada",10,false,MUTED);conversationStatus.setGravity(Gravity.CENTER);conversationStatus.setSingleLine();conversationStatus.setEllipsize(TextUtils.TruncateAt.END);lower.addView(conversationStatus,new LinearLayout.LayoutParams(-1,dp(22)));lower.addView(state,new LinearLayout.LayoutParams(-1,dp(20)));
   home.addView(lower,new FrameLayout.LayoutParams(-1,dp(124),Gravity.BOTTOM));
   pages=new ScrollView(a);pages.setFillViewport(true);pageContent=new LinearLayout(a);pageContent.setOrientation(VERTICAL);pageContent.setPadding(dp(4),dp(16),dp(4),dp(20));pages.addView(pageContent);body.addView(pages,new FrameLayout.LayoutParams(-1,-1));
-  output=text("GORO IA · Conversación manos libres por ZNP Z02. La conexión se inicia automáticamente.",16,false,TEXT);output.setTextIsSelectable(true);output.setPadding(dp(16),dp(14),dp(16),dp(14));output.setBackground(glass(16));pageContent.addView(output,new LinearLayout.LayoutParams(-1,-2));
+  output=text("GORO IA · Tocá Activar escucha para conversar por ZNP Z02. Podés pausarla en cualquier momento.",16,false,TEXT);output.setTextIsSelectable(true);output.setPadding(dp(16),dp(14),dp(16),dp(14));output.setBackground(glass(16));pageContent.addView(output,new LinearLayout.LayoutParams(-1,-2));
   output.addTextChangedListener(new android.text.TextWatcher(){public void beforeTextChanged(CharSequence t,int start,int count,int after){}public void onTextChanged(CharSequence t,int start,int before,int count){showAssistantMessage(t.toString());}public void afterTextChanged(android.text.Editable text){}});
   agendaValue=text("Todavía no consultaste tu agenda.",15,false,TEXT);gmailValue=text("Autorizá tu cuenta para consultar Gmail.",15,false,TEXT);devicesValue=text("ZNP Z02 · Conexión automática pendiente.",15,false,TEXT);nvidiaValue=text("NVIDIA · pendiente de conexión",13,false,TEXT);voiceValue=text("Diego · pendiente de conexión",13,false,TEXT);accountLabel=text(account==null?"Google Calendar: sin vincular":"Calendar · "+account,13,false,MUTED);
   agendaPanel=panel();agendaPanel.addView(card("TU AGENDA",agendaValue));addAction(agendaPanel,"Consultar agenda de hoy","agenda",()->actions.onCommand("agenda hoy"));addAction(agendaPanel,"Consultar agenda de mañana","agenda",()->actions.onCommand("agenda mañana"));
   gmailPanel=panel();gmailPanel.addView(card("TU CORREO",gmailValue));addAction(gmailPanel,"Actualizar bandeja","mail",()->actions.onReadGmail());
-  devicePanel=panel();devicePanel.addView(card("ZNP Z02",devicesValue));TextView deviceCaption=text("Conversación manos libres automática cuando Z02 y NVIDIA estén conectados",13,false,MUTED);deviceCaption.setPadding(dp(10),dp(8),dp(10),dp(14));devicePanel.addView(deviceCaption);
+  devicePanel=panel();devicePanel.addView(card("ZNP Z02",devicesValue));TextView deviceCaption=text("Activá o pausá la escucha con el botón superior. La pausa se mantiene al reconectar.",13,false,MUTED);deviceCaption.setPadding(dp(10),dp(8),dp(10),dp(14));devicePanel.addView(deviceCaption);
   addAction(devicePanel,"Conectar ZNP Z02","link",()->actions.onConnectZn02());addAction(devicePanel,"Instalar animación GORO en visor Z02","face",()->actions.onInstallGoroAnimation());
   settingsPanel=panel();settingsPanel.addView(card("TU CUENTA",accountLabel));addAction(settingsPanel,"Vincular cuenta Google","link",()->actions.onLinkAccount());addAction(settingsPanel,"Autorizar Calendar","agenda",()->actions.onCalendarPermission());addAction(settingsPanel,"Autorizar Gmail","mail",()->actions.onReadGmail());settingsPanel.addView(card("INTELIGENCIA",nvidiaValue));settingsPanel.addView(card("VOZ DIEGO",voiceValue));addAction(settingsPanel,"Configurar NVIDIA","settings",()->actions.onConfigureNvidia());addAction(settingsPanel,"Verificar NVIDIA","link",()->actions.onTestNvidia());addAction(settingsPanel,"Desvincular cuenta Google","settings",()->actions.onUnlinkAccount());
   explorePanel=panel();TextView projectNote=text("Tus ideas y proyectos\n\nPedile a Goro que recuerde un dato o consultá lo que ya guardaste.",16,false,TEXT);explorePanel.addView(card("MEMORIA PERSONAL",projectNote));addAction(explorePanel,"Consultar memoria","folder",()->actions.onCommand("qué recordás"));
@@ -167,7 +178,15 @@ public final class GoroDashboardView extends LinearLayout {
   if(status.startsWith("Captura del micrófono Z02 recibida ("))return "Z02 · voz recibida";
   return status;
  }
- public void setVoiceActive(boolean active){conversationStatus.setText(active?"Te escucho desde Z02":"Z02 · esperando conexión automática");conversationStatus.setTextColor(active?CYAN:MUTED);microphone.setAlpha(active?1f:.72f);}
+ public void setVoiceActive(boolean active){conversationStatus.setText(listeningPaused?"Escucha pausada":active?"Te escucho desde Z02":"Z02 · preparando conexión");conversationStatus.setTextColor(active&&!listeningPaused?CYAN:MUTED);microphone.setAlpha(active&&!listeningPaused?1f:.55f);}
+ public void setListeningPaused(boolean paused){
+  listeningPaused=paused;
+  String label=paused?"Activar escucha":"Pausar escucha";
+  listeningToggle.setText(label);listeningToggle.setContentDescription(label);
+  microphone.setContentDescription(label);microphone.setAlpha(paused?.55f:1f);
+  listeningLabel.setText(paused?"Escucha pausada":"Escucha activada");listeningLabel.setTextColor(paused?MUTED:CYAN);
+  conversationStatus.setText(paused?"Escucha pausada":"Z02 · preparando conversación");
+ }
  public void showVoiceStatus(String value){
   String status=value==null||value.trim().isEmpty()?"Voz sin conexión":value.trim();
   // Preserve the service result when microphone capture starts or stops.
