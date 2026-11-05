@@ -130,7 +130,7 @@ public final class GoroZn02Controller {
      if(closed||!scanning||device==null||controller==null)return;
      String name=null;
      try{name=device.getName();}catch(SecurityException ignored){}
-     ZnpDeviceProfile profile=ZnpDeviceProfile.detect(name);
+     ZnpDeviceProfile profile=ZnpAdvertisement.profile(name,message==null?null:message.getRawData());
      if(!profile.isCandidate())return;
      target=device;
      try{controller.stopScan();}catch(RuntimeException ignored){}
@@ -185,6 +185,31 @@ public final class GoroZn02Controller {
    return new String[]{Manifest.permission.ACCESS_FINE_LOCATION};
   return new String[0];
  }
+ static boolean isScanLocationReady(Context context){
+  if(Build.VERSION.SDK_INT>=31)return true;
+  android.location.LocationManager location=(android.location.LocationManager)context.getSystemService(Context.LOCATION_SERVICE);
+  if(location==null)return false;
+  try{
+   if(Build.VERSION.SDK_INT>=28)return location.isLocationEnabled();
+   return location.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER)
+     ||location.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER);
+  }catch(SecurityException error){return false;}
+ }
+ static BluetoothOption scanOptions(){
+  return BluetoothOption.createDefaultOption()
+      .setUseMultiDevice(true)
+      .setPriority(0)
+      .setMandatoryUseBLE(false)
+      .setMtu(509)
+      .setUseDeviceAuth(true)
+      .setBleScanMode(2)
+      // SDK defaults filter vendor advertising formats and discard devices
+      // whose Android name cache is empty before our callback can inspect them.
+      // Discover broadly, then apply our Z02 name filter and RCSP authentication.
+      .setBleScanStrategy(BluetoothConstant.NONE_FILTER)
+      .setSkipNoNameDev(false)
+      .setReconnect(false);
+ }
  public synchronized void startScan(){
   if(closed){emit("Controlador ZN02 cerrado.");return;}
   if(connected&&target!=null){emit("El Z02 ya tiene una sesión Bluetooth abierta.");return;}
@@ -194,15 +219,9 @@ public final class GoroZn02Controller {
    BluetoothAdapter adapter=manager==null?null:manager.getAdapter();
    if(adapter==null){emit("El dispositivo Android no tiene Bluetooth; GORO sigue funcionando sin ZN02.");return;}
    if(!adapter.isEnabled()){emit("Bluetooth está apagado. Activá Bluetooth para conectar el ZN02.");return;}
+   if(!isScanLocationReady(context)){emit("En Android 11 o anterior, activá Ubicación para que Android permita buscar el ZNP Z02. No se inició la búsqueda.");return;}
    if(!RCSPController.isInit()){
-    BluetoothOption option=BluetoothOption.createDefaultOption()
-      .setUseMultiDevice(true)
-      .setPriority(0)
-      .setMandatoryUseBLE(false)
-      .setMtu(509)
-      .setUseDeviceAuth(true)
-      .setBleScanMode(2)
-      .setReconnect(false);
+    BluetoothOption option=scanOptions();
     RCSPController.init(context,option);
    }
    controller=RCSPController.getInstance();
@@ -212,7 +231,7 @@ public final class GoroZn02Controller {
   if(scanning){emit("La búsqueda ZNP ya está activa.");return;}
   target=null;connected=false;vendorProtocolVerified=false;
   controller.addBTRcspEventCallback(eventCallback);
-  emit("Buscando exclusivamente ZN02 / ZNP N02 con el protocolo Bluetooth del dispositivo…");
+  emit("Buscando ZNP Z02 / ZN02 / ZNP N02 por Bluetooth LE…");
   scanning=controller.startBleScan(20000);
   if(!scanning)emit("El SDK JieLi no pudo iniciar el escaneo. Revisá Bluetooth y permisos.");
  }
