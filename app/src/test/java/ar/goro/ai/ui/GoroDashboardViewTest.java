@@ -228,6 +228,20 @@ public class GoroDashboardViewTest {
   android.graphics.Rect visible=new android.graphics.Rect();
   assertTrue(findButton(dashboard,"Gmail").getLocalVisibleRect(visible));
  }
+ @Test @Config(qualifiers="w400dp-h800dp-port-mdpi")
+ public void tallPortraitFillsViewportWithoutLettingRoomImagePushControlsBelowIt(){
+  Activity activity=Robolectric.buildActivity(Activity.class).setup().get();
+  GoroDashboardView dashboard=new GoroDashboardView(activity,new Calls(),null,false);
+  activity.setContentView(dashboard);
+  dashboard.measure(View.MeasureSpec.makeMeasureSpec(400,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(800,View.MeasureSpec.EXACTLY));
+  dashboard.layout(0,0,400,800);
+  View scene=(View)dashboard.avatarStage.getParent();
+  android.widget.ScrollView viewport=(android.widget.ScrollView)scene.getParent();
+  assertEquals("Scene should fill a tall viewport without unnecessary scrolling",viewport.getHeight(),scene.getHeight());
+  assertEquals(0,viewport.getScrollY());
+  android.graphics.Rect visible=new android.graphics.Rect();
+  assertTrue("Connection status must be visible without scrolling",dashboard.state.getLocalVisibleRect(visible));
+ }
  private android.widget.TextView findVisibleText(View root,String label){
   if(!root.isShown())return null;
   if(root instanceof android.widget.TextView && label.contentEquals(((android.widget.TextView)root).getText()))return (android.widget.TextView)root;

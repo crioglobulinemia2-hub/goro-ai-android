@@ -88,3 +88,20 @@ cleanup, and a later detach does not destroy the engine twice.
 in addition to rendering after repeated avatar removal and reattachment.
 These native tests require an Android Vulkan renderer; successful JVM or asset
 checks alone do not establish that the native cleanup tests passed.
+
+## Visual frame synchronization and scene sizing
+
+The first integrated CI run rendered the robot in its post-test screenshot and
+passed both native lifecycle tests, but its hide/show pixel comparison failed.
+The recorded software-renderer HWUI frames took roughly 1.1–2.9 seconds, longer
+than the test's 200 ms hidden and 1 s visible delays. The comparison now waits
+for Android's frame-commit callback after each visibility change, then waits
+up to ten seconds for the original pixel-difference condition. The transparency
+threshold (24), robot pixel threshold (45), and required count (>100) are
+unchanged. The hidden/visible screenshots are saved as CI evidence.
+
+The scrollable scene now starts at an explicit 460 dp height and uses
+ScrollView's fillViewport to expand on taller screens. WRAP_CONTENT allowed the
+room image's intrinsic height to enlarge the scene unnecessarily, clipping the
+connection status below the viewport. Portrait and short-landscape regression
+tests cover the intended sizing behavior. These changes await a new CI run.

@@ -7,6 +7,10 @@ LOG_PID=$!
 set +e
 gradle --no-daemon connectedDebugAndroidTest
 RESULT=$?
+# Instrumentation copies the before/after render evidence to shared emulator
+# storage before its app can be uninstalled by the test runner.
+adb pull /sdcard/Download/goro-visual-test build/goro-visual-test \
+  > build/goro-visual-evidence-pull.txt 2>&1 || true
 # Android instrumentation may uninstall the app under test. Reinstall the
 # exact same freshly built APK before collecting UI evidence.
 if adb get-state >/dev/null 2>&1; then

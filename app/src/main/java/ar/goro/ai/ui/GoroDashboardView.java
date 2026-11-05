@@ -77,7 +77,10 @@ public final class GoroDashboardView extends LinearLayout {
   // A fixed-height viewport otherwise collapses the avatar behind the footer.
   homeScroll=new ScrollView(a);homeScroll.setFillViewport(true);homeScroll.setVerticalScrollBarEnabled(false);
   body.addView(homeScroll,new FrameLayout.LayoutParams(-1,-1));
-  home=new FrameLayout(a);home.setMinimumHeight(dp(460));homeScroll.addView(home,new ScrollView.LayoutParams(-1,-2));
+  // Give the scroll child an explicit minimum scene height. WRAP_CONTENT
+  // would use the room drawable's intrinsic height and push controls below
+  // even a tall viewport. fillViewport expands this height when space allows.
+  home=new FrameLayout(a);home.setMinimumHeight(dp(460));homeScroll.addView(home,new ScrollView.LayoutParams(-1,dp(460)));
   ImageView room=new ImageView(a);room.setImageResource(R.drawable.goro_room);room.setScaleType(ImageView.ScaleType.CENTER_CROP);room.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
   home.addView(room,new FrameLayout.LayoutParams(-1,-1));
   View sceneShade=new View(a);sceneShade.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,new int[]{0x20241a10,0x00180f09,0xe6030c17}));sceneShade.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);home.addView(sceneShade,new FrameLayout.LayoutParams(-1,-1));

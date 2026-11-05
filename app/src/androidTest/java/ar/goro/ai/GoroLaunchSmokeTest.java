@@ -68,7 +68,7 @@ public class GoroLaunchSmokeTest {
    });
   }
  }
- @Test public void nativeAvatarRendersWithTransparentEdgesOverTheRoom(){
+ @Test public void nativeAvatarRendersWithTransparentEdgesOverTheRoom() throws Exception{
   try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)){
    final GoroAvatarView[] avatar=new GoroAvatarView[1];
    final int[] bounds=new int[4];
@@ -82,15 +82,28 @@ public class GoroLaunchSmokeTest {
     bounds[0]=position[0];bounds[1]=position[1];
     bounds[2]=avatar[0].getWidth();bounds[3]=avatar[0].getHeight();
     assertTrue(bounds[2]>40&&bounds[3]>40);
-    avatar[0].setVisibility(View.INVISIBLE);
+
    });
-   SystemClock.sleep(200);
+   changeVisibilityAndAwaitCommit(scenario,avatar[0],View.INVISIBLE);
    Bitmap room=InstrumentationRegistry.getInstrumentation().getUiAutomation().takeScreenshot();
    assertNotNull(room);
-   scenario.onActivity(activity->avatar[0].setVisibility(View.VISIBLE));
-   SystemClock.sleep(1000);
-   Bitmap rendered=InstrumentationRegistry.getInstrumentation().getUiAutomation().takeScreenshot();
-   assertNotNull(rendered);
+   persistCapture("room-hidden.png",room);
+   changeVisibilityAndAwaitCommit(scenario,avatar[0],View.VISIBLE);
+   // Software Vulkan can take more than a second to present a frame. Wait
+   // for the same pixel evidence asserted below, not for an arbitrary sleep.
+   // The deadline still fails a surface that never draws the actual robot.
+   Bitmap rendered=null;
+   int changed=0;
+   long deadline=SystemClock.uptimeMillis()+10000;
+   do{
+    if(rendered!=null)rendered.recycle();
+    rendered=InstrumentationRegistry.getInstrumentation().getUiAutomation().takeScreenshot();
+    assertNotNull(rendered);
+    changed=countChangedPixels(room,rendered,bounds);
+    if(changed>100)break;
+    SystemClock.sleep(100);
+   }while(SystemClock.uptimeMillis()<deadline);
+   persistCapture("robot-visible.png",rendered);
    // The left edge is outside the full-height model and the right-hand cards.
    // It must retain the underlying room, not an opaque Vulkan clear rectangle.
    for(float fraction:new float[]{.35f,.45f,.55f}){
@@ -101,15 +114,54 @@ public class GoroLaunchSmokeTest {
        colorDistance(room.getPixel(x,y),rendered.getPixel(x,y))<=24);
     }
    }
-   int changed=0;
-   for(int y=bounds[1];y<bounds[1]+bounds[3];y+=6){
-    for(int x=bounds[0];x<bounds[0]+bounds[2];x+=6){
-     if(colorDistance(room.getPixel(x,y),rendered.getPixel(x,y))>45)changed++;
-    }
-   }
    assertTrue("Transparent surface must also draw the actual robot",changed>100);
    room.recycle();rendered.recycle();
   }
+ }
+ private static void persistCapture(String filename,Bitmap bitmap){
+  java.io.File folder=new java.io.File(
+      InstrumentationRegistry.getInstrumentation().getTargetContext().getExternalFilesDir(null),
+      "goro-visual-test");
+  if(!folder.isDirectory()&&!folder.mkdirs())return;
+  java.io.File image=new java.io.File(folder,filename);
+  try(java.io.FileOutputStream file=new java.io.FileOutputStream(image)){
+   bitmap.compress(Bitmap.CompressFormat.PNG,100,file);
+  }catch(java.io.IOException failure){
+   android.util.Log.w("GoroVisualTest","Could not save visual evidence",failure);return;
+  }
+  // Preserve only these emulator screenshots if AGP removes the test package.
+  copyEvidenceWithShell("mkdir -p /sdcard/Download/goro-visual-test");
+  copyEvidenceWithShell("cp "+shellQuote(image.getAbsolutePath())+
+      " /sdcard/Download/goro-visual-test/"+filename);
+ }
+ private static String shellQuote(String value){return "'"+value.replace("'","'\\''")+"'";}
+ private static void copyEvidenceWithShell(String command){
+  android.os.ParcelFileDescriptor result=
+      InstrumentationRegistry.getInstrumentation().getUiAutomation().executeShellCommand(command);
+  try(java.io.InputStream stream=new android.os.ParcelFileDescriptor.AutoCloseInputStream(result)){
+   byte[] buffer=new byte[256];while(stream.read(buffer)!=-1){}
+  }catch(java.io.IOException failure){android.util.Log.w("GoroVisualTest","Could not preserve visual evidence",failure);}
+ }
+ private static void changeVisibilityAndAwaitCommit(ActivityScenario<MainActivity> scenario,
+     View avatar,int visibility) throws InterruptedException{
+  java.util.concurrent.CountDownLatch committed=new java.util.concurrent.CountDownLatch(1);
+  scenario.onActivity(activity->{
+   View root=activity.findViewById(android.R.id.content);
+   root.getViewTreeObserver().registerFrameCommitCallback(committed::countDown);
+   avatar.setVisibility(visibility);
+   root.invalidate();
+  });
+  assertTrue("Android must commit the avatar visibility change",
+      committed.await(10,java.util.concurrent.TimeUnit.SECONDS));
+ }
+ private static int countChangedPixels(Bitmap room,Bitmap rendered,int[] bounds){
+  int changed=0;
+  for(int y=bounds[1];y<bounds[1]+bounds[3];y+=6){
+   for(int x=bounds[0];x<bounds[0]+bounds[2];x+=6){
+    if(colorDistance(room.getPixel(x,y),rendered.getPixel(x,y))>45)changed++;
+   }
+  }
+  return changed;
  }
  private static int colorDistance(int a,int b){
   return Math.abs(Color.red(a)-Color.red(b))+Math.abs(Color.green(a)-Color.green(b))+Math.abs(Color.blue(a)-Color.blue(b));

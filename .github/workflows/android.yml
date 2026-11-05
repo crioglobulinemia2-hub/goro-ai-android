@@ -180,5 +180,7 @@ jobs:
             build/goro-emulator-ui.png
             build/goro-emulator-tablet.png
             build/goro-emulator-gfxinfo.txt
+            build/goro-visual-test/**
+            build/goro-visual-evidence-pull.txt
           if-no-files-found: warn
 

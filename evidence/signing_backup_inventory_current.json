@@ -1,0 +1,13 @@
+{
+  "generated_at": "2026-11-05T00:56:08.986486+00:00",
+  "local_identity_xattr_matches": true,
+  "known_local_copies_identical": true,
+  "original_1_1_0_key_found": false,
+  "archive_redownloaded": false,
+  "private_content_printed": false,
+  "conclusion": "El único respaldo conocido conserva la clave Recovery; no permite firmar una actualización de la APK original 1.1.0. No se afirma inexistencia de otras copias desconocidas.",
+  "application_id": "ar.goro.ai.personal",
+  "available_certificate_sha256": "8702426c72ebf740f3055daaf0df591feeddcf0f76918e8b5abf5acc2189ec10",
+  "baseline_1_1_0_certificate_sha256": "81ed6978c3af615fe6f346354d0c3528bbfe4c080c07a229c9227a94110b2b06",
+  "provenance": "Known signing backup metadata and previously verified public certificates."
+}

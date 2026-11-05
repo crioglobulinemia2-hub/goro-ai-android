@@ -159,16 +159,21 @@ public final class DeviceCalendarGateway implements CalendarGateway {
   ContentValues values=new ContentValues();
   values.put(CalendarContract.Events.TITLE,event.title);values.put(CalendarContract.Events.DTSTART,start);
   values.put(CalendarContract.Events.DTEND,end);values.put(CalendarContract.Events.EVENT_TIMEZONE,event.timezone);
+  // Voice create/reprogram commands supply a specific time and duration. An
+  // existing all-day event must become timed instead of retaining ALL_DAY=1.
+  values.put(CalendarContract.Events.ALL_DAY,0);
   values.put(CalendarContract.Events.DESCRIPTION,event.description);return values;
  }
  private void verifyEditableEvent(Ticket ticket,long id)throws Exception{
   Set<Long> ids=selectedCalendarIds(ticket,true);
-  String[] columns={CalendarContract.Events._ID,CalendarContract.Events.CALENDAR_ID,CalendarContract.Events.RRULE};
+  String[] columns={CalendarContract.Events._ID,CalendarContract.Events.CALENDAR_ID,CalendarContract.Events.RRULE,CalendarContract.Events.RDATE};
   try(Cursor c=context.getContentResolver().query(ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI,id),columns,null,null,null)){
    requireCurrent(ticket);
    if(c==null||!c.moveToFirst())throw new IllegalStateException("Evento inexistente.");
    if(!ids.contains(c.getLong(1)))throw new IllegalStateException("Ese evento no pertenece a un calendario editable de la cuenta seleccionada.");
-   if(c.getString(2)!=null&&!c.getString(2).isEmpty())throw new IllegalStateException("No modifico series recurrentes automáticamente.");
+   if((c.getString(2)!=null&&!c.getString(2).isEmpty())
+     ||(c.getString(3)!=null&&!c.getString(3).isEmpty()))
+    throw new IllegalStateException("No modifico series recurrentes automáticamente.");
   }
  }
  @Override public void update(CalendarEvent event,Callback<CalendarEvent> cb){

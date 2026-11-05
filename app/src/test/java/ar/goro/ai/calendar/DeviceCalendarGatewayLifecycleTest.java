@@ -52,6 +52,7 @@ public class DeviceCalendarGatewayLifecycleTest {
  }
  private static final class Provider extends ContentProvider {
   int queries,inserts,updates,deletes;String queriedAccount;Runnable afterCalendarQuery;
+  int eventAllDay;String recurrenceRule,recurrenceDates;ContentValues lastUpdate;
   public boolean onCreate(){return true;}
   public String getType(Uri uri){return null;}
   public Cursor query(Uri uri,String[] projection,String selection,String[] args,String sort){
@@ -64,12 +65,16 @@ public class DeviceCalendarGatewayLifecycleTest {
     cursor.addRow(new Object[]{11L,"Cuenta uno",1000L,2000L,"UTC","",1L});
     cursor.addRow(new Object[]{22L,"Cuenta dos",1000L,2000L,"UTC","",2L});
    }else if(path.startsWith("/events")){
-    cursor.addRow(new Object[]{11L,1L,null});
+    cursor.addRow(new Object[]{11L,1L,recurrenceRule,recurrenceDates});
    }
    return cursor;
   }
   public Uri insert(Uri uri,ContentValues values){inserts++;return Uri.withAppendedPath(uri,"99");}
-  public int update(Uri uri,ContentValues values,String selection,String[] args){updates++;return 1;}
+  public int update(Uri uri,ContentValues values,String selection,String[] args){
+   updates++;lastUpdate=new ContentValues(values);
+   if(values.containsKey(CalendarContract.Events.ALL_DAY))eventAllDay=values.getAsInteger(CalendarContract.Events.ALL_DAY);
+   return 1;
+  }
   public int delete(Uri uri,String selection,String[] args){deletes++;return 1;}
  }
  @Before public void setup(){
@@ -151,5 +156,31 @@ public class DeviceCalendarGatewayLifecycleTest {
   gateway.create(valid,(result,error)->{assertNull(error);received.set(result);});
   executor.runAll();shadowOf(Looper.getMainLooper()).idle();
   assertNotNull(received.get());assertEquals(1,provider.inserts);
+ }
+ @Test public void reprogrammingAnAllDayEventPersistsTheRequestedTime(){
+  provider.eventAllDay=1;AtomicReference<CalendarEvent> received=new AtomicReference<>();
+  CalendarEvent timed=new CalendarEvent("11","Consulta","2026-11-05T15:30:00-03:00",
+    "2026-11-05T16:30:00-03:00","America/Argentina/Buenos_Aires","");
+  gateway.update(timed,(result,error)->{assertNull(error);received.set(result);});
+  executor.runAll();shadowOf(Looper.getMainLooper()).idle();
+  assertNotNull(received.get());assertEquals(1,provider.updates);assertEquals(0,provider.eventAllDay);
+  assertEquals(java.time.Instant.parse("2026-11-05T18:30:00Z").toEpochMilli(),
+    provider.lastUpdate.getAsLong(CalendarContract.Events.DTSTART).longValue());
+  assertEquals("America/Argentina/Buenos_Aires",provider.lastUpdate.getAsString(CalendarContract.Events.EVENT_TIMEZONE));
+ }
+ private void assertRecurringEventIsNotModified(){
+  AtomicInteger callbacks=new AtomicInteger();
+  gateway.update(event(),(result,error)->{assertNull(result);assertTrue(error.contains("series recurrentes"));callbacks.incrementAndGet();});
+  gateway.delete("11",(result,error)->{assertFalse(result);assertTrue(error.contains("series recurrentes"));callbacks.incrementAndGet();});
+  executor.runAll();shadowOf(Looper.getMainLooper()).idle();
+  assertEquals(2,callbacks.get());assertEquals(0,provider.updates+provider.deletes);
+ }
+ @Test public void recurrenceDatesCannotBeModifiedAsASingleOccurrence(){
+  provider.recurrenceDates="20261105T100000Z,20261106T100000Z";
+  assertRecurringEventIsNotModified();
+ }
+ @Test public void recurrenceRuleRemainsProtected(){
+  provider.recurrenceRule="FREQ=DAILY;COUNT=2";
+  assertRecurringEventIsNotModified();
  }
 }
