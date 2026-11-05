@@ -162,8 +162,7 @@ public class MainActivity extends Activity {
         try{
           z02Player.setTarget(audioTarget.getAddress(),audioTarget.getName());
           zn02ReadyForVoice=true;
-          if(!nvidiaChatReady||!magpieDiegoReady)verifyNvidiaServices();
-          else maybeStartHandsFreeConversation();
+          resumeVoiceAfterZ02Connected();
         }catch(SecurityException error){
           zn02ReadyForVoice=false;
           if(dashboard!=null)dashboard.showDeviceStatus("Android no autorizó identificar la salida de audio Z02.");
@@ -513,6 +512,14 @@ public class MainActivity extends Activity {
       if(dashboard!=null)dashboard.showVoiceStatus(message);
       maybeStartHandsFreeConversation();
     });
+  }
+  private void resumeVoiceAfterZ02Connected(){
+    // A new authenticated device connection is a bounded opportunity to retry
+    // a failed speech probe instead of reusing its cached failure forever.
+    if(!nvidiaAsrReady&&speechProbe!=null&&!speechProbe.isRunning())speechProbe.reset();
+    if(!nvidiaChatReady||!magpieDiegoReady){verifyNvidiaServices();return;}
+    if(!nvidiaAsrReady)startSpeechReadinessProbe();
+    maybeStartHandsFreeConversation();
   }
   private void maybeStartHandsFreeConversation(){
     if(!foreground)return;
