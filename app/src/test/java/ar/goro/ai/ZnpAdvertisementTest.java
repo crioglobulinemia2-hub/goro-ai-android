@@ -8,6 +8,10 @@ public class ZnpAdvertisementTest {
  @Test public void findsZ02WhenAndroidNameCacheIsEmpty(){assertTrue(ZnpAdvertisement.profile(null,name(9,"ZNP Z02")).isCandidate());}
  @Test public void findsZ02WhenAndroidCacheContainsOldGenericName(){assertTrue(ZnpAdvertisement.profile("Bluetooth device",name(9,"ZNP Z02")).isCandidate());}
  @Test public void recognizesShortenedLocalName(){assertTrue(ZnpAdvertisement.profile(null,name(8,"ZNP Z02")).isCandidate());}
+ @Test public void currentAdvertisementOverridesStaleCachedModel(){
+  assertEquals(ZnpDeviceProfile.Model.N02_CANDIDATE,ZnpAdvertisement.profile("ZNP Z02",name(9,"ZNP N02")).model);
+  assertEquals(ZnpDeviceProfile.Model.Z02_CANDIDATE,ZnpAdvertisement.profile("ZNP N02",name(9,"ZNP Z02")).model);
+ }
  @Test public void completeNameOverridesShortenedName(){byte[] shortName=name(8,"ZNP Z02"),fullName=name(9,"Other device");byte[] raw=new byte[shortName.length+fullName.length];System.arraycopy(shortName,0,raw,0,shortName.length);System.arraycopy(fullName,0,raw,shortName.length,fullName.length);assertFalse(ZnpAdvertisement.profile(null,raw).isCandidate());}
  @Test public void manufacturerBytesCannotMasqueradeAsLocalName(){assertFalse(ZnpAdvertisement.profile(null,name(255,"ZNP Z02")).isCandidate());}
  @Test public void malformedRecordCannotReadBeyondItsLength(){assertFalse(ZnpAdvertisement.profile(null,new byte[]{100,9,90,48,50}).isCandidate());assertNull(ZnpAdvertisement.localName(new byte[]{0}));assertNull(ZnpAdvertisement.localName(new byte[]{1}));}
