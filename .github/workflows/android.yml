@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: goro-android-${{ github.sha }}
+  group: goro-android-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
