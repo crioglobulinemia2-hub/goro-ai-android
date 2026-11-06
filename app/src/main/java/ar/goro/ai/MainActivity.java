@@ -127,12 +127,14 @@ public class MainActivity extends Activity {
         if("Reproduciendo por ZNP".equals(value)&&dashboard!=null)dashboard.avatarSpeak(pendingSpeechText,pendingSpeechWav);
       }
       public void onError(String error){
+        String fallback=remainingSpeechText(pendingSpeechText);
         cancelStreamedReply();
-        speechInProgress=false;speechChunkActive=false;modelReplyStreaming=false;speechChunks.clear();pendingSpeechWav=null;
-        if(state!=null)state.setText("GORO · Audio del dispositivo ZNP no disponible");
-        if(output!=null)output.setText(output.getText()+"\n\n"+error);
+        speechChunkActive=false;modelReplyStreaming=false;speechChunks.clear();pendingSpeechWav=null;
+        if(state!=null)state.setText("GORO · Salida Bluetooth no disponible; usando voz local");
+        if(output!=null)output.setText(output.getText()+"\n\n"+error+"\nUso el altavoz del teléfono como respaldo.");
         if(dashboard!=null)dashboard.showAvatarMood(GoroAvatarView.Mood.ALERT);
-        if(voiceActive)startZ02Listening();
+        if(!fallback.trim().isEmpty())speakLocally(fallback,null);
+        else{speechInProgress=false;if(voiceActive)startZ02Listening();}
       }
       public void onCompleted(){onSpeechPlaybackCompleted();}
     });
