@@ -1,0 +1,14 @@
+{
+  "generated_at": "2026-11-05T00:56:16.446186+00:00",
+  "observed_by": "root via connected browser",
+  "application_id": "ar.goro.ai.personal",
+  "android_oauth_certificate_sha1": "1c64b2e6daa81852d163c7af46a1e544b6dddc12",
+  "available_signing_certificate_sha1": "1c64b2e6daa81852d163c7af46a1e544b6dddc12",
+  "oauth_android_identity_matches_available_key": true,
+  "gmail_api_enabled": true,
+  "owner_test_user_listed": true,
+  "google_configuration_mutated": false,
+  "android_user_consent_completed": false,
+  "installed_device_certificate_verified": false,
+  "limitation": "Google Cloud configuration was observed. Consent, token exchange and Gmail read from the target Android installation remain unverified."
+}

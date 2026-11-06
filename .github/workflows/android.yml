@@ -1,8 +1,15 @@
 name: Build Android APK
 on:
   push:
+    branches: [main, work/goro-repair-20261105]
+  pull_request:
     branches: [main]
   workflow_dispatch:
+
+concurrency:
+  group: goro-android-${{ github.sha }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -27,6 +34,7 @@ jobs:
           curl --fail --location --retry 3 "$BASE/jldecryption_v0.4-release.aar" -o app/libs/jldecryption_v0.4-release.aar
           curl --fail --location --retry 3 "$BASE/GifConvert_V1.3.0_42-release.aar" -o app/libs/GifConvert_V1.3.0_42-release.aar
           curl --fail --location --retry 3 "$BASE/BmpConvert_V1.6.0_10605-release.aar" -o app/libs/BmpConvert_V1.6.0_10605-release.aar
+          curl --fail --location --retry 3 "$BASE/jl_audio_decode_V2.1.0_20012-release.aar" -o app/libs/jl_audio_decode_V2.1.0_20012-release.aar
           test "$(stat -c%s app/libs/jl_bluetooth_rcsp_V4.2.0_40250-release.aar)" = "1284165"
           test "$(stat -c%s app/libs/jldecryption_v0.4-release.aar)" = "42233"
           test "$(stat -c%s app/libs/GifConvert_V1.3.0_42-release.aar)" = "355226"
@@ -35,6 +43,8 @@ jobs:
           test "$(git hash-object app/libs/jldecryption_v0.4-release.aar)" = "fd933770e05afe815240922641a76fe62be7778b"
           test "$(git hash-object app/libs/GifConvert_V1.3.0_42-release.aar)" = "2d586af21f244f5337f29a0f656eac2186b40f6f"
           test "$(git hash-object app/libs/BmpConvert_V1.6.0_10605-release.aar)" = "00f1fafab6e4fc1357f09b20275b7d5c7fd7d2c8"
+          test "$(stat -c%s app/libs/jl_audio_decode_V2.1.0_20012-release.aar)" = "1445327"
+          test "$(git hash-object app/libs/jl_audio_decode_V2.1.0_20012-release.aar)" = "1a609561d533cdbbd161459eece838e2038f85ed"
       - name: Install Android 36 SDK and build tools
         run: |
           SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
@@ -55,10 +65,16 @@ jobs:
             assert not re.search(r'nvapi-[A-Za-z0-9_-]{12,}',s),f'Embedded NVIDIA key in {p}'
           print('Static security gate PASS')
           PY
+      - name: Test avatar source preservation and release checks
+        run: |
+          python3 -m unittest discover -s scripts -p 'test_avatar_assets.py'
+          python3 -m unittest discover -s scripts -p 'test_imported_avatar_rig.py'
+      - name: Prepare authored avatar or explicit development fallback
+        run: python3 scripts/prepare_avatar.py --allow-procedural
       - name: Validate GORO ZNP animation asset
         run: python3 scripts/validate_znp_animation.py
       - name: Unit tests and build
-        run: gradle --no-daemon clean testDebugUnitTest assembleDebug
+        run: gradle --no-daemon clean testDebugUnitTest assembleDebug assembleRelease
       - name: Android memory persistence tests (Robolectric)
         run: gradle --no-daemon testDebugUnitTest
       - name: Upload JVM test reports
@@ -81,25 +97,35 @@ jobs:
           assert 'android.permission.BLUETOOTH_PRIVILEGED' not in permissions
           activities=root.findall('.//activity')
           assert len(activities)==1 and activities[0].attrib.get(android+'exported')=='true'
-          apk=Path('app/build/outputs/apk/debug/app-debug.apk')
-          assert apk.is_file() and apk.stat().st_size>0
-          with zipfile.ZipFile(apk) as z:
-            assert z.testzip() is None
-            assert 'AndroidManifest.xml' in z.namelist()
-          print('Manifest, permissions, APK ZIP integrity: PASS')
+          for apk in [Path('app/build/outputs/apk/debug/app-debug.apk'),
+                      Path('app/build/outputs/apk/release/app-release-unsigned.apk')]:
+            assert apk.is_file() and apk.stat().st_size>0, f'Missing APK: {apk}'
+            with zipfile.ZipFile(apk) as z:
+              assert z.testzip() is None
+              assert 'AndroidManifest.xml' in z.namelist()
+          print('Manifest, permissions, debug and release APK ZIP integrity: PASS')
           PY
-      - name: Check 12-of-12 release readiness without claiming completion
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          "${SDK_ROOT}/build-tools/36.0.0/apksigner" verify --verbose app/build/outputs/apk/debug/app-debug.apk
+          echo "Release compiled unsigned; owner certificate is supplied only for private builds."
+      - name: Enforce strict 12-of-12 release acceptance
         if: always()
-        run: python3 scripts/release_gate.py --report build/goro-release-readiness.json
+        run: python3 scripts/release_gate.py --strict --report build/goro-release-readiness.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: GoroAI-release-readiness
           path: build/goro-release-readiness.json
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: GoroAI-debug-apk
           path: app/build/outputs/apk/debug/*.apk
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: GoroAI-unsigned-release-apk
+          path: app/build/outputs/apk/release/*.apk
   emulator-smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -123,25 +149,49 @@ jobs:
           curl --fail --location --retry 3 "$BASE/jldecryption_v0.4-release.aar" -o app/libs/jldecryption_v0.4-release.aar
           curl --fail --location --retry 3 "$BASE/GifConvert_V1.3.0_42-release.aar" -o app/libs/GifConvert_V1.3.0_42-release.aar
           curl --fail --location --retry 3 "$BASE/BmpConvert_V1.6.0_10605-release.aar" -o app/libs/BmpConvert_V1.6.0_10605-release.aar
+          curl --fail --location --retry 3 "$BASE/jl_audio_decode_V2.1.0_20012-release.aar" -o app/libs/jl_audio_decode_V2.1.0_20012-release.aar
           test "$(git hash-object app/libs/jl_bluetooth_rcsp_V4.2.0_40250-release.aar)" = "96be927894a69eb4af1fcc7dc1191a337360f86e"
           test "$(git hash-object app/libs/jldecryption_v0.4-release.aar)" = "fd933770e05afe815240922641a76fe62be7778b"
           test "$(git hash-object app/libs/GifConvert_V1.3.0_42-release.aar)" = "2d586af21f244f5337f29a0f656eac2186b40f6f"
           test "$(git hash-object app/libs/BmpConvert_V1.6.0_10605-release.aar)" = "00f1fafab6e4fc1357f09b20275b7d5c7fd7d2c8"
+          test "$(stat -c%s app/libs/jl_audio_decode_V2.1.0_20012-release.aar)" = "1445327"
+          test "$(git hash-object app/libs/jl_audio_decode_V2.1.0_20012-release.aar)" = "1a609561d533cdbbd161459eece838e2038f85ed"
+      - name: Prepare the same avatar for emulator
+        run: python3 scripts/prepare_avatar.py --allow-procedural
+      - name: Enable KVM acceleration on GitHub runner
+        run: |
+          set -euo pipefail
+          if test -e /dev/kvm; then
+            sudo chmod 666 /dev/kvm
+            test -r /dev/kvm && test -w /dev/kvm
+            echo "KVM access available to Android emulator"
+          else
+            echo "::warning::KVM unavailable; Android emulator will use slow software emulation"
+          fi
       - name: Android emulator launch and navigation tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 30
-          target: default
+          api-level: 36
+          target: google_apis
           arch: x86_64
           profile: pixel_2
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -wipe-data -camera-back none
-          script: gradle --no-daemon connectedDebugAndroidTest
+          script: bash scripts/run_emulator_smoke.sh
       - name: Upload Android instrumentation reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: GoroAI-emulator-test-reports
-          path: app/build/outputs/androidTest-results/connected/**/*.xml
+          path: |
+            app/build/outputs/androidTest-results/connected/**/*.xml
+            build/goro-emulator-logcat.txt
+            build/goro-emulator-ui.png
+            build/goro-emulator-tablet.png
+            build/goro-emulator-gfxinfo.txt
+            build/goro-visual-test/**
+            build/goro-visual-evidence-pull.txt
+            build/parallel-install/*.json
+            build/parallel-install/*.txt
           if-no-files-found: warn
 

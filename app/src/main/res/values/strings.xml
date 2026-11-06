@@ -1,1 +1,4 @@
-<resources><string name="app_name">GORO AI</string><string name="google_oauth_client_id"></string></resources>
+<resources>
+    <string name="app_name">GORO IA 1.2.7 Paralela</string>
+    <string name="google_oauth_client_id"></string>
+</resources>
