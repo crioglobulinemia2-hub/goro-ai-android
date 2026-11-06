@@ -338,12 +338,12 @@ public class MainActivity extends Activity {
       resumeVoiceAfterZ02Connected();
       return;
     }
-    if(attempt>=30){
+    if(attempt>=90){
       cancelZnpAudioRouteCheck();
       zn02ReadyForVoice=false;
       if(dashboard!=null)dashboard.showDeviceStatus(outputs.size()>1
         ?"Android informa varias salidas de audio posibles para "+zn02Controller.connectedModelLabel()+". No se inició la escucha para evitar usar otro dispositivo."
-        :"Android no confirmó una salida A2DP para "+zn02Controller.connectedModelLabel()+" después de 15 segundos. La conexión BLE no se considera audio listo.");
+        :"Android no confirmó una salida A2DP para "+zn02Controller.connectedModelLabel()+" después de 45 segundos. La conexión BLE no se considera audio listo.");
       return;
     }
     pendingZnpAudioModel=model;
