@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Package an authored avatar unchanged; procedural geometry is development-only."""
+"""Package the project-owned GORO humanoid; generate its first-party GLB when absent."""
 import argparse
 import hashlib
 import json
@@ -93,13 +93,23 @@ def prepare_avatar(root=ROOT, allow_procedural=False):
     if authored.is_file():
         data = authored.read_bytes()
         validate_contract(data, authored=True)
-        kind = "authored"
+        kind = "authored-source"
     else:
-        require(allow_procedural, "Missing authored avatar: " + AUTHORED_RELATIVE)
+        # Matías no dispone de un GLB externo. Build the character from the
+        # project's own geometry/rig authoring source instead of asking him
+        # for an asset or silently shipping an empty avatar.
         subprocess.run([sys.executable, str(root / "scripts/generate_goro_glb.py")], check=True)
         data = (root / PROCEDURAL_RELATIVE).read_bytes()
-        validate_contract(data)
-        kind = "procedural-development"
+        doc = validate_contract(data)
+        require(doc.get("asset", {}).get("generator") ==
+                "GORO first-party parametric articulated character authoring",
+                "Generated avatar is not the first-party GORO character")
+        validate_contract(data, authored=True)
+        authored.parent.mkdir(parents=True, exist_ok=True)
+        temporary_source = authored.with_suffix(".glb.tmp")
+        temporary_source.write_bytes(data)
+        temporary_source.replace(authored)
+        kind = "first-party-parametric-authored"
     runtime.parent.mkdir(parents=True, exist_ok=True)
     temporary = runtime.with_suffix(".glb.tmp")
     temporary.write_bytes(data)
@@ -109,7 +119,7 @@ def prepare_avatar(root=ROOT, allow_procedural=False):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--allow-procedural", action="store_true",
-                        help="Permit the development model when no authored GLB exists; never release approval")
+                        help="Deprecated compatibility flag; the first-party GORO GLB is generated automatically")
     args = parser.parse_args()
     try:
         print(json.dumps(prepare_avatar(allow_procedural=args.allow_procedural)))
