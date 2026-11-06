@@ -79,6 +79,33 @@ public class Z02ConnectionStatusTest {
    assertEquals("El Z02 ya tiene una sesión Bluetooth abierta.",listener.last);
   }finally{controller.close();}
  }
+ @Test public void selectingAnotherModelNeverSilentlyReusesTheCurrentLink()throws Exception{
+  Listener listener=new Listener();GoroZn02Controller controller=new GoroZn02Controller(RuntimeEnvironment.getApplication(),listener);
+  try{
+   BluetoothDevice device=BluetoothAdapter.getDefaultAdapter().getRemoteDevice("12:34:56:78:90:AB");
+   field("target").set(controller,device);field("connected").setBoolean(controller,true);
+   field("activeModel").set(controller,"Z02");
+   controller.startScan("N02");shadowOf(Looper.getMainLooper()).idle();
+   assertTrue(field("connected").getBoolean(controller));
+   assertSame(device,field("target").get(controller));
+   assertEquals("Z02",field("activeModel").get(controller));
+   assertTrue(listener.last.contains("ZNP Z02"));
+   assertFalse(field("scanning").getBoolean(controller));
+  }finally{controller.close();}
+ }
+ @Test public void explicitDisconnectReleasesCurrentModelAndCapture()throws Exception{
+  Listener listener=new Listener();GoroZn02Controller controller=new GoroZn02Controller(RuntimeEnvironment.getApplication(),listener);
+  try{
+   BluetoothDevice device=BluetoothAdapter.getDefaultAdapter().getRemoteDevice("12:34:56:78:90:AB");
+   field("target").set(controller,device);field("connected").setBoolean(controller,true);
+   field("recording").setBoolean(controller,true);
+   controller.disconnect();shadowOf(Looper.getMainLooper()).idle();
+   assertNull(field("target").get(controller));
+   assertFalse(field("connected").getBoolean(controller));
+   assertFalse(controller.isVoiceCaptureActive());
+   assertEquals("Dispositivo ZNP desconectado desde GORO.",listener.last);
+  }finally{controller.close();}
+ }
  @Test public void oldDisconnectCannotStopANewerConnection()throws Exception{
   Listener listener=new Listener();GoroZn02Controller controller=new GoroZn02Controller(RuntimeEnvironment.getApplication(),listener);
   try{
