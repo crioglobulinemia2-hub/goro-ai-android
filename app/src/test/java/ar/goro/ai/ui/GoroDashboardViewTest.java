@@ -227,7 +227,7 @@ public class GoroDashboardViewTest {
   Activity activity=Robolectric.buildActivity(Activity.class).setup().get();
   GoroDashboardView dashboard=new GoroDashboardView(activity,new Calls(),null,false);
   activity.setContentView(dashboard);
-  String connecting="Enlace BLE Z02 abierto. Verificando autenticación RCSP…";
+  String connecting="Enlace BLE ZNP Z02 abierto. Verificando autenticación RCSP…";
   dashboard.showDeviceStatus(connecting);
   android.widget.TextView summary=findVisibleText(dashboard,"Z02 · verificando conexión…");
   assertNotNull(summary);
@@ -235,7 +235,7 @@ public class GoroDashboardViewTest {
   assertNull(findVisibleText(dashboard,"Z02 · conexión verificada"));
   findButton(dashboard,"Dispositivos").performClick();
   assertNotNull(findVisibleText(dashboard,connecting));
-  String failure="El SDK no completó la autenticación del Z02 en 20 segundos. Volvé a conectar el dispositivo.";
+  String failure="El SDK no completó la autenticación de ZNP Z02 en 20 segundos. Volvé a conectar el dispositivo."
   dashboard.showDeviceStatus(failure);
   findButton(dashboard,"Conversar").performClick();
   assertNotNull(findVisibleText(dashboard,failure));
