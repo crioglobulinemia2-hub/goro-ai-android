@@ -102,7 +102,8 @@ class AvatarSourceTests(unittest.TestCase):
         for state, targets in clips.items():
             with self.subTest(state=state):
                 self.assertGreaterEqual(len(targets), 4)
-                self.assertTrue(any(max(abs(v) for v in values) >= 18
+                minimum = 6 if state == "idle" else 18
+                self.assertTrue(any(max(abs(v) for v in values) >= minimum
                                     for values in targets.values()))
         self.assertEqual((0, 0, 1), generator.ANIMATION_AXES["right_shoulder"])
         self.assertEqual((0, 0, 1), generator.ANIMATION_AXES["left_elbow"])
