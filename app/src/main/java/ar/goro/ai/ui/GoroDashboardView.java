@@ -179,16 +179,17 @@ public final class GoroDashboardView extends LinearLayout {
  public void showDeviceStatus(String value){String status=value==null?"Sin datos del dispositivo.":value;devicesValue.setText(status);homeDevices.setText(deviceSummary(status));homeDevices.setContentDescription(status);}
  private static String deviceSummary(String status){
   String model=null;
-  for(String candidate:new String[]{"Z01","Z02","N02"})if(status.contains("ZNP "+candidate))model=candidate;
+  java.util.regex.Matcher match=java.util.regex.Pattern.compile("(?i)\\b(?:ZNP\\s+)?(Z01|Z02|N02)\\b").matcher(status);
+  if(match.find())model=match.group(1).toUpperCase(java.util.Locale.ROOT);
   if(model==null)return status;
   String label="ZNP "+model;
   if(status.startsWith("Buscando "+label))return "Buscando "+model+"…";
   if(status.startsWith("Conectando "+label))return "Conectando "+model+"…";
-  if(status.startsWith("Anuncio "+label+" detectado.")||status.startsWith("Enlace BLE "+label+" abierto."))return model+" · verificando conexión…";
-  if(status.startsWith("Autenticación RCSP de "+label+" confirmada."))return model+" · conexión verificada";
-  if(status.startsWith("Micrófono de "+label+" activo."))return model+" · escuchando";
-  if(status.startsWith("PCM16 recibido desde el micrófono de "+label))return model+" · recibiendo voz";
-  if(status.startsWith("Captura del micrófono de "+label+" recibida"))return model+" · voz recibida";
+  if(status.startsWith("Anuncio "+label+" detectado.")||status.startsWith("Enlace BLE "+label+" abierto.")||status.startsWith("Enlace BLE "+model+" abierto."))return model+" · verificando conexión…";
+  if(status.startsWith("Autenticación RCSP de "+label+" confirmada.")||status.startsWith("Autenticación RCSP del "+model+" confirmada."))return model+" · conexión verificada";
+  if(status.startsWith("Micrófono de "+label+" activo.")||status.startsWith("Micrófono "+model+" activo."))return model+" · escuchando";
+  if(status.startsWith("PCM16 recibido desde el micrófono de "+label)||status.startsWith("PCM16 recibido desde el micrófono "+model))return model+" · recibiendo voz";
+  if(status.startsWith("Captura del micrófono de "+label+" recibida")||status.startsWith("Captura del micrófono "+model+" recibida"))return model+" · voz recibida";
   if(status.startsWith("Salida A2DP confirmada por Android para "+label))return model+" · audio verificado";
   return status;
  }
