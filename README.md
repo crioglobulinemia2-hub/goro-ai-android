@@ -29,3 +29,5 @@ No marcar una función como operativa por una prueba unitaria, un emulador o un 
 ## Variante paralela 1.2.5
 
 El build paralelo usa `applicationId ar.goro.ai.parallel` para instalarse junto a `ar.goro.ai.personal` sin reemplazar sus datos. La variante de prueba tiene firma de depuración propia. Gmail OAuth no se considera listo hasta registrar el paquete paralelo y el SHA-1 de su certificado en el cliente Android de Google Cloud y completar el consentimiento desde el dispositivo. El certificado de depuración no se usa para publicar una versión estable.
+
+Build paralelo solicitado: applicationId ar.goro.ai.parallel. No instalar sobre la versión personal.
