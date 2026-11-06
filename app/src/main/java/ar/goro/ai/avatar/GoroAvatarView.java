@@ -139,20 +139,11 @@ public final class GoroAvatarView extends FrameLayout {
    return false;
   });
   try{
-   // Vulkan avoids the GL_MAX_VERTEX_UNIFORM_VECTORS(256) limitation
-   // triggered by GORO's skinned PBR model on the API 36 emulator.
-   // Do not silently fall back to unsafe GLES, which aborts natively.
-   Throwable vulkanFailure=null;
-   try{engine=Engine.create(Engine.Backend.VULKAN);}
-   catch(Throwable unsupportedVulkan){vulkanFailure=unsupportedVulkan;engine=null;}
-   if(engine==null){
-    try{engine=Engine.create(Engine.Backend.OPENGL);}
-    catch(Throwable unsupportedOpenGl){
-     if(vulkanFailure!=null)unsupportedOpenGl.addSuppressed(vulkanFailure);
-     throw new IllegalStateException("Ni Vulkan ni OpenGL pudieron iniciar el motor 3D",unsupportedOpenGl);
-    }
-   }
-   if(engine==null)throw new IllegalStateException("Filament no pudo crear un motor gráfico");
+   // This skinned PBR avatar exceeds GLES uniform limits on some devices.
+   // Vulkan is the supported backend; never retry with a backend known to
+   // abort inside the native renderer. The catch below reports the exact cause.
+   engine=Engine.create(Engine.Backend.VULKAN);
+   if(engine==null)throw new IllegalStateException("Filament no pudo crear el motor Vulkan");
    UiHelper helper=new UiHelper(UiHelper.ContextErrorPolicy.DONT_CHECK);
    helper.setOpaque(false);
    // A null argument creates GoroModelViewer's default orbit controller, which
@@ -217,6 +208,7 @@ public final class GoroAvatarView extends FrameLayout {
      "GORO 3D · Esqueleto y expresiones cargados.":
      "GORO 3D · Modelo cargado; faltan expresiones faciales compatibles.");
   }catch(Throwable error){
+   android.util.Log.e("GoroAvatar","No se pudo inicializar el renderer Vulkan o cargar el GLB",error);
    // A failed setup can occur while this view is still attached. Release
    // native allocations now; the viewer's detach listener is idempotent.
    frameLoop.setActive(false);
