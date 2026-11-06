@@ -772,7 +772,8 @@ for name, (color, metal, rough, emission) in MAT.items():
     })
 
 gltf = {
-    "asset": {"version": "2.0", "generator": "GORO procedural articulated robot authoring"},
+    "asset": {"version": "2.0", "generator": "GORO first-party parametric articulated character authoring",
+    "extras": {"authoring": "first-party-parametric", "visual_acceptance": false}},
     "scene": 0,
     "scenes": [{"nodes": [0, len(JOINTS), len(JOINTS) + 1]}],
     "nodes": nodes,
