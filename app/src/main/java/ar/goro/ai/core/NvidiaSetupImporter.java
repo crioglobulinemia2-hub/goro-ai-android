@@ -6,7 +6,9 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
-import org.json.JSONObject;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 /**
  * Imports only the owner provisioning asset from a previously installed/exported
@@ -29,8 +31,11 @@ public final class NvidiaSetupImporter {
      if(out.size()+n>MAX_BYTES)throw new IllegalArgumentException("GORO personal setup exceeds 8 KB");
      out.write(buffer,0,n);
     }
-    JSONObject config=new JSONObject(new String(out.toByteArray(),StandardCharsets.UTF_8));
-    String key=config.optString("nvidia_key",null);
+    JsonElement parsed=JsonParser.parseString(new String(out.toByteArray(),StandardCharsets.UTF_8));
+    JsonObject config=parsed.isJsonObject()?parsed.getAsJsonObject():null;
+    JsonElement credential=config==null?null:config.get("nvidia_key");
+    String key=credential!=null&&credential.isJsonPrimitive()&&credential.getAsJsonPrimitive().isString()
+      ?credential.getAsString():null;
     if(key==null||!key.trim().startsWith("nvapi-")||key.trim().length()<20)
      throw new IllegalArgumentException("The selected GORO APK has no valid NVIDIA credential");
     return key.trim();
