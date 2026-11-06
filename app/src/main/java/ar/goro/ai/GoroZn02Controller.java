@@ -525,11 +525,11 @@ public final class GoroZn02Controller {
    @Override public void onSuccess(BluetoothDevice device,SDKMessage sdk){
     if(!currentScreenUpload(upload)||!upload.device.equals(device))return;
     if(sdk==null||(sdk.getChip()!=SDKMessage.CHIP_701N&&sdk.getChip()!=SDKMessage.CHIP_707N)){
-     emit("El chip del estuche no está soportado por el conversor GIF 701N/707N. Transferencia cancelada.");
+     emit("El visor de "+modelLabel()+" informa chip no compatible con el conversor GIF JieLi 701N/707N (chip="+(sdk==null?"desconocido":sdk.getChip())+"). No se transfirió el archivo.");
      finishScreenUpload(upload);return;
     }
     if(!sdk.isSupportGif()){
-     emit("El firmware de "+modelLabel()+" informa que no admite animaciones GIF. No se envió un archivo incompatible.");
+     emit("El firmware de "+modelLabel()+" (chip="+sdk.getChip()+") informa isSupportGif=false. El rechazo es del firmware del visor, no de la descarga del GIF. Se necesita firmware compatible; no se envió un archivo que el equipo declaró incompatible.");
      finishScreenUpload(upload);return;
     }
     try{resourceExecutor.execute(()->convertAndTransfer(matchedGif,sdk.getChip(),upload));}
@@ -548,7 +548,8 @@ public final class GoroZn02Controller {
    GifConvertResult result=GifConverter.getInstance().gif2Bin(sourceGif.getAbsolutePath(),
       GifConverter.MODE_LOW_COMPRESSION_RATE,converterChip);
    if(result==null||!result.isSuccess()||result.getGifBin()==null||result.getGifBin().getData()==null){
-    if(currentScreenUpload(upload))emit("El conversor JieLi rechazó la animación GIF. No se modificó el estuche.");finishScreenUpload(upload);return;
+    if(currentScreenUpload(upload))emit("El conversor GIF JieLi rechazó el archivo para chip "+chip+": "+gifConverterDiagnostic(result)+". El GIF original permanece intacto y no se modificó el estuche.");
+    finishScreenUpload(upload);return;
    }
    byte[] bytes=result.getGifBin().getData();
    short crc=CryptoUtil.CRC16(bytes,(short)0);
@@ -563,6 +564,19 @@ public final class GoroZn02Controller {
    deletePreparedScreen(output);
    if(currentScreenUpload(upload))emit("No se pudo preparar la animación GORO: "+error.getClass().getSimpleName());finishScreenUpload(upload);
   }
+ }
+ private static String gifConverterDiagnostic(GifConvertResult result){
+  if(result==null)return "resultado nulo";
+  StringBuilder detail=new StringBuilder(result.getClass().getSimpleName());
+  for(String name:new String[]{"getErrorCode","getCode","getMessage","getErrorMsg","getReason"}){
+   try{
+    java.lang.reflect.Method method=result.getClass().getMethod(name);
+    Object value=method.invoke(result);
+    if(value!=null&&!String.valueOf(value).trim().isEmpty())
+     detail.append(" · ").append(name).append("=").append(String.valueOf(value));
+   }catch(Exception ignored){}
+  }
+  return detail.toString();
  }
  private void beginScreenTransfer(ScreenUpload upload,File output,int byteCount){
   if(!currentScreenUpload(upload)){deletePreparedScreen(output);return;}
