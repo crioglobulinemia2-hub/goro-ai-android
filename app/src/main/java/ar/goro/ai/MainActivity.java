@@ -152,13 +152,13 @@ public class MainActivity extends Activity {
       public void onMicrophonePcm(byte[] pcm){handleZ02Pcm(pcm);}
       public void onMicrophoneStarted(){
         if(!foreground||!voiceActive||speechInProgress)return;
-        if(state!=null)state.setText("GORO · Escuchando desde el micrófono Z02");
+        if(state!=null)state.setText("GORO · Escuchando desde "+(zn02Controller==null?"ZNP":zn02Controller.connectedModelLabel()));
         if(dashboard!=null)dashboard.showAvatarMood(GoroAvatarView.Mood.LISTENING);
       }
       public void onMicrophoneIdle(){scheduleZ02ListenRetry();}
       public void onMicrophoneError(String error){
         invalidateVoiceConversation();
-        if(state!=null)state.setText("GORO · Micrófono Z02 no disponible");
+        if(state!=null)state.setText("GORO · Micrófono del dispositivo ZNP no disponible");
         if(dashboard!=null){dashboard.showAvatarMood(GoroAvatarView.Mood.ALERT);dashboard.showDeviceStatus(error);}
       }
       public void onAudioTarget(BluetoothDevice audioTarget){
@@ -169,7 +169,7 @@ public class MainActivity extends Activity {
           resumeVoiceAfterZ02Connected();
         }catch(SecurityException error){
           zn02ReadyForVoice=false;
-          if(dashboard!=null)dashboard.showDeviceStatus("Android no autorizó identificar la salida de audio Z02.");
+          if(dashboard!=null)dashboard.showDeviceStatus("Android no autorizó identificar la salida de audio ZNP.");
         }
       }
     });
