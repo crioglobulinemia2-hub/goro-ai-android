@@ -32,7 +32,7 @@ public final class GoroDashboardView extends LinearLayout {
  public interface Actions {
   void onCommand(String command); void onLinkAccount(); void onReadGmail();
   void onCalendarPermission(); void onUnlinkAccount(); void onWeather();
-  void onForecast(); void onReminders(); void onConfigureNvidia(); void onTestNvidia();
+  void onForecast(); void onReminders(); void onConfigureNvidia(); void onTestNvidia(); default void onImportNvidiaConfig(){}
   void onConnectZn02(); default void onConnectZnpModel(String model){onConnectZn02();} default void onDisconnectZnp(){} void onInspectZn02(); default void onInspectZnpModel(String model){onInspectZn02();} void onZn02LightOn(); void onZn02LightOff();
   void onZn02ReadLight(); void onZn02AudioOn(); void onZn02AudioOff(); void onInstallGoroAnimation(); default void onInstallGoroAnimation(String model){onInstallGoroAnimation();}
   default void onToggleListening(){}
@@ -153,7 +153,7 @@ public final class GoroDashboardView extends LinearLayout {
   addAction(devicePanel,"Instalar animación GORO en Z01","face",()->actions.onInstallGoroAnimation("Z01"));
   addAction(devicePanel,"Instalar animación GORO en Z02","face",()->actions.onInstallGoroAnimation("Z02"));
   addAction(devicePanel,"Instalar animación GORO en N02","face",()->actions.onInstallGoroAnimation("N02"));
-  settingsPanel=panel();settingsPanel.addView(card("TU CUENTA",accountLabel));addAction(settingsPanel,"Vincular cuenta Google","link",()->actions.onLinkAccount());addAction(settingsPanel,"Autorizar Calendar","agenda",()->actions.onCalendarPermission());addAction(settingsPanel,"Autorizar Gmail","mail",()->actions.onReadGmail());settingsPanel.addView(card("INTELIGENCIA",nvidiaValue));settingsPanel.addView(card("VOZ DIEGO",voiceValue));addAction(settingsPanel,"Configurar NVIDIA","settings",()->actions.onConfigureNvidia());addAction(settingsPanel,"Verificar NVIDIA","link",()->actions.onTestNvidia());addAction(settingsPanel,"Desvincular cuenta Google","settings",()->actions.onUnlinkAccount());
+  settingsPanel=panel();settingsPanel.addView(card("TU CUENTA",accountLabel));addAction(settingsPanel,"Vincular cuenta Google","link",()->actions.onLinkAccount());addAction(settingsPanel,"Autorizar Calendar","agenda",()->actions.onCalendarPermission());addAction(settingsPanel,"Autorizar Gmail","mail",()->actions.onReadGmail());settingsPanel.addView(card("INTELIGENCIA",nvidiaValue));settingsPanel.addView(card("VOZ DIEGO",voiceValue));addAction(settingsPanel,"Configurar NVIDIA","settings",()->actions.onConfigureNvidia());addAction(settingsPanel,"Importar NVIDIA desde GORO 1.2.4","download",()->actions.onImportNvidiaConfig());addAction(settingsPanel,"Verificar NVIDIA","link",()->actions.onTestNvidia());addAction(settingsPanel,"Desvincular cuenta Google","settings",()->actions.onUnlinkAccount());
   explorePanel=panel();TextView projectNote=text("Tus ideas y proyectos\n\nPedile a Goro que recuerde un dato o consultá lo que ya guardaste.",16,false,TEXT);explorePanel.addView(card("MEMORIA PERSONAL",projectNote));addAction(explorePanel,"Consultar memoria","folder",()->actions.onCommand("qué recordás"));addAction(explorePanel,"Buscar en internet","search",()->{
     EditText query=new EditText(activity);query.setSingleLine(true);query.setHint("Qué querés buscar…");query.setTextSize(16);query.setPadding(dp(14),dp(12),dp(14),dp(12));
     new AlertDialog.Builder(activity).setTitle("Buscar en internet").setMessage("GORO abrirá resultados web y podrá leerte los fragmentos en voz alta.").setView(query)
