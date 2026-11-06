@@ -83,7 +83,7 @@ public final class NvidiaSpeechProbe {
       if(problem!=null){finish(ticket,false,"Parakeet no completó la comprobación: "+safe(problem));return;}
       boolean recognized=normalize(PHRASE).equals(normalize(text));
       finish(ticket,recognized,recognized
-        ?"Diego y Parakeet verificados con una frase de diagnóstico. El micrófono Z02 aún requiere conexión."
+        ?"Diego y Parakeet verificados con una frase de diagnóstico. El micrófono del dispositivo ZNP aún requiere conexión."
         :"Parakeet respondió, pero no reconoció la frase de comprobación. Podés volver a probar NVIDIA.");
      });
       }catch(Exception e){finish(ticket,false,"No se pudo iniciar Parakeet: "+safe(e.getMessage()));}
