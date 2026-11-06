@@ -95,6 +95,17 @@ class AvatarSourceTests(unittest.TestCase):
             self.write(self.runtime, fixture("different-export"))
             self.assertFalse(release_gate.glb_report()[0])
 
+    def test_each_state_has_visible_full_body_gestures(self):
+        clips = dict(generator.CLIP_DEFS)
+        self.assertEqual(set(avatar.CLIPS), set(clips))
+        for state, targets in clips.items():
+            with self.subTest(state=state):
+                self.assertGreaterEqual(len(targets), 4)
+                self.assertTrue(any(max(abs(v) for v in values) >= 18
+                                    for values in targets.values()))
+        self.assertEqual((0, 0, 1), generator.ANIMATION_AXES["right_shoulder"])
+        self.assertEqual((0, 0, 1), generator.ANIMATION_AXES["left_elbow"])
+
     def test_truncated_binary_is_rejected(self):
         with self.assertRaises(ValueError):
             avatar.validate_contract(fixture()[:-1])
