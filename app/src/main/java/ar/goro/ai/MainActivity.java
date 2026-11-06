@@ -143,7 +143,9 @@ public class MainActivity extends Activity {
       public void onStatus(String message){
         if(message!=null){
           String normalized=message.toLowerCase(Locale.ROOT);
-          if(normalized.contains("desconectado")||normalized.contains("conexión fallida")||normalized.contains("conexión rechazada")){
+          if(normalized.contains("desconectado")||normalized.contains("conexión fallida")||normalized.contains("conexión rechazada")
+              ||normalized.contains("rechazó el emparejamiento")||normalized.contains("no pudo iniciar el emparejamiento")
+              ||normalized.contains("no se pudo preparar el audio")){
             cancelZnpAudioRouteCheck();
             zn02ReadyForVoice=false;
             invalidateVoiceConversation();
