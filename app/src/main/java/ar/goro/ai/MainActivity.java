@@ -298,6 +298,10 @@ public class MainActivity extends Activity {
           int language=localTts.setLanguage(new Locale("es","AR"));
           if(language==TextToSpeech.LANG_MISSING_DATA||language==TextToSpeech.LANG_NOT_SUPPORTED)
             language=localTts.setLanguage(new Locale("es","ES"));
+          if(language==TextToSpeech.LANG_MISSING_DATA||language==TextToSpeech.LANG_NOT_SUPPORTED)
+            language=localTts.setLanguage(Locale.getDefault());
+          // If a Spanish voice pack is missing, retain the engine's installed
+          // default voice instead of silently disabling all audible responses.
           localTtsReady=language!=TextToSpeech.LANG_MISSING_DATA&&language!=TextToSpeech.LANG_NOT_SUPPORTED;
           if(localTtsReady){localTts.setSpeechRate(0.96f);dispatchPendingLocalSpeech();}
         }catch(RuntimeException error){localTtsReady=false;}
