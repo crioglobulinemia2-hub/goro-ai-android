@@ -56,6 +56,7 @@ public class MainActivity extends Activity {
   private boolean pendingZn02Inspection=false;
   private String pendingZnpInspectionModel=null;
   private String pendingZnpConnectionModel="Z02";
+  private String preferredZnpModel="Z02";
   private static final int ZN02_BLE_PERMISSION_REQUEST=65;
   private SharedPreferences memory;
   private MemoryStore memoryStore;
@@ -193,6 +194,7 @@ public class MainActivity extends Activity {
       public void onConnectZnpModel(String model){connectZnpModel(model);}
       public void onInspectZn02(){inspectZn02();}
       public void onInspectZnpModel(String model){inspectZnpModel(model);}
+      public void onDisconnectZnp(){if(zn02Controller!=null)zn02Controller.disconnect();invalidateVoiceConversation();zn02ReadyForVoice=false;}
       public void onInstallGoroAnimation(String model){installGoroAnimationOnZnpModel(model);}
       public void onZn02LightOn(){if(zn02Controller!=null)zn02Controller.setFlashlight(true);}
       public void onZn02LightOff(){if(zn02Controller!=null)zn02Controller.setFlashlight(false);}
@@ -714,11 +716,12 @@ public class MainActivity extends Activity {
     pendingZn02Inspection=false;
     zn02GattInspector.scan(model);
   }
-  private void connectZn02(){connectZnpModel("Z02");}
+  private void connectZn02(){connectZnpModel(preferredZnpModel);}
   private void connectZnpModel(String model){
     String selected=model==null?"Z02":model.trim().toUpperCase(Locale.ROOT);
     if(!selected.matches("Z01|Z02|N02")){say("Modelo ZNP no reconocido.");return;}
     pendingZnpConnectionModel=selected;
+    preferredZnpModel=selected;
     if(zn02Controller==null){say("El controlador Bluetooth ZNP no está disponible.");return;}
     String[] missing=zn02Controller.neededPermissions();
     if(missing.length>0){pendingZn02Connection=true;requestPermissions(missing,ZN02_BLE_PERMISSION_REQUEST);return;}
