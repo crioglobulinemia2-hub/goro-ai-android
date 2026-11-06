@@ -13,6 +13,12 @@ public class ZnpScreenAssetTest {
   assertEquals(240,(b[6]&255)|((b[7]&255)<<8));assertEquals(296,(b[8]&255)|((b[9]&255)<<8));
   assertTrue(f.length()>1000);
  }
+ @Test public void reportedLandscapeDisplayGetsActualLandscapeGif()throws Exception{
+  File f=ZnpScreenAsset.forDisplay(InstrumentationRegistry.getInstrumentation().getTargetContext(),320,172);
+  byte[] b=new byte[10];try(FileInputStream in=new FileInputStream(f)){assertEquals(10,in.read(b));}
+  assertEquals(320,(b[6]&255)|((b[7]&255)<<8));assertEquals(172,(b[8]&255)|((b[9]&255)<<8));
+  assertTrue(f.length()>1000);
+ }
  @Test(expected=IOException.class) public void unknownScreenIsNeverGivenWrongResolution()throws Exception{
   ZnpScreenAsset.forDisplay(InstrumentationRegistry.getInstrumentation().getTargetContext(),128,128);
  }
