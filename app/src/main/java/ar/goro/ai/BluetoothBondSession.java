@@ -10,7 +10,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 
-/** Pairs the authenticated Z02 classic-audio endpoint before A2DP routing. */
+/** Pairs the authenticated ZNP classic-audio endpoint before A2DP routing. */
 @SuppressLint("MissingPermission")
 public final class BluetoothBondSession {
  private final Context app;
@@ -45,14 +45,14 @@ public final class BluetoothBondSession {
    if(Build.VERSION.SDK_INT>=33)app.registerReceiver(listener,filter,Context.RECEIVER_EXPORTED);
    else { @SuppressWarnings("deprecation") int ignored=0;app.registerReceiver(listener,filter); }
    receiver=listener;
-   timeout=()->{if(id==generation){close();report.accept("El emparejamiento de audio del Z02 no terminó en 45 segundos.");}};
+   timeout=()->{if(id==generation){close();report.accept("El emparejamiento de audio del dispositivo ZNP no terminó en 45 segundos.");}};
    main.postDelayed(timeout,45000);
    int state=device.getBondState();
    if(state==BluetoothDevice.BOND_BONDED)done.run();
    else if(state==BluetoothDevice.BOND_BONDING)report.accept("Esperando el emparejamiento Bluetooth de audio del Z02…");
    else if(device.createBond())report.accept("Android está emparejando el perfil de audio del dispositivo ZNP…");
    else {close();report.accept("Android no pudo iniciar el emparejamiento de audio del Z02.");}
-  }catch(Exception error){close();report.accept("No se pudo preparar el audio Bluetooth del Z02: "+error.getClass().getSimpleName());}
+  }catch(Exception error){close();report.accept("No se pudo preparar el audio Bluetooth del dispositivo ZNP: "+error.getClass().getSimpleName());}
  }
  public void close(){
   if(Looper.myLooper()!=Looper.getMainLooper()){main.post(this::close);return;}
