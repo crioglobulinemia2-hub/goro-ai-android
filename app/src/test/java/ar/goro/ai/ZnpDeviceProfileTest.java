@@ -10,10 +10,15 @@ public class ZnpDeviceProfileTest {
   assertEquals(ZnpDeviceProfile.Model.N02_CANDIDATE,ZnpDeviceProfile.detect("ZNP N02").model);
   assertEquals(ZnpDeviceProfile.Model.N02_CANDIDATE,ZnpDeviceProfile.detect("ZN02").model);
  }
- @Test public void onlyZ02UsesTheExistingVerifiedRcspController(){
+ @Test public void onlyZ02HasAPreviouslyVerifiedRcspProfile(){
   assertTrue(ZnpDeviceProfile.detect("ZNP Z02").isRcspCandidate());
   assertFalse(ZnpDeviceProfile.detect("ZNP Z01").isRcspCandidate());
   assertFalse(ZnpDeviceProfile.detect("ZNP N02").isRcspCandidate());
+ }
+ @Test public void allThreeModelsAreEligibleForAnExplicitHandshakeAttempt(){
+  assertTrue(ZnpDeviceProfile.detect("ZNP Z01").isCandidate());
+  assertTrue(ZnpDeviceProfile.detect("ZNP Z02").isCandidate());
+  assertTrue(ZnpDeviceProfile.detect("ZNP N02").isCandidate());
  }
  @Test public void eachCandidateHasAnExplicitAnimationProfile(){
   assertEquals("z01",ZnpDeviceProfile.detect("ZNP Z01").animationProfile());
