@@ -71,6 +71,7 @@ public class GmailUnlinkConversationTest {
    field(MainActivity.class,"speechInProgress").setBoolean(activity,true);
    field(MainActivity.class,"pendingSpeechWav").set(activity,wav());
    Deque<String> chunks=(Deque<String>)field(MainActivity.class,"speechChunks").get(activity);chunks.add("Resto del correo privado");
+   player.setTarget("12:34:56:78:90:AB","Z02");
    player.playWav(wav());assertNotNull(field(Z02Player.class,"pendingStart").get(player));
    Method unlink=MainActivity.class.getDeclaredMethod("unlinkGoogleAccount");unlink.setAccessible(true);unlink.invoke(activity);
    assertEquals(1,revocations.get());assertFalse(remote.getTask().isComplete());
