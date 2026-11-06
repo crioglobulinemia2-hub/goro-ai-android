@@ -730,7 +730,7 @@ public class MainActivity extends Activity {
       File file=ZnpScreenAsset.forDisplay(this,320,172);
       zn02Controller.uploadGoroScreenSaver(file);
     }catch(Exception error){
-      if(dashboard!=null)dashboard.showDeviceStatus("No se pudo preparar la animación GORO para el ZN02: "+error.getClass().getSimpleName());
+      if(dashboard!=null)dashboard.showDeviceStatus("No se pudo preparar la animación GORO para ZNP "+selected+": "+error.getClass().getSimpleName());
     }
   }
   private void inspectZn02(){inspectZnpModel(null);}
