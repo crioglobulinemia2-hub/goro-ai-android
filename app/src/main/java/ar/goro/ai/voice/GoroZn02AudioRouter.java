@@ -36,18 +36,18 @@ public final class GoroZn02AudioRouter {
     CharSequence label=device.getProductName();
     String name=label==null?"":label.toString().toUpperCase(java.util.Locale.ROOT)
      .replaceAll("[^A-Z0-9]","");
-    if(name.equals("ZNPZ02")||name.equals("Z02")){matching=device;break;}
+    if(name.equals("ZNPZ01")||name.equals("Z01")||name.equals("ZNPZ02")||name.equals("Z02")||name.equals("ZN02")||name.equals("ZNP N02".replaceAll("[^A-Z0-9]",""))){matching=device;break;}
    }
   }catch(SecurityException denied){
    return "Android no autorizó consultar las rutas de audio Bluetooth.";
   }
-  if(matching==null)return "No se encontró ninguna salida de comunicación Bluetooth identificada como ZN02. No se modificó el audio.";
+  if(matching==null)return "No se encontró una salida de comunicación Bluetooth identificada como ZNP Z01, Z02 o N02. No se modificó el audio.";
   try{
    if(!active)previousMode=audio.getMode();
    audio.setMode(AudioManager.MODE_IN_COMMUNICATION);
    if(audio.setCommunicationDevice(matching)){
     active=true;
-    return "Android confirmó el enrutamiento de comunicación al ZN02.";
+    return "Android confirmó el enrutamiento de comunicación al dispositivo ZNP seleccionado.";
    }
    if(!active)audio.setMode(previousMode);
    return "Android no aceptó el enrutamiento de audio al ZN02.";
