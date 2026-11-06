@@ -725,13 +725,8 @@ public class MainActivity extends Activity {
     if(zn02Controller==null){say("El controlador Bluetooth ZNP no está disponible.");return;}
     if(!zn02Controller.isConnectedTo(selected)){say("Primero conectá el ZNP "+selected+". No voy a enviar la animación a otro dispositivo.");return;}
     setListeningPaused(true);
-    if(dashboard!=null)dashboard.showDeviceStatus("Escucha pausada para instalar GORO. Se mantiene pausada al terminar.");
-    try{
-      File file=ZnpScreenAsset.forDisplay(this,320,172);
-      zn02Controller.uploadGoroScreenSaver(file);
-    }catch(Exception error){
-      if(dashboard!=null)dashboard.showDeviceStatus("No se pudo preparar la animación GORO para ZNP "+selected+": "+error.getClass().getSimpleName());
-    }
+    if(dashboard!=null)dashboard.showDeviceStatus("Escucha pausada para instalar la animación del ZNP "+selected+". Se mantiene pausada al terminar.");
+    zn02Controller.uploadGoroScreenSaverForModel(selected);
   }
   private void inspectZn02(){inspectZnpModel(null);}
   private void inspectZnpModel(String model){
