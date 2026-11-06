@@ -37,3 +37,11 @@ GORO debe permitir seleccionar cada modelo, intentar el transporte compatible, m
 
 ## Criterio de aceptación
 Registrar por separado Z01, Z02 y N02. No copiar la aprobación de un modelo a otro. La CI y el emulador validan código y recursos, pero no reemplazan una prueba física de cada dispositivo.
+
+
+## Instalación paralela sin borrar la versión personal
+
+- Paquete paralelo: `ar.goro.ai.parallel`.
+- La versión personal `ar.goro.ai.personal` permanece instalada y sin cambios.
+- La variante paralela usa la firma de depuración de CI y no puede actualizar ni sustituir la versión personal.
+- Gmail OAuth requiere un cliente Android registrado para `ar.goro.ai.parallel` y el SHA-1 exacto de la firma de la APK paralela. Hasta completar ese registro y el consentimiento en Android, Gmail se debe mostrar como pendiente, nunca como conectado.
