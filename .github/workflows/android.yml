@@ -125,7 +125,6 @@ jobs:
           name: GoroAI-unsigned-release-apk
           path: app/build/outputs/apk/release/*.apk
   emulator-smoke:
-    if: github.head_ref != 'work/goro-repair-20261105'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
