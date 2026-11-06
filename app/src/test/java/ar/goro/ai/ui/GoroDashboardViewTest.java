@@ -16,7 +16,7 @@ import static org.junit.Assert.*;
 @RunWith(RobolectricTestRunner.class)
 public class GoroDashboardViewTest {
  private static final class Calls implements GoroDashboardView.Actions {
-  int commands,link,gmail,calendar,unlink,weather,forecast,reminders,connect,inspect,lightOn,lightOff,lightRead,animation,nvidia,toggle,disconnect; String lastCommand; java.util.List<String> models=new java.util.ArrayList<>(); java.util.List<String> animationModels=new java.util.ArrayList<>();
+  int commands,link,gmail,calendar,unlink,weather,forecast,reminders,connect,inspect,lightOn,lightOff,lightRead,animation,nvidia,toggle,disconnect,importNvidia; String lastCommand; java.util.List<String> models=new java.util.ArrayList<>(); java.util.List<String> animationModels=new java.util.ArrayList<>();
   public void onCommand(String value){commands++;lastCommand=value;}
   public void onToggleListening(){toggle++;}
   public void onLinkAccount(){link++;}
@@ -28,6 +28,7 @@ public class GoroDashboardViewTest {
   public void onReminders(){reminders++;}
   public void onConfigureNvidia(){nvidia++;}
   public void onTestNvidia(){nvidia++;}
+  public void onImportNvidiaConfig(){importNvidia++;}
   public void onConnectZn02(){connect++;}
   public void onConnectZnpModel(String model){models.add(model);}
   public void onDisconnectZnp(){disconnect++;}
@@ -113,7 +114,9 @@ public class GoroDashboardViewTest {
   findButton(dashboard,"Autorizar Calendar").performClick();
   findButton(dashboard,"Autorizar Gmail").performClick();
   findButton(dashboard,"Configurar NVIDIA").performClick();
+  findButton(dashboard,"Importar NVIDIA desde GORO 1.2.4").performClick();
   findButton(dashboard,"Verificar NVIDIA").performClick();
+  assertEquals(1,calls.importNvidia);
   assertEquals(1,calls.link);
   assertEquals(1,calls.calendar);
   assertEquals(1,calls.gmail);
