@@ -25,7 +25,7 @@ public final class GoroZn02AudioRouter {
  }
  public String activate(){
   if(audio==null)return "AudioManager no disponible.";
-  if(Build.VERSION.SDK_INT<31)return "La selección de audio del ZN02 requiere Android 12 o superior.";
+  if(Build.VERSION.SDK_INT<31)return "La selección de audio ZNP requiere Android 12 o superior.";
   if(contextPermissionMissing())return "Permiso Bluetooth CONNECT pendiente. No se consultó ningún dispositivo.";
   AudioDeviceInfo matching=null;
   try{
@@ -36,7 +36,7 @@ public final class GoroZn02AudioRouter {
     CharSequence label=device.getProductName();
     String name=label==null?"":label.toString().toUpperCase(java.util.Locale.ROOT)
      .replaceAll("[^A-Z0-9]","");
-    if(name.equals("ZNPZ01")||name.equals("Z01")||name.equals("ZNPZ02")||name.equals("Z02")||name.equals("ZN02")||name.equals("ZNP N02".replaceAll("[^A-Z0-9]",""))){matching=device;break;}
+    if(name.equals("ZNPZ01")||name.equals("Z01")||name.equals("ZNPZ02")||name.equals("Z02")||name.equals("ZN02")||name.equals("N02")||name.equals("ZNPN02")){matching=device;break;}
    }
   }catch(SecurityException denied){
    return "Android no autorizó consultar las rutas de audio Bluetooth.";
@@ -50,12 +50,12 @@ public final class GoroZn02AudioRouter {
     return "Android confirmó el enrutamiento de comunicación al dispositivo ZNP seleccionado.";
    }
    if(!active)audio.setMode(previousMode);
-   return "Android no aceptó el enrutamiento de audio al ZN02.";
+   return "Android no aceptó el enrutamiento de audio al dispositivo ZNP seleccionado.";
   }catch(SecurityException e){
    if(!active)audio.setMode(previousMode);
    return "Android denegó la selección de la salida de audio.";
   }catch(RuntimeException e){
-   return "No se pudo seleccionar el audio del ZN02.";
+   return "No se pudo seleccionar el audio del dispositivo ZNP seleccionado.";
   }
  }
  public String deactivate(){
