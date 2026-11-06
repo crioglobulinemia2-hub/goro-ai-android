@@ -71,6 +71,7 @@ public final class GoroZn02Controller {
  private volatile String requestedModel="Z02";
  private volatile String activeModel="Z02";
  private boolean scanning;
+ private boolean callbackRegistered;
  private volatile boolean connected;
  private volatile boolean vendorProtocolVerified=false;
  private volatile boolean closed;
@@ -251,7 +252,7 @@ public final class GoroZn02Controller {
    catch(RuntimeException error){emit("El SDK del ZN02 no pudo inicializarse. No se envió ningún comando.");return;}
   if(scanning){emit("La búsqueda ZNP ya está activa.");return;}
   target=null;connected=false;vendorProtocolVerified=false;
-  controller.addBTRcspEventCallback(eventCallback);
+  if(!callbackRegistered){controller.addBTRcspEventCallback(eventCallback);callbackRegistered=true;}
   emit("Buscando "+modelLabel()+" por Bluetooth LE…");
   scanning=controller.startBleScan(20000);
   if(!scanning)emit("El SDK JieLi no pudo iniciar el escaneo. Revisá Bluetooth y permisos.");
@@ -629,7 +630,7 @@ public final class GoroZn02Controller {
   if(authPoll!=null)mainHandler.removeCallbacks(authPoll);if(authTimeout!=null)mainHandler.removeCallbacks(authTimeout);if(connectionCheck!=null)mainHandler.removeCallbacks(connectionCheck);
   if(controller!=null){
    if(scanning)controller.stopScan();
-   controller.removeBTRcspEventCallback(eventCallback);
+   if(callbackRegistered){controller.removeBTRcspEventCallback(eventCallback);callbackRegistered=false;}
    if(target!=null)try{controller.disconnectDevice(target);}catch(RuntimeException ignored){}
   }
   releaseCaseObservation();
