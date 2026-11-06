@@ -689,21 +689,54 @@ def qxyz(axis, degrees):
     return tuple(v * math.sin(angle) for v in axis) + (math.cos(angle),)
 
 
-animations = []
-clipdefs = [
-    ("idle", {"head": [0, 5, -5, 0], "left_shoulder": [0, 4, -2, 0], "right_shoulder": [0, -4, 2, 0]}),
-    ("listening", {"head": [0, -5, -3, 0], "left_shoulder": [0, -3, 0, 0]}),
-    ("thinking", {"head": [0, 8, 3, 0], "right_elbow": [0, 18, 18, 0]}),
-    ("speaking", {"head": [0, 4, -4, 0], "left_shoulder": [0, -12, 3, 0], "right_shoulder": [0, 14, -3, 0]}),
-    ("confirming", {"head": [0, 11, 0, 0], "right_shoulder": [0, -22, -8, 0]}),
-    ("alert", {"head": [0, -7, 5, 0], "left_elbow": [0, -12, 12, 0]}),
+# Visible, full-body state clips. The previous draft rotated every joint
+# around X, which mostly twisted the shoulders in depth and looked static.
+CLIP_DEFS = [
+    ("idle", {
+        "head": [0, 8, -8, 0], "chest": [0, 3, -3, 0],
+        "left_shoulder": [0, -8, -3, 0], "right_shoulder": [0, 8, 3, 0],
+        "left_elbow": [0, -4, 0, 0], "right_elbow": [0, 4, 0, 0],
+    }),
+    ("listening", {
+        "head": [0, -13, -6, 0], "chest": [0, 4, 0, 0],
+        "left_shoulder": [0, -18, -8, 0], "left_elbow": [0, -24, -8, 0],
+        "right_shoulder": [0, 5, 0, 0],
+    }),
+    ("thinking", {
+        "head": [0, 16, 6, 0], "chest": [0, -5, 0, 0],
+        "right_shoulder": [0, 30, 18, 0], "right_elbow": [0, -44, -22, 0],
+        "right_wrist": [0, 16, 0, 0],
+    }),
+    ("speaking", {
+        "head": [0, 9, -9, 0], "chest": [0, 5, -3, 0],
+        "left_shoulder": [0, -20, -7, 0], "right_shoulder": [0, 20, 7, 0],
+        "left_elbow": [0, -30, -12, 0], "right_elbow": [0, 30, 12, 0],
+        "left_wrist": [0, -14, 8, 0], "right_wrist": [0, 14, -8, 0],
+    }),
+    ("confirming", {
+        "head": [0, 13, 0, 0], "chest": [0, 4, 0, 0],
+        "right_shoulder": [0, 36, 10, 0], "right_elbow": [0, -50, -8, 0],
+        "right_wrist": [0, 22, 0, 0],
+    }),
+    ("alert", {
+        "head": [0, -20, 13, 0], "chest": [0, 9, 0, 0],
+        "left_shoulder": [0, -24, -4, 0], "right_shoulder": [0, 24, 4, 0],
+        "left_elbow": [0, -36, -10, 0], "right_elbow": [0, 36, 10, 0],
+    }),
 ]
+ANIMATION_AXES = {
+    "head": (0, 1, 0), "spine": (1, 0, 0), "chest": (1, 0, 0),
+    "left_shoulder": (0, 0, 1), "right_shoulder": (0, 0, 1),
+    "left_elbow": (0, 0, 1), "right_elbow": (0, 0, 1),
+    "left_wrist": (1, 0, 0), "right_wrist": (1, 0, 0),
+}
+animations = []
 timeinput = buf.attr([0.0, 0.55, 1.15, 1.8], "f", "SCALAR", 5126, minmax=True)
-for name, targets in clipdefs:
+for name, targets in CLIP_DEFS:
     channels = []
     samplers = []
     for bone, values in targets.items():
-        axis = (0, 0, 1) if bone == "head" else (1, 0, 0)
+        axis = ANIMATION_AXES.get(bone, (0, 0, 1))
         quats = [v for degrees in values for v in qxyz(axis, degrees)]
         acc = buf.attr(quats, "f", "VEC4", 5126)
         si = len(samplers)
