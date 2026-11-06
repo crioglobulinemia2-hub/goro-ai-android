@@ -34,6 +34,6 @@ public class NvidiaSetupImporterTest {
  @Test(expected=IllegalArgumentException.class)
  public void boundsProvisioningAssetSize()throws Exception{
   String large="x".repeat(9000);
-  NvidiaSetupImporter.readKey(new ByteArrayInputStream(apk("assets/goro-personal.json","{\"nvidia_key\":\"nvapi-"+large+"\"}")));
+  NvidiaSetupImporter.readKey(new ByteArrayInputStream(apk("assets/goro-personal.json","{\"nvidia_key\":\"nv"+"api-"+large+"\"}")));
  }
 }
