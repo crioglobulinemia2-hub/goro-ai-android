@@ -690,19 +690,8 @@ public class MainActivity extends Activity {
     if(!zn02Controller.isConnectedTo(selected)){say("Primero conectá el ZNP "+selected+". No voy a enviar la animación a otro dispositivo.");return;}
     setListeningPaused(true);
     if(dashboard!=null)dashboard.showDeviceStatus("Escucha pausada para instalar GORO. Se mantiene pausada al terminar.");
-    String[] parts={"znp_faces_00.b64","znp_faces_00b.b64","znp_faces_01.b64","znp_faces_02.b64","znp_faces_03.b64","znp_faces_04.b64","znp_faces_05.b64","znp_faces_05b.b64","znp_faces_06.b64","znp_faces_07.b64","znp_faces_08.b64","znp_faces_09.b64","znp_faces_10.b64","znp_faces_11.b64","znp_faces_12.b64","znp_faces_12b.b64","znp_faces_13.b64","znp_faces_14.b64","znp_faces_15.b64","znp_faces_16.b64","znp_faces_17.b64"};
     try{
-      StringBuilder encoded=new StringBuilder();
-      for(String part:parts){
-        try(InputStream input=getAssets().open("goro/"+part);ByteArrayOutputStream bytes=new ByteArrayOutputStream()){
-          byte[] buffer=new byte[4096];int count;
-          while((count=input.read(buffer))!=-1)bytes.write(buffer,0,count);
-          encoded.append(bytes.toString("US-ASCII"));
-        }
-      }
-      byte[] gif=Base64.decode(encoded.toString(),Base64.DEFAULT);
-      File file=new File(getCacheDir(),"GORO-ZNP-"+selected+"-320x172.gif");
-      try(FileOutputStream outputFile=new FileOutputStream(file)){outputFile.write(gif);outputFile.flush();}
+      File file=ZnpScreenAsset.forDisplay(this,320,172);
       zn02Controller.uploadGoroScreenSaver(file);
     }catch(Exception error){
       if(dashboard!=null)dashboard.showDeviceStatus("No se pudo preparar la animación GORO para el ZN02: "+error.getClass().getSimpleName());
