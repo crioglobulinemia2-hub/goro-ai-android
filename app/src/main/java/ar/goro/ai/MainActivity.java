@@ -285,7 +285,10 @@ public class MainActivity extends Activity {
     }else{
       if(!zn02ReadyForVoice)connectZn02();
       if(nemotronGateway!=null)resumeVoiceAfterZ02Connected();
-      else if(state!=null)state.setText("Configurá NVIDIA para activar la conversación.");
+      else{
+        if(dashboard!=null)dashboard.showVoiceStatus("Falta la clave NVIDIA · importá la configuración del APK original 1.2.4.");
+        say("Todavía falta la clave NVIDIA. Para habilitar Nemotron, Parakeet y la voz Diego, abrí Ajustes e importá la configuración desde el APK original GORO IA 1.2.4.");
+      }
     }
     if(dashboard!=null)dashboard.setListeningPaused(paused);
   }
