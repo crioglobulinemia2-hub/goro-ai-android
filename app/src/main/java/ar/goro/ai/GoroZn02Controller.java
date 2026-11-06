@@ -91,7 +91,7 @@ public final class GoroZn02Controller {
    @Override public void onInit(BluetoothDevice device,int state){
     mainHandler.post(()->{
      if(!isCurrentConnection(device,epoch))return;
-     emit(state==0?"ZN02 · inicialización Bluetooth completada.":"ZN02 · error de inicialización: "+state);
+     emit(state==0?modelLabel()+" · inicialización Bluetooth completada.":modelLabel()+" · error de inicialización: "+state);
     });
    }
    @Override public void onChargingCaseInfoChange(BluetoothDevice device,int function,ChargingCaseInfo info){
@@ -101,13 +101,13 @@ public final class GoroZn02Controller {
     mainHandler.post(()->{
      if(!isCurrentConnection(device,epoch))return;
      if(function==ChargingCaseInfo.FUNC_FLASHLIGHT)
-      emit("ZN02 · luz: "+(light?"encendida":"apagada"));
+      emit(modelLabel()+" · luz: "+(light?"encendida":"apagada"));
      else if(function==ChargingCaseInfo.FUNC_BRIGHTNESS)
-      emit("ZN02 · brillo de pantalla: "+brightness+"%");
+      emit(modelLabel()+" · brillo de pantalla: "+brightness+"%");
     });
    }
    @Override public void onChargingCaseEvent(BluetoothDevice device,SettingFunction function){
-    mainHandler.post(()->{if(isCurrentConnection(device,epoch))emit("ZN02 · evento de dispositivo recibido.");});
+    mainHandler.post(()->{if(isCurrentConnection(device,epoch))emit(modelLabel()+" · evento de dispositivo recibido.");});
    }
   };
  }
@@ -239,17 +239,17 @@ public final class GoroZn02Controller {
   try{
    BluetoothManager manager=(BluetoothManager)context.getSystemService(Context.BLUETOOTH_SERVICE);
    BluetoothAdapter adapter=manager==null?null:manager.getAdapter();
-   if(adapter==null){emit("El dispositivo Android no tiene Bluetooth; GORO sigue funcionando sin ZN02.");return;}
-   if(!adapter.isEnabled()){emit("Bluetooth está apagado. Activá Bluetooth para conectar el ZN02.");return;}
-   if(!isScanLocationReady(context)){emit("En Android 11 o anterior, activá Ubicación para que Android permita buscar el ZNP Z02. No se inició la búsqueda.");return;}
+   if(adapter==null){emit("El dispositivo Android no tiene Bluetooth; GORO sigue funcionando sin ZNP.");return;}
+   if(!adapter.isEnabled()){emit("Bluetooth está apagado. Activá Bluetooth para conectar "+modelLabel()+".");return;}
+   if(!isScanLocationReady(context)){emit("En Android 11 o anterior, activá Ubicación para que Android permita buscar "+modelLabel()+". No se inició la búsqueda.");return;}
    if(!RCSPController.isInit()){
     BluetoothOption option=scanOptions();
     RCSPController.init(context,option);
    }
    controller=RCSPController.getInstance();
-   if(controller==null||!RCSPController.isInit()){emit("No se pudo inicializar el control Bluetooth del ZN02.");return;}
-  }catch(SecurityException error){emit("Android no autorizó el acceso Bluetooth del ZN02.");return;}
-   catch(RuntimeException error){emit("El SDK del ZN02 no pudo inicializarse. No se envió ningún comando.");return;}
+   if(controller==null||!RCSPController.isInit()){emit("No se pudo inicializar el control Bluetooth de "+modelLabel()+".");return;}
+  }catch(SecurityException error){emit("Android no autorizó el acceso Bluetooth de "+modelLabel()+".");return;}
+   catch(RuntimeException error){emit("El SDK no pudo inicializarse para "+modelLabel()+". No se envió ningún comando.");return;}
   if(scanning){emit("La búsqueda ZNP ya está activa.");return;}
   target=null;connected=false;vendorProtocolVerified=false;
   if(!callbackRegistered){controller.addBTRcspEventCallback(eventCallback);callbackRegistered=true;}
@@ -280,7 +280,7 @@ public final class GoroZn02Controller {
    authPoll=null;authTimeout=null;
    connectionEpoch++;connected=false;vendorProtocolVerified=false;
    releaseVoice();cancelScreenUpload();releaseCaseObservation();
-   emit("El SDK no completó la autenticación del Z02 en 20 segundos. Volvé a conectar el dispositivo.");
+   emit("El SDK no completó la autenticación de "+modelLabel()+" en 20 segundos. Volvé a conectar el dispositivo.");
   };
   mainHandler.postDelayed(authTimeout,20000);
   mainHandler.post(authPoll);
@@ -301,15 +301,15 @@ public final class GoroZn02Controller {
      if(chip==SDKMessage.CHIP_701N||chip==SDKMessage.CHIP_707N){vendorProtocolVerified=true;emit("Perfil de pantalla JieLi confirmado para "+modelLabel()+".");readFlashlight();}
      else{vendorProtocolVerified=false;emit("Micrófono RCSP disponible; controles de pantalla bloqueados para "+modelLabel()+" por chip no compatible.");}
     }
-    @Override public void onError(BluetoothDevice d,BaseError error){if(isCurrentConnection(d,epoch))emit("Pantalla Z02 no disponible: "+error.getMessage());}
+    @Override public void onError(BluetoothDevice d,BaseError error){if(isCurrentConnection(d,epoch))emit("Pantalla "+modelLabel()+" no disponible: "+error.getMessage());}
    });
    operation.readScreenInfo(device,new OnRcspActionCallback<ScreenInfo>(){
-    @Override public void onSuccess(BluetoothDevice d,ScreenInfo info){if(isCurrentConnection(d,epoch))emit("Pantalla Z02 leída por SDK: "+String.valueOf(info));}
+    @Override public void onSuccess(BluetoothDevice d,ScreenInfo info){if(isCurrentConnection(d,epoch))emit("Pantalla "+modelLabel()+" leída por SDK: "+String.valueOf(info));}
     @Override public void onError(BluetoothDevice d,BaseError error){if(isCurrentConnection(d,epoch))emit("Pantalla Z02 no disponible: "+error.getMessage());}
    });
    operation.getBrightness(device,new OnRcspActionCallback<Integer>(){
-    @Override public void onSuccess(BluetoothDevice d,Integer value){if(isCurrentConnection(d,epoch))emit("Brillo Z02: "+value+"%.");}
-    @Override public void onError(BluetoothDevice d,BaseError error){if(isCurrentConnection(d,epoch))emit("Brillo Z02 no disponible: "+error.getMessage());}
+    @Override public void onSuccess(BluetoothDevice d,Integer value){if(isCurrentConnection(d,epoch))emit("Brillo "+modelLabel()+": "+value+"%.");}
+    @Override public void onError(BluetoothDevice d,BaseError error){if(isCurrentConnection(d,epoch))emit("Brillo "+modelLabel()+" no disponible: "+error.getMessage());}
    });
   }catch(RuntimeException error){emit("RCSP autenticado; perfil de pantalla no disponible: "+error.getClass().getSimpleName());}
   try{
@@ -323,15 +323,15 @@ public final class GoroZn02Controller {
    bondSession.start(selected,()->{
     if(closed||epoch!=connectionEpoch||!isTarget(device))return;
     try{controller.getBluetoothManager().startConnectByBreProfiles(selected);emit("Perfil de audio clásico solicitado. Verificando salida multimedia "+modelLabel()+"…");}
-    catch(Exception error){emit("No se pudo iniciar el perfil de audio Z02: "+error.getClass().getSimpleName());}
+    catch(Exception error){emit("No se pudo iniciar el perfil de audio de "+modelLabel()+": "+error.getClass().getSimpleName());}
    },this::emit);
-  }catch(Exception error){emit("No se pudo resolver el perfil de audio Z02: "+error.getClass().getSimpleName());}
+  }catch(Exception error){emit("No se pudo resolver el perfil de audio de "+modelLabel()+": "+error.getClass().getSimpleName());}
  }
  public synchronized boolean isVoiceCaptureActive(){return recording||draining;}
  public synchronized boolean startVoice(){
   if(screenUpload!=null){emit("La escucha permanece pausada mientras se instala la animación.");return false;}
   if(closed||!connected||target==null||recording||draining||controller==null){emit("El micrófono de "+modelLabel()+" no está listo o ya hay una captura activa.");return false;}
-  if(!controller.getRcspOp().isRcspInit(target)||!controller.getRcspOp().isDeviceAuthPass(target)){emit("La sesión RCSP del Z02 dejó de estar autenticada.");return false;}
+  if(!controller.getRcspOp().isRcspInit(target)||!controller.getRcspOp().isDeviceAuthPass(target)){emit("La sesión RCSP de "+modelLabel()+" dejó de estar autenticada.");return false;}
   final BluetoothDevice device=target;final long epoch=connectionEpoch;final long capture=++voiceEpoch;
   microphonePcm=new ByteArrayOutputStream();final ByteArrayOutputStream out=microphonePcm;
   final ar.goro.ai.voice.PcmSpeechEndpoint endpointer=new ar.goro.ai.voice.PcmSpeechEndpoint();
@@ -345,7 +345,7 @@ public final class GoroZn02Controller {
      mainHandler.post(()->{
       if(closed||epoch!=connectionEpoch||capture!=voiceEpoch)return;
       if(code==RecordState.RECORD_STATE_WORKING){
-       if((recording||draining)&&block!=null&&block.length>0){try{opus.writeAudioStream(block);}catch(Exception error){abortVoice("No se pudo decodificar Opus del Z02: "+error.getClass().getSimpleName());}}
+       if((recording||draining)&&block!=null&&block.length>0){try{opus.writeAudioStream(block);}catch(Exception error){abortVoice("No se pudo decodificar Opus de "+modelLabel()+": "+error.getClass().getSimpleName());}}
       }else if(code==RecordState.RECORD_STATE_IDLE&&recording)stopVoice();
      });
     }
@@ -356,17 +356,17 @@ public final class GoroZn02Controller {
      if(closed||epoch!=connectionEpoch||capture!=voiceEpoch||!recording)return;
      try{
       op.startRecord(device,new RecordParam(Constants.AUDIO_TYPE_OPUS,RecordParam.SAMPLE_RATE_16K,RecordParam.VAD_WAY_DEVICE),new OnRcspActionCallback<Boolean>(){
-       @Override public void onSuccess(BluetoothDevice d,Boolean ok){mainHandler.post(()->{if(epoch==connectionEpoch&&capture==voiceEpoch&&recording){if(Boolean.TRUE.equals(ok)){emit("Micrófono Z02 activo. Esperando voz…");listener.onMicrophoneStarted();}else abortVoice("El Z02 rechazó la captura de micrófono.");}});}
-       @Override public void onError(BluetoothDevice d,BaseError error){mainHandler.post(()->{if(epoch==connectionEpoch&&capture==voiceEpoch)abortVoice("El Z02 rechazó la captura: "+error.getMessage());});}
+       @Override public void onSuccess(BluetoothDevice d,Boolean ok){mainHandler.post(()->{if(epoch==connectionEpoch&&capture==voiceEpoch&&recording){if(Boolean.TRUE.equals(ok)){emit("Micrófono de "+modelLabel()+" activo. Esperando voz…");listener.onMicrophoneStarted();}else abortVoice(modelLabel()+" rechazó la captura de micrófono.");}});}
+       @Override public void onError(BluetoothDevice d,BaseError error){mainHandler.post(()->{if(epoch==connectionEpoch&&capture==voiceEpoch)abortVoice(modelLabel()+" rechazó la captura: "+error.getMessage());});}
       });
-     }catch(Exception error){abortVoice("No se pudo iniciar el micrófono Z02: "+error.getClass().getSimpleName());}
+     }catch(Exception error){abortVoice("No se pudo iniciar el micrófono de "+modelLabel()+": "+error.getClass().getSimpleName());}
     });}
     @Override public void onDecodeStream(byte[] data){
      if(data==null||data.length==0)return;byte[] copy=data.clone();
      mainHandler.post(()->{
       if(closed||epoch!=connectionEpoch||capture!=voiceEpoch||(!recording&&!draining))return;
       if(out.size()+copy.length>480000){stopVoice();return;}
-      boolean first=out.size()==0;out.write(copy,0,copy.length);if(first)emit("PCM16 recibido desde el micrófono Z02.");
+      boolean first=out.size()==0;out.write(copy,0,copy.length);if(first)emit("PCM16 recibido desde el micrófono de "+modelLabel()+".");
       if(recording&&endpointer.accept(copy))stopVoice();
      });
     }
@@ -375,8 +375,8 @@ public final class GoroZn02Controller {
    });
    voiceTimeout=()->{if(epoch==connectionEpoch&&capture==voiceEpoch)stopVoice();};
    mainHandler.postDelayed(voiceTimeout,12000);
-   emit("Abriendo micrófono del Z02…");return true;
-  }catch(Exception error){abortVoice("Audio Z02 no disponible: "+error.getClass().getSimpleName());return false;}
+   emit("Abriendo micrófono de "+modelLabel()+"…");return true;
+  }catch(Exception error){abortVoice("Audio de "+modelLabel()+" no disponible: "+error.getClass().getSimpleName());return false;}
  }
  public synchronized void cancelVoice(){
   BluetoothDevice device=target;RecordOpImpl op=recorder;releaseVoice();
@@ -400,8 +400,8 @@ public final class GoroZn02Controller {
   if(!draining)return;
   if(drainTimeout!=null)mainHandler.removeCallbacks(drainTimeout);
   byte[] pcm=microphonePcm.toByteArray();releaseVoice();
-  if(pcm.length==0){emit("Z02 sin palabras en este turno; retomando escucha.");listener.onMicrophoneIdle();}
-  else{emit("Captura del micrófono Z02 recibida ("+pcm.length+" bytes PCM).");listener.onMicrophonePcm(pcm);}
+  if(pcm.length==0){emit(modelLabel()+" sin palabras en este turno; retomando escucha.");listener.onMicrophoneIdle();}
+  else{emit("Captura del micrófono de "+modelLabel()+" recibida ("+pcm.length+" bytes PCM).");listener.onMicrophonePcm(pcm);}
  }
  private void abortVoice(String message){
   BluetoothDevice device=target;RecordOpImpl op=recorder;releaseVoice();
@@ -422,45 +422,45 @@ public final class GoroZn02Controller {
  }
  public synchronized void setFlashlight(boolean enabled){
   if(closed||!connected||!vendorProtocolVerified||target==null||caseOp==null){
-   emit("ZN02 sin protocolo compatible verificado. No se envió ningún comando.");
+   emit(modelLabel()+" sin protocolo compatible verificado. No se envió ningún comando.");
    return;
   }
-  emit(enabled?"Solicitando encendido de luz al ZN02…":"Solicitando apagado de luz al ZN02…");
+  emit(enabled?"Solicitando encendido de luz a "+modelLabel()+"…":"Solicitando apagado de luz a "+modelLabel()+"…");
   try{caseOp.setFlashlightState(target,enabled,flashlightSetCallback(connectionEpoch));}
-  catch(RuntimeException error){emit("No se pudo enviar el comando de luz al ZN02: "+error.getClass().getSimpleName());}
+  catch(RuntimeException error){emit("No se pudo enviar el comando de luz a "+modelLabel()+": "+error.getClass().getSimpleName());}
  }
  private OnRcspActionCallback<Boolean> flashlightSetCallback(long epoch){
   return new OnRcspActionCallback<Boolean>(){
    @Override public void onSuccess(BluetoothDevice device,Boolean result){
     mainHandler.post(()->{
      if(!isCurrentConnection(device,epoch))return;
-     emit(Boolean.TRUE.equals(result)?"El ZN02 aceptó el cambio de luz. Verificando estado…":"El ZN02 no confirmó el cambio de luz.");
+     emit(Boolean.TRUE.equals(result)?modelLabel()+" aceptó el cambio de luz. Verificando estado…":modelLabel()+" no confirmó el cambio de luz.");
      if(Boolean.TRUE.equals(result))readFlashlight();
     });
    }
    @Override public void onError(BluetoothDevice device,BaseError error){
     mainHandler.post(()->{
-     if(isCurrentConnection(device,epoch))emit("El ZN02 rechazó el comando de luz: "+error.getMessage()+" (código "+error.getSubCode()+").");
+     if(isCurrentConnection(device,epoch))emit(modelLabel()+" rechazó el comando de luz: "+error.getMessage()+" (código "+error.getSubCode()+").");
     });
    }
   };
  }
  public synchronized void readFlashlight(){
-  if(closed||!connected||!vendorProtocolVerified||target==null||caseOp==null){emit("Luz no consultada: protocolo del ZN02 no verificado.");return;}
+  if(closed||!connected||!vendorProtocolVerified||target==null||caseOp==null){emit("Luz no consultada: protocolo de "+modelLabel()+" no verificado.");return;}
   try{caseOp.getFlashlightState(target,flashlightReadCallback(connectionEpoch));}
-  catch(RuntimeException error){emit("No se pudo consultar la luz del ZN02: "+error.getClass().getSimpleName());}
+  catch(RuntimeException error){emit("No se pudo consultar la luz de "+modelLabel()+": "+error.getClass().getSimpleName());}
  }
  private OnRcspActionCallback<Boolean> flashlightReadCallback(long epoch){
   return new OnRcspActionCallback<Boolean>(){
    @Override public void onSuccess(BluetoothDevice device,Boolean on){
     mainHandler.post(()->{
      if(!isCurrentConnection(device,epoch))return;
-     emit(on==null?"El ZN02 no confirmó el estado de la luz.":"Estado real de luz del ZN02: "+(on?"ENCENDIDA":"APAGADA")+".");
+     emit(on==null?modelLabel()+" no confirmó el estado de la luz.":"Estado real de luz de "+modelLabel()+": "+(on?"ENCENDIDA":"APAGADA")+".");
     });
    }
    @Override public void onError(BluetoothDevice device,BaseError error){
     mainHandler.post(()->{
-     if(isCurrentConnection(device,epoch))emit("La luz del ZN02 no está soportada o no respondió: "+error.getMessage()+" (código "+error.getSubCode()+").");
+     if(isCurrentConnection(device,epoch))emit("La luz de "+modelLabel()+" no está soportada o no respondió: "+error.getMessage()+" (código "+error.getSubCode()+").");
     });
    }
   };
@@ -505,7 +505,7 @@ public final class GoroZn02Controller {
      finishScreenUpload(upload);return;
     }
     if(!sdk.isSupportGif()){
-     emit("El firmware del Z02 informa que no admite animaciones GIF. No se envió un archivo incompatible.");
+     emit("El firmware de "+modelLabel()+" informa que no admite animaciones GIF. No se envió un archivo incompatible.");
      finishScreenUpload(upload);return;
     }
     try{resourceExecutor.execute(()->convertAndTransfer(matchedGif,sdk.getChip(),upload));}
@@ -547,13 +547,13 @@ public final class GoroZn02Controller {
    List<SDCardBean> storages=upload.operation.getOnlineStorages(upload.device);
    SDCardBean flash=null;
    if(storages!=null)for(SDCardBean storage:storages)if(storage.isFlash()&&storage.isOnline()){flash=storage;break;}
-   if(flash==null){emit("El ZN02 no informa memoria flash disponible. No se transfirió la animación.");finishScreenUpload(upload);return;}
+   if(flash==null){emit(modelLabel()+" no informa memoria flash disponible. No se transfirió la animación.");finishScreenUpload(upload);return;}
    final SDCardBean selectedFlash=flash;
    FileOpImpl fileOp=upload.operation.getFileOp();upload.fileOperation=fileOp;
-   emit("Animación GORO convertida. Transfiriendo "+byteCount+" bytes al ZN02…");
+   emit("Animación GORO convertida. Transfiriendo "+byteCount+" bytes a "+modelLabel()+"…");
    fileOp.createBigFile(new CreateFileParam(upload.device,output,selectedFlash),new OnTaskStateListener(){
-    @Override public void onStart(){if(currentScreenUpload(upload))emit("Transferencia de animación GORO al ZN02 iniciada.");}
-    @Override public void onProgress(int progress){if(currentScreenUpload(upload))emit("ZN02 · transferencia GORO "+progress+"%.");}
+    @Override public void onStart(){if(currentScreenUpload(upload))emit("Transferencia de animación GORO a "+modelLabel()+" iniciada.");}
+    @Override public void onProgress(int progress){if(currentScreenUpload(upload))emit(modelLabel()+" · transferencia GORO "+progress+"%.");}
     @Override public void onStop(){
      mainHandler.post(()->{
      if(!currentScreenUpload(upload))return;
@@ -562,20 +562,20 @@ public final class GoroZn02Controller {
       @Override public void onSuccess(BluetoothDevice device,Boolean ok){
        if(!currentScreenUpload(upload)||!upload.device.equals(device))return;
        if(Boolean.TRUE.equals(ok)){
-        emit("El ZN02 aceptó la animación GORO. Verificando recurso activo…");
+        emit(modelLabel()+" aceptó la animación GORO. Verificando recurso activo…");
         try{upload.operation.getCurrentScreenSaver(device,new OnRcspActionCallback<com.jieli.bluetooth.bean.settings.v0.ResourceInfo>(){
          @Override public void onSuccess(BluetoothDevice d,com.jieli.bluetooth.bean.settings.v0.ResourceInfo resource){
           if(!currentScreenUpload(upload)||!upload.device.equals(d))return;
           emit(matchesScreenResource(resource,selectedFlash.getDevHandler(),devicePath)
            ?"GORO instalado y seleccionado como salvapantallas. Escucha pausada; el visor puede mantener su pantalla de micrófono hasta volver al inicio."
-           :"El visor ZN02 informa otro recurso activo. La animación GORO no quedó confirmada.");
+           :"El visor "+modelLabel()+" informa otro recurso activo. La animación GORO no quedó confirmada.");
           finishScreenUpload(upload);
          }
          @Override public void onError(BluetoothDevice d,BaseError error){
-          if(currentScreenUpload(upload)&&upload.device.equals(d)){emit("El ZN02 aceptó el cambio, pero no se pudo leer el recurso activo: "+error.getMessage());finishScreenUpload(upload);}
+          if(currentScreenUpload(upload)&&upload.device.equals(d)){emit(modelLabel()+" aceptó el cambio, pero no se pudo leer el recurso activo: "+error.getMessage());finishScreenUpload(upload);}
          }
         });}catch(Exception error){emit("No se pudo verificar el recurso del visor: "+error.getClass().getSimpleName());finishScreenUpload(upload);}
-       }else{emit("El ZN02 no confirmó la activación de la animación GORO.");finishScreenUpload(upload);}
+       }else{emit(modelLabel()+" no confirmó la activación de la animación GORO.");finishScreenUpload(upload);}
       }
       @Override public void onError(BluetoothDevice device,BaseError error){
        if(currentScreenUpload(upload)&&upload.device.equals(device)){emit("El GIF se transfirió, pero no se pudo activar: "+error.getMessage());finishScreenUpload(upload);}
