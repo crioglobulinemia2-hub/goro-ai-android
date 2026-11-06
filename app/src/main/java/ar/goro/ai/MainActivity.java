@@ -113,12 +113,12 @@ public class MainActivity extends Activity {
     z02Player=new Z02Player(this,new Z02Player.Listener(){
       public void onState(String value){
         if(state!=null)state.setText("GORO · "+value);
-        if("Reproduciendo por Z02".equals(value)&&dashboard!=null)dashboard.avatarSpeak(pendingSpeechText,pendingSpeechWav);
+        if("Reproduciendo por ZNP".equals(value)&&dashboard!=null)dashboard.avatarSpeak(pendingSpeechText,pendingSpeechWav);
       }
       public void onError(String error){
         cancelStreamedReply();
         speechInProgress=false;speechChunkActive=false;modelReplyStreaming=false;speechChunks.clear();pendingSpeechWav=null;
-        if(state!=null)state.setText("GORO · Audio Z02 no disponible");
+        if(state!=null)state.setText("GORO · Audio del dispositivo ZNP no disponible");
         if(output!=null)output.setText(output.getText()+"\n\n"+error);
         if(dashboard!=null)dashboard.showAvatarMood(GoroAvatarView.Mood.ALERT);
         if(voiceActive)startZ02Listening();
@@ -199,8 +199,8 @@ public class MainActivity extends Activity {
       public void onZn02LightOn(){if(zn02Controller!=null)zn02Controller.setFlashlight(true);}
       public void onZn02LightOff(){if(zn02Controller!=null)zn02Controller.setFlashlight(false);}
       public void onZn02ReadLight(){if(zn02Controller!=null)zn02Controller.readFlashlight();}
-      public void onZn02AudioOn(){if(dashboard!=null)dashboard.showDeviceStatus(z02Player!=null&&!z02Player.outputs().isEmpty()?"Salida multimedia Z02 disponible y verificada por Android.":"La salida multimedia Z02 todavía no está disponible.");}
-      public void onZn02AudioOff(){if(z02Player!=null)z02Player.stop();if(dashboard!=null)dashboard.showDeviceStatus("Reproducción Z02 detenida.");}
+      public void onZn02AudioOn(){if(dashboard!=null)dashboard.showDeviceStatus(z02Player!=null&&!z02Player.outputs().isEmpty()?"Salida multimedia ZNP disponible y verificada por Android.":"La salida multimedia ZNP todavía no está disponible.");}
+      public void onZn02AudioOff(){if(z02Player!=null)z02Player.stop();if(dashboard!=null)dashboard.showDeviceStatus("Reproducción ZNP detenida.");}
       public void onInstallGoroAnimation(){installGoroAnimationOnZnpModel("Z02");}
       public void onReminders(){
         if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)
@@ -958,7 +958,7 @@ public class MainActivity extends Activity {
         pendingZn02Inspection=false;zn02GattInspector.scan(pendingZnpInspectionModel);pendingZnpInspectionModel=null;
       }else if(!granted&&dashboard!=null){
         pendingZn02Connection=false;pendingZn02Inspection=false;pendingZnpInspectionModel=null;
-        dashboard.showDeviceStatus("Android no concedió los permisos Bluetooth necesarios para Z02.");
+        dashboard.showDeviceStatus("Android no concedió los permisos Bluetooth necesarios para el dispositivo ZNP.");
       }
       return;
     }
@@ -966,7 +966,7 @@ public class MainActivity extends Activity {
       if(results.length>0&&results[0]==PackageManager.PERMISSION_GRANTED){
         maybeStartHandsFreeConversation();
       }else{
-        voiceActive=false;if(dashboard!=null){dashboard.setVoiceActive(false);dashboard.showDeviceStatus("Android no concedió permiso de micrófono para capturar audio del Z02.");}
+        voiceActive=false;if(dashboard!=null){dashboard.setVoiceActive(false);dashboard.showDeviceStatus("Android no concedió permiso de micrófono para capturar audio del dispositivo ZNP.");}
       }
       return;
     }
