@@ -124,7 +124,7 @@ public class MainActivity extends Activity {
     z02Player=new Z02Player(this,new Z02Player.Listener(){
       public void onState(String value){
         if(state!=null)state.setText("GORO · "+value);
-        if("Reproduciendo por ZNP".equals(value)&&dashboard!=null)dashboard.avatarSpeak(pendingSpeechText,pendingSpeechWav);
+        if(value!=null&&value.startsWith("Reproduciendo por ")&&dashboard!=null)dashboard.avatarSpeak(pendingSpeechText,pendingSpeechWav);
       }
       public void onError(String error){
         String fallback=remainingSpeechText(pendingSpeechText);
@@ -325,6 +325,7 @@ public class MainActivity extends Activity {
     String text=pendingLocalSpeech;pendingLocalSpeech=null;
     activeLocalSpeechDone=pendingLocalSpeechDone;pendingLocalSpeechDone=null;
     String id="goro-local-"+(++localSpeechSequence);activeLocalUtterance=id;
+    if(dashboard!=null)dashboard.avatarSpeak(text,null);
     int result;
     try{result=localTts.speak(text,TextToSpeech.QUEUE_FLUSH,new Bundle(),id);}
     catch(RuntimeException error){result=TextToSpeech.ERROR;}
