@@ -213,7 +213,7 @@ public final class GoroZn02Controller {
       .setBleScanMode(2)
       // SDK defaults filter vendor advertising formats and discard devices
       // whose Android name cache is empty before our callback can inspect them.
-      // Discover broadly, then apply our Z02 name filter and RCSP authentication.
+      // Discover broadly, then apply the explicitly selected ZNP model filter and RCSP authentication.
       .setBleScanStrategy(BluetoothConstant.NONE_FILTER)
       .setSkipNoNameDev(false)
       .setReconnect(false);
@@ -224,7 +224,7 @@ public final class GoroZn02Controller {
   if(!requested.matches("Z01|Z02|N02")){emit("Modelo ZNP no reconocido. Elegí Z01, Z02 o N02.");return;}
   if(closed){emit("Controlador ZNP cerrado.");return;}
   if(connected&&target!=null){
-   if(activeModel.equals(requested))emit("El "+modelLabel()+" ya tiene una sesión Bluetooth abierta.");
+   if(activeModel.equals(requested))emit("El "+activeModel+" ya tiene una sesión Bluetooth abierta.");
    else emit("Ya hay una sesión activa con "+modelLabel()+". Desconectalo antes de cambiar de modelo.");
    return;
   }
@@ -595,6 +595,25 @@ public final class GoroZn02Controller {
   return (actual.startsWith("/")?actual:"/"+actual).equals(path.startsWith("/")?path:"/"+path);
  }
  private boolean isCurrentConnection(BluetoothDevice device,long epoch){return !closed&&connected&&epoch==connectionEpoch&&isTarget(device);}
+ public synchronized void disconnect(){
+  if(closed)return;
+  if(scanning&&controller!=null){try{controller.stopScan();}catch(RuntimeException ignored){}}
+  scanning=false;
+  connectionEpoch++;
+  releaseVoice();
+  cancelScreenUpload();
+  releaseCaseObservation();
+  if(authPoll!=null)mainHandler.removeCallbacks(authPoll);
+  if(authTimeout!=null)mainHandler.removeCallbacks(authTimeout);
+  if(connectionCheck!=null)mainHandler.removeCallbacks(connectionCheck);
+  bondSession.close();
+  BluetoothDevice previous=target;
+  target=null;
+  connected=false;
+  vendorProtocolVerified=false;
+  if(controller!=null&&previous!=null)try{controller.disconnectDevice(previous);}catch(RuntimeException ignored){}
+  emit("Dispositivo ZNP desconectado desde GORO.");
+ }
  public synchronized boolean isConnectedTo(String model){
   return connected&&target!=null&&activeModel.equals(model==null?"":model.trim().toUpperCase(java.util.Locale.ROOT));
  }
