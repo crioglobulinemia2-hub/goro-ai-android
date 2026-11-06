@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 import prepare_avatar as avatar
 import release_gate
+import generate_goro_glb as generator
 
 def fixture(generator="authored-test-fixture"):
     nodes = [{"name": name} for name in sorted(avatar.BONES)]
