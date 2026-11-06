@@ -31,7 +31,7 @@ public final class GoroDashboardView extends LinearLayout {
   void onCommand(String command); void onLinkAccount(); void onReadGmail();
   void onCalendarPermission(); void onUnlinkAccount(); void onWeather();
   void onForecast(); void onReminders(); void onConfigureNvidia(); void onTestNvidia();
-  void onConnectZn02(); default void onConnectZnpModel(String model){onConnectZn02();} void onInspectZn02(); default void onInspectZnpModel(String model){onInspectZn02();} void onZn02LightOn(); void onZn02LightOff();
+  void onConnectZn02(); default void onConnectZnpModel(String model){onConnectZn02();} default void onDisconnectZnp(){} void onInspectZn02(); default void onInspectZnpModel(String model){onInspectZn02();} void onZn02LightOn(); void onZn02LightOff();
   void onZn02ReadLight(); void onZn02AudioOn(); void onZn02AudioOff(); void onInstallGoroAnimation(); default void onInstallGoroAnimation(String model){onInstallGoroAnimation();}
   default void onToggleListening(){}
  }
@@ -144,6 +144,7 @@ public final class GoroDashboardView extends LinearLayout {
   addAction(devicePanel,"Conectar ZNP Z01","link",()->actions.onConnectZnpModel("Z01"));
   addAction(devicePanel,"Conectar ZNP Z02","link",()->actions.onConnectZnpModel("Z02"));
   addAction(devicePanel,"Conectar ZNP N02","link",()->actions.onConnectZnpModel("N02"));
+  addAction(devicePanel,"Desconectar dispositivo ZNP","unlink",()->actions.onDisconnectZnp());
   addAction(devicePanel,"Diagnosticar ZNP Z01 (BLE)","devices",()->actions.onInspectZnpModel("Z01"));
   addAction(devicePanel,"Diagnosticar ZNP Z02 (BLE)","devices",()->actions.onInspectZnpModel("Z02"));
   addAction(devicePanel,"Diagnosticar ZNP N02 (BLE)","devices",()->actions.onInspectZnpModel("N02"));
