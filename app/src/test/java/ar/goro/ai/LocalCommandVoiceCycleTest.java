@@ -73,7 +73,7 @@ public class LocalCommandVoiceCycleTest {
   // The real disconnected controller rejects reopening; reaching that error
   // proves the cycle attempted capture again, without claiming hardware success.
   assertFalse((Boolean)get("voiceActive"));
-  assertTrue(((TextView)get("state")).getText().toString().contains("Micrófono Z02 no disponible"));
+  assertTrue(((TextView)get("state")).getText().toString().contains("Micrófono ZNP Z02 no disponible"));
  }
  @Test public void unaccentedAgendaCreationReachesConfirmationInsteadOfListing()throws Exception{
   command("agenda reunión mañana a las 15:30 por 45 minutos");
