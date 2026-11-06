@@ -305,7 +305,7 @@ public final class GoroZn02Controller {
    });
    operation.readScreenInfo(device,new OnRcspActionCallback<ScreenInfo>(){
     @Override public void onSuccess(BluetoothDevice d,ScreenInfo info){if(isCurrentConnection(d,epoch))emit("Pantalla "+modelLabel()+" leída por SDK: "+String.valueOf(info));}
-    @Override public void onError(BluetoothDevice d,BaseError error){if(isCurrentConnection(d,epoch))emit("Pantalla Z02 no disponible: "+error.getMessage());}
+    @Override public void onError(BluetoothDevice d,BaseError error){if(isCurrentConnection(d,epoch))emit("Pantalla "+modelLabel()+" no disponible: "+error.getMessage());}
    });
    operation.getBrightness(device,new OnRcspActionCallback<Integer>(){
     @Override public void onSuccess(BluetoothDevice d,Integer value){if(isCurrentConnection(d,epoch))emit("Brillo "+modelLabel()+": "+value+"%.");}
