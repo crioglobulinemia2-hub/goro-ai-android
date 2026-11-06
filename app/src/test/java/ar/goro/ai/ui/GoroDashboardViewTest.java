@@ -16,7 +16,7 @@ import static org.junit.Assert.*;
 @RunWith(RobolectricTestRunner.class)
 public class GoroDashboardViewTest {
  private static final class Calls implements GoroDashboardView.Actions {
-  int commands,link,gmail,calendar,unlink,weather,forecast,reminders,connect,inspect,lightOn,lightOff,lightRead,animation,nvidia,toggle;
+  int commands,link,gmail,calendar,unlink,weather,forecast,reminders,connect,inspect,lightOn,lightOff,lightRead,animation,nvidia,toggle,disconnect; java.util.List<String> models=new java.util.ArrayList<>(); java.util.List<String> animationModels=new java.util.ArrayList<>();
   public void onCommand(String value){commands++;}
   public void onToggleListening(){toggle++;}
   public void onLinkAccount(){link++;}
@@ -29,6 +29,8 @@ public class GoroDashboardViewTest {
   public void onConfigureNvidia(){nvidia++;}
   public void onTestNvidia(){nvidia++;}
   public void onConnectZn02(){connect++;}
+  public void onConnectZnpModel(String model){models.add(model);}
+  public void onDisconnectZnp(){disconnect++;}
   public void onInspectZn02(){inspect++;}
   public void onZn02LightOn(){lightOn++;}
   public void onZn02LightOff(){lightOff++;}
@@ -36,6 +38,7 @@ public class GoroDashboardViewTest {
   public void onZn02AudioOn(){}
   public void onZn02AudioOff(){}
   public void onInstallGoroAnimation(){animation++;}
+  public void onInstallGoroAnimation(String model){animationModels.add(model);}
  }
  private Button findButton(View root,String label){
   if(root instanceof Button && label.contentEquals(((Button)root).getText()))return (Button)root;
@@ -110,6 +113,21 @@ public class GoroDashboardViewTest {
   assertEquals(1,calls.calendar);
   assertEquals(1,calls.gmail);
   assertEquals(2,calls.nvidia);
+ }
+ @Test public void allThreeZnpModelsHaveSeparateConnectAndAnimationActions(){
+  Activity activity=Robolectric.buildActivity(Activity.class).setup().get();
+  Calls calls=new Calls();
+  GoroDashboardView dashboard=new GoroDashboardView(activity,calls,null,false);
+  activity.setContentView(dashboard);
+  findButton(dashboard,"Dispositivos").performClick();
+  for(String model:new String[]{"Z01","Z02","N02"}){
+   findButton(dashboard,"Conectar ZNP "+model).performClick();
+   findButton(dashboard,"Instalar animación GORO en "+model).performClick();
+  }
+  findButton(dashboard,"Desconectar dispositivo ZNP").performClick();
+  assertEquals(java.util.Arrays.asList("Z01","Z02","N02"),calls.models);
+  assertEquals(java.util.Arrays.asList("Z01","Z02","N02"),calls.animationModels);
+  assertEquals(1,calls.disconnect);
  }
  @Test public void fullReplySurvivesNavigationAndRemainsReadable(){
   Activity activity=Robolectric.buildActivity(Activity.class).setup().get();
