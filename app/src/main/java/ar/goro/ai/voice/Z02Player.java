@@ -11,7 +11,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 
-/** Plays PCM only through the selected and verified Z02 A2DP endpoint. */
+/** Plays PCM only through the selected and verified ZNP A2DP endpoint. */
 public final class Z02Player {
  public interface Listener {void onState(String state);void onError(String error);void onCompleted();}
  private final AudioManager audio;
@@ -61,9 +61,19 @@ public final class Z02Player {
    // name. Only old Android versions / devices with no address use the fallback.
    String address=Build.VERSION.SDK_INT>=28?d.getAddress():"";
    if(address!=null&&!address.isEmpty())continue;
-   if(!targetName.isEmpty()&&targetName.equalsIgnoreCase(d.getProductName().toString().trim()))named.add(d);
+   if(!targetName.isEmpty()&&sameZnpModelName(targetName,d.getProductName()==null?"":d.getProductName().toString()))named.add(d);
   }
   return named.size()==1?named:Collections.emptyList();
+ }
+ private static boolean sameZnpModelName(String a,String b){
+  String left=a.toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9]","");
+  String right=b.toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9]","");
+  if(left.equals(right))return true;
+  String[] aliases={"ZNPZ01","Z01","ZNPZ02","Z02","ZNPN02","ZN02","N02"};
+  for(String alias:aliases)if((left.equals(alias)||right.equals(alias))&&
+    (left.contains("Z01")&&right.contains("Z01")||left.contains("Z02")&&right.contains("Z02")||
+     (left.contains("N02")||left.contains("ZN02"))&&(right.contains("N02")||right.contains("ZN02"))))return true;
+  return false;
  }
  public void playWav(byte[] wav){
   if(closed)return;
@@ -76,10 +86,10 @@ public final class Z02Player {
  }
  private void waitForOutput(byte[] pcm,int rate,int channels,int attempt){
   if(closed)return;
-  if(attempt==0)emitStateText("Esperando audio multimedia del Z02");
+  if(attempt==0)emitStateText("Esperando audio multimedia del dispositivo ZNP");
   List<AudioDeviceInfo> devices=outputs();
   if(devices.size()==1){play(pcm,rate,channels,devices.get(0).getId());return;}
-  if(attempt>=30){emitError("El Z02 no presentó una salida A2DP única después de 15 segundos. No se reprodujo por la tablet.");return;}
+  if(attempt>=30){emitError("El dispositivo ZNP seleccionado no presentó una salida A2DP única después de 15 segundos. No se reprodujo por la tablet.");return;}
   final long request=sequence;
   pendingStart=()->{if(sequence==request)waitForOutput(pcm,rate,channels,attempt+1);};
   main.postDelayed(pendingStart,500);
@@ -91,7 +101,7 @@ public final class Z02Player {
   Playback session=new Playback(++sequence,targetId);active=session;
   AudioDeviceInfo target=null;
   for(AudioDeviceInfo d:outputs())if(d.getId()==targetId)target=d;
-  if(target==null){fail(session,"La salida multimedia Z02 no está conectada o no es inequívoca.");return;}
+  if(target==null){fail(session,"La salida multimedia ZNP no está conectada o no es inequívoca.");return;}
   if(audio.getStreamVolume(AudioManager.STREAM_MUSIC)==0){fail(session,"El volumen multimedia está en cero.");return;}
   if(pcm==null||pcm.length==0||channels<1||channels>2||pcm.length%(channels*2)!=0||rate<8000||rate>96000){
    fail(session,"Formato PCM de voz inválido.");return;
@@ -126,7 +136,7 @@ public final class Z02Player {
       Math.max(minimum,rate*channels/5),AudioTrack.MODE_STREAM,AudioManager.AUDIO_SESSION_ID_GENERATE);
     session.track=track;
     if(track.getState()!=AudioTrack.STATE_INITIALIZED)throw new IllegalStateException("AudioTrack no se inicializó.");
-    if(!track.setPreferredDevice(selected))throw new IllegalStateException("Android rechazó la salida Z02.");
+    if(!track.setPreferredDevice(selected))throw new IllegalStateException("Android rechazó la salida multimedia ZNP.");
     track.addOnRoutingChangedListener(routing,main);
     track.setVolume(0f);track.play();
     byte[] silence=new byte[(rate/50)*channels*2];
