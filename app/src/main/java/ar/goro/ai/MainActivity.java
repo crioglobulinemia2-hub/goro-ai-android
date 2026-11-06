@@ -19,6 +19,8 @@ import ar.goro.ai.weather.WeatherService;
 import ar.goro.ai.weather.DeviceLocationProvider;
 import ar.goro.ai.core.NemotronGateway;
 import ar.goro.ai.core.NvidiaCredentialStore;
+import ar.goro.ai.core.NvidiaSetupImporter;
+import android.net.Uri;
 import ar.goro.ai.core.NemotronSpeechGateway;
 import ar.goro.ai.core.ParakeetAsrGateway;
 import ar.goro.ai.core.SpeechTextChunks;
@@ -112,6 +114,7 @@ public class MainActivity extends Activity {
   private static final int CALENDAR_PERMISSION_REQUEST=62;
   private static final int GOOGLE_ACCOUNT_REQUEST=63;
   private static final int LOCATION_PERMISSION_REQUEST=64;
+  private static final int NVIDIA_APK_IMPORT_REQUEST=66;
   @Override public void onCreate(Bundle saved) {
     super.onCreate(saved);
     initializeLocalSpeech();
@@ -209,6 +212,7 @@ public class MainActivity extends Activity {
       public void onWeather(){runCommand("clima");}
       public void onForecast(){runCommand("pronóstico");}
       public void onConfigureNvidia(){configureNvidia();}
+      public void onImportNvidiaConfig(){importNvidiaFromApk();}
       public void onTestNvidia(){testNemotron();}
       public void onConnectZn02(){connectZnpModel("Z02");}
       public void onConnectZnpModel(String model){connectZnpModel(model);}
@@ -240,6 +244,18 @@ public class MainActivity extends Activity {
     super.onActivityResult(request,result,data);
     if(request==GoroGmailGateway.REQUEST_AUTHORIZATION){
       if(gmailGateway!=null)gmailGateway.onActivityResult(request,result,data);
+      return;
+    }
+    if(request==NVIDIA_APK_IMPORT_REQUEST){
+      if(result!=RESULT_OK||data==null||data.getData()==null){say("Importación de configuración NVIDIA cancelada.");return;}
+      try(InputStream input=getContentResolver().openInputStream(data.getData())){
+        String key=NvidiaSetupImporter.readKey(input);
+        activateNvidiaKey(key);
+        if(dashboard!=null)dashboard.showNvidiaStatus("Configuración NVIDIA importada de GORO 1.2.4 · verificando conexión");
+        say("Configuración NVIDIA importada y guardada cifrada en este dispositivo. Estoy verificando Nemotron y Diego.");
+      }catch(Exception error){
+        say("No pude importar la configuración NVIDIA. Elegí el APK original GORO IA 1.2.4 que contiene la configuración personal. No se modificó la versión anterior.");
+      }
       return;
     }
     if(request==GOOGLE_ACCOUNT_REQUEST){
@@ -637,28 +653,41 @@ public class MainActivity extends Activity {
     input.setHint("nvapi-…");
     input.setPadding(36,24,36,24);
     new AlertDialog.Builder(this).setTitle("Conectar NVIDIA Nemotron")
-      .setMessage("La clave se cifra con Android Keystore y se guarda solo en este dispositivo. No se publica en GitHub. Una edición personal puede traerla preconfigurada.")
+      .setMessage("La clave se cifra con Android Keystore y se guarda solo en este dispositivo. También podés importar la configuración personal desde el APK original GORO IA 1.2.4.")
       .setView(input)
       .setNegativeButton("Cancelar",null)
-      .setPositiveButton("Guardar y probar",(dialog,which)->{
-       String key=input.getText().toString().trim();
-       try{
-        nvidiaCredentialStore.save(key);
-        invalidateVoiceConversation();
-        if(nemotronGateway!=null)nemotronGateway.close();
-        if(speechGateway!=null)speechGateway.close();
-        if(asrGateway!=null)asrGateway.close();
-        if(speechProbe!=null)speechProbe.close();
-        nvidiaAsrReady=false;serviceCheckGeneration++;
-        nemotronGateway=new NemotronGateway(key);
-        speechGateway=new NemotronSpeechGateway(key);
-        asrGateway=new ParakeetAsrGateway(key);
-        speechProbe=new NvidiaSpeechProbe(key);
-        if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: clave cifrada · verificando…");
-        if(dashboard!=null)dashboard.showVoiceStatus("Magpie Diego: consultando catálogo NVIDIA…");
-        verifyNvidiaServices();
-       }catch(Exception e){if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: clave no guardada");say("No pude guardar la clave NVIDIA. Verificá que sea una API key nvapi válida.");}
-      }).show();
+      .setPositiveButton("Guardar y probar",(dialog,which)->activateNvidiaKey(input.getText().toString().trim()))
+      .show();
+  }
+  private void importNvidiaFromApk(){
+    Intent picker=new Intent(Intent.ACTION_OPEN_DOCUMENT);
+    picker.addCategory(Intent.CATEGORY_OPENABLE);
+    picker.setType("*/*");
+    picker.putExtra(Intent.EXTRA_MIME_TYPES,new String[]{"application/vnd.android.package-archive","application/octet-stream"});
+    picker.putExtra(Intent.EXTRA_TITLE,"Elegí GORO IA 1.2.4");
+    try{startActivityForResult(picker,NVIDIA_APK_IMPORT_REQUEST);}
+    catch(ActivityNotFoundException error){say("No hay un selector de archivos disponible para importar el APK original.");}
+  }
+  private void activateNvidiaKey(String key){
+    try{
+      nvidiaCredentialStore.save(key);
+      invalidateVoiceConversation();
+      if(nemotronGateway!=null)nemotronGateway.close();
+      if(speechGateway!=null)speechGateway.close();
+      if(asrGateway!=null)asrGateway.close();
+      if(speechProbe!=null)speechProbe.close();
+      nvidiaAsrReady=false;serviceCheckGeneration++;
+      nemotronGateway=new NemotronGateway(key);
+      speechGateway=new NemotronSpeechGateway(key);
+      asrGateway=new ParakeetAsrGateway(key);
+      speechProbe=new NvidiaSpeechProbe(key);
+      if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: clave cifrada · verificando…");
+      if(dashboard!=null)dashboard.showVoiceStatus("Magpie Diego: consultando catálogo NVIDIA…");
+      verifyNvidiaServices();
+    }catch(Exception error){
+      if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: clave no guardada");
+      say("No pude guardar la clave NVIDIA. Verificá la configuración de la cuenta original.");
+    }
   }
   private void testNemotron(){
     invalidateVoiceConversation();
