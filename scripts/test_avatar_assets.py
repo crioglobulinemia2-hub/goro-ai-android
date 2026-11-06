@@ -64,24 +64,28 @@ class AvatarSourceTests(unittest.TestCase):
         generate.assert_not_called()
         self.assertEqual(b"previous asset", self.runtime.read_bytes())
 
-    def test_missing_authored_source_requires_explicit_development_option(self):
-        with patch.object(avatar.subprocess, "run") as generate:
-            with self.assertRaises(ValueError):
-                avatar.prepare_avatar(self.root)
-        generate.assert_not_called()
-        self.assertFalse(self.runtime.exists())
+    def test_missing_glb_is_generated_from_first_party_source(self):
+        authored_model = fixture("GORO first-party parametric articulated character authoring")
+        def generate(*args, **kwargs):
+            self.write(self.root / avatar.PROCEDURAL_RELATIVE, authored_model)
+        with patch.object(avatar.subprocess, "run", side_effect=generate) as called:
+            report = avatar.prepare_avatar(self.root)
+        called.assert_called_once()
+        self.assertEqual(authored_model, self.authored.read_bytes())
+        self.assertEqual(authored_model, self.runtime.read_bytes())
+        self.assertEqual("first-party-parametric-authored", report["source_kind"])
 
-    def test_development_fallback_is_separate_and_labelled(self):
+    def test_development_generator_output_is_not_accepted_as_first_party_asset(self):
         development = fixture(avatar.PROCEDURAL_GENERATOR)
         def generate(*args, **kwargs):
             self.write(self.root / avatar.PROCEDURAL_RELATIVE, development)
         with patch.object(avatar.subprocess, "run", side_effect=generate):
-            report = avatar.prepare_avatar(self.root, allow_procedural=True)
+            with self.assertRaisesRegex(ValueError, "not the first-party"):
+                avatar.prepare_avatar(self.root)
         self.assertFalse(self.authored.exists())
-        self.assertEqual(development, self.runtime.read_bytes())
-        self.assertEqual("procedural-development", report["source_kind"])
+        self.assertFalse(self.runtime.exists())
 
-    def test_procedural_model_cannot_be_relabelled_as_authored(self):
+    def test_development_generator_label_is_rejected_as_authored(self):
         self.write(self.authored, fixture(avatar.PROCEDURAL_GENERATOR))
         with self.assertRaisesRegex(ValueError, "procedural"):
             avatar.prepare_avatar(self.root)
