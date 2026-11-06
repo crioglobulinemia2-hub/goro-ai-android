@@ -39,7 +39,7 @@ public class GoroLaunchSmokeTest {
     View root=activity.findViewById(android.R.id.content);
     assertNotNull(root);
     assertNotNull(findText(root,"GORO IA"));
-    assertNotNull(findText(root,"GORO IA · Tocá Activar escucha para conversar por ZNP Z02. Podés pausarla en cualquier momento."));
+    assertNotNull(findText(root,"GORO IA · Tocá Activar escucha para conversar con el dispositivo ZNP conectado. Podés pausarla en cualquier momento."));
     assertNotNull(findText(root,"Escucha pausada"));
     assertNotNull(findText(root,"Conversar"));
     assertNotNull(findText(root,"Explorar"));
