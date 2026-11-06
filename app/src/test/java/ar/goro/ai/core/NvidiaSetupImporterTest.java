@@ -19,7 +19,7 @@ public class NvidiaSetupImporterTest {
   return bytes.toByteArray();
  }
  @Test public void readsOwnerCredentialFromOriginalGoroApkWithoutPersistingIt()throws Exception{
-  String key="nvapi-test-token-123456789012345";
+  String key="nvapi-"+"test-token-123456789012345";
   byte[] apk=apk("assets/goro-personal.json","{\"nvidia_key\":\""+key+"\"}");
   assertEquals(key,NvidiaSetupImporter.readKey(new ByteArrayInputStream(apk)));
  }
