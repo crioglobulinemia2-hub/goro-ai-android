@@ -213,7 +213,6 @@ public class MainActivity extends Activity {
       public void onForecast(){runCommand("pronóstico");}
       public void onConfigureNvidia(){configureNvidia();}
       public void onImportNvidiaConfig(){importNvidiaFromApk();}
-      public void onImportNvidiaConfig(){importNvidiaFromApk();}
       public void onTestNvidia(){testNemotron();}
       public void onConnectZn02(){connectZnpModel("Z02");}
       public void onConnectZnpModel(String model){connectZnpModel(model);}
