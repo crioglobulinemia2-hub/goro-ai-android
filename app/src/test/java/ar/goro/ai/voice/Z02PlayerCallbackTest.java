@@ -14,6 +14,7 @@ import static org.junit.Assert.*;
 @RunWith(RobolectricTestRunner.class)
 @LooperMode(LooperMode.Mode.PAUSED)
 public class Z02PlayerCallbackTest {
+ @Test public void wavWithoutSelectedZnpUsesAndroidOutput(){assertTrue(Z02Player.shouldUseAndroidOutput(""));assertTrue(Z02Player.shouldUseAndroidOutput(null));assertFalse(Z02Player.shouldUseAndroidOutput("12:34:56:78:90:AB"));}
  private static final class Listener implements Z02Player.Listener {
   int errors,completed;
   public void onState(String state){}
