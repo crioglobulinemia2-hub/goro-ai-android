@@ -102,7 +102,7 @@ public class GoroDashboardViewTest {
   findButton(dashboard,"Conectar ZNP Z02").performClick();
   assertNull(findButton(dashboard,"Hablar con GORO"));
   assertNotNull(findText(dashboard,"Activá o pausá la escucha con el botón superior. La pausa se mantiene al reconectar."));
-  assertEquals(1,calls.connect);
+  assertEquals(java.util.Arrays.asList("Z02"),calls.models);
   findButton(dashboard,"Ajustes").performClick();
   findButton(dashboard,"Vincular cuenta Google").performClick();
   findButton(dashboard,"Autorizar Calendar").performClick();
