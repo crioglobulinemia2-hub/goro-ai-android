@@ -239,7 +239,9 @@ public class GoroDashboardViewTest {
   android.widget.EditText query=findEditText(dialog.getWindow().getDecorView());
   assertNotNull(query);
   query.setText("conexión Bluetooth ZNP N02");
+  assertEquals("conexión Bluetooth ZNP N02",query.getText().toString());
   dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick();
+  org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
   assertEquals("buscá por internet conexión Bluetooth ZNP N02",calls.lastCommand);
  }
  @Test public void deviceSummaryDoesNotTurnUnverifiedTransportIntoConnectedState(){
