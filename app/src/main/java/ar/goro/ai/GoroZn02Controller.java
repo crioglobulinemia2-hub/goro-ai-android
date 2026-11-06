@@ -68,6 +68,8 @@ public final class GoroZn02Controller {
  private final BTRcspEventCallback eventCallback;
  private ChargingCaseOpImpl caseOp;
  private volatile BluetoothDevice target;
+ private volatile String requestedModel="Z02";
+ private volatile String activeModel="Z02";
  private boolean scanning;
  private volatile boolean connected;
  private volatile boolean vendorProtocolVerified=false;
@@ -122,7 +124,7 @@ public final class GoroZn02Controller {
     mainHandler.post(()->{
      if(!ble||closed)return;
      scanning=start;
-     if(!start&&!connected&&target==null)emit("Búsqueda finalizada: no se encontró el ZNP Z02.");
+     if(!start&&!connected&&target==null)emit("Búsqueda finalizada: no se encontró "+modelLabel()+".");
     });
    }
    @Override public void onDiscovery(BluetoothDevice device,BleScanMessage message){
@@ -132,16 +134,15 @@ public final class GoroZn02Controller {
      try{name=device.getName();}catch(SecurityException ignored){}
      ZnpDeviceProfile profile=ZnpAdvertisement.profile(name,message==null?null:message.getRawData());
      if(!profile.isCandidate())return;
-     if(!profile.isRcspCandidate()){
-      try{controller.stopScan();}catch(RuntimeException ignored){}
-      scanning=false;
-      emit(profile.modelLabel()+" detectado. No se inicia RCSP: este controlador de estuche está validado únicamente para Z02. Usá el inventario GATT pasivo para identificar servicios sin enviar comandos.");
-      return;
-     }
+     String candidate=profile.model.name().replace("_CANDIDATE","");
+     if(!candidate.equals(requestedModel))return;
+     // Explicit model selection authorizes a conservative RCSP handshake attempt.
+     // No device commands are enabled until authentication and chipset checks pass.
+     activeModel=candidate;
      target=device;
      try{controller.stopScan();}catch(RuntimeException ignored){}
      scanning=false;
-     emit("Anuncio ZNP Z02 detectado. Abriendo enlace RCSP y verificando autenticación…");
+     emit("Anuncio "+profile.modelLabel()+" detectado. Abriendo enlace RCSP y verificando autenticación…");
      try{controller.connectDevice(device);}
      catch(RuntimeException error){emit("El SDK JieLi no pudo iniciar la conexión BLE RCSP: "+error.getClass().getSimpleName());}
     });
@@ -156,7 +157,7 @@ public final class GoroZn02Controller {
       // epoch without releasing it, leaving every later startVoice blocked.
       if(connected)return;
       connected=true;vendorProtocolVerified=false;
-      emit("Enlace BLE Z02 abierto. Verificando autenticación RCSP…");
+      emit("Enlace BLE "+modelLabel()+" abierto. Verificando autenticación RCSP…");
       verifyAuthenticated(device);
      }else if(status==StateCode.CONNECTION_DISCONNECT||status==StateCode.CONNECTION_FAILED){
       // JieLi may report a classic audio profile failure while the BLE/RCSP link remains alive.
@@ -167,14 +168,14 @@ public final class GoroZn02Controller {
         connectionEpoch++;connected=false;vendorProtocolVerified=false;releaseVoice();cancelScreenUpload();releaseCaseObservation();bondSession.close();
         if(authPoll!=null)mainHandler.removeCallbacks(authPoll);
         if(authTimeout!=null)mainHandler.removeCallbacks(authTimeout);
-        emit("ZNP Z02 desconectado (estado "+status+").");
+        emit(modelLabel()+" desconectado (estado "+status+").");
        }else{
         emit("El perfil secundario informó "+status+"; el enlace BLE/RCSP principal sigue conectado.");
        }
       };
       mainHandler.postDelayed(connectionCheck,500);
      }else if(status==StateCode.CONNECTION_CONNECTING){
-      emit("Conectando ZNP Z02 por Bluetooth LE…");
+      emit("Conectando "+modelLabel()+" por Bluetooth LE…");
      }
     });
    }
@@ -216,10 +217,24 @@ public final class GoroZn02Controller {
       .setSkipNoNameDev(false)
       .setReconnect(false);
  }
- public synchronized void startScan(){
-  if(closed){emit("Controlador ZN02 cerrado.");return;}
-  if(connected&&target!=null){emit("El Z02 ya tiene una sesión Bluetooth abierta.");return;}
-  if(neededPermissions().length>0){emit("Faltan permisos Bluetooth para conectar el ZN02.");return;}
+ public synchronized void startScan(){startScan("Z02");}
+ public synchronized void startScan(String model){
+  String requested=model==null?"Z02":model.trim().toUpperCase(java.util.Locale.ROOT);
+  if(!requested.matches("Z01|Z02|N02")){emit("Modelo ZNP no reconocido. Elegí Z01, Z02 o N02.");return;}
+  if(closed){emit("Controlador ZNP cerrado.");return;}
+  if(connected&&target!=null){
+   if(activeModel.equals(requested))emit("El "+modelLabel()+" ya tiene una sesión Bluetooth abierta.");
+   else emit("Ya hay una sesión activa con "+modelLabel()+". Desconectalo antes de cambiar de modelo.");
+   return;
+  }
+  if(scanning){
+   if(requestedModel.equals(requested)){emit("Buscando "+modelLabel()+"; la búsqueda ya está activa.");return;}
+   try{if(controller!=null)controller.stopScan();}catch(RuntimeException ignored){}
+   scanning=false;
+  }
+  requestedModel=requested;
+  activeModel=requested;
+  if(neededPermissions().length>0){emit("Faltan permisos Bluetooth para conectar "+modelLabel()+".");return;}
   try{
    BluetoothManager manager=(BluetoothManager)context.getSystemService(Context.BLUETOOTH_SERVICE);
    BluetoothAdapter adapter=manager==null?null:manager.getAdapter();
@@ -237,7 +252,7 @@ public final class GoroZn02Controller {
   if(scanning){emit("La búsqueda ZNP ya está activa.");return;}
   target=null;connected=false;vendorProtocolVerified=false;
   controller.addBTRcspEventCallback(eventCallback);
-  emit("Buscando ZNP Z02 / ZN02 / ZNP N02 por Bluetooth LE…");
+  emit("Buscando "+modelLabel()+" por Bluetooth LE…");
   scanning=controller.startBleScan(20000);
   if(!scanning)emit("El SDK JieLi no pudo iniciar el escaneo. Revisá Bluetooth y permisos.");
  }
@@ -271,7 +286,7 @@ public final class GoroZn02Controller {
  }
  private void initializeAuthenticatedDevice(BluetoothDevice device,long epoch){
   if(closed||epoch!=connectionEpoch||!isTarget(device))return;
-  emit("Autenticación RCSP del Z02 confirmada.");
+  emit("Autenticación RCSP de "+modelLabel()+" confirmada.");
   try{
    releaseCaseObservation();
    final ChargingCaseOpImpl operation=ChargingCaseOpImpl.instance(controller.getRcspOp());caseOp=operation;
@@ -281,9 +296,9 @@ public final class GoroZn02Controller {
     @Override public void onSuccess(BluetoothDevice d,SDKMessage message){
      if(!isCurrentConnection(d,epoch)||message==null)return;
      int chip=message.getChip();ChargingCaseInfo info=operation.getChargingCaseInfo(d);
-     if(info!=null)emit("Z02 · chip "+chip+" · pantalla "+info.getScreenWidth()+"×"+info.getScreenHeight()+".");
-     if(chip==SDKMessage.CHIP_701N||chip==SDKMessage.CHIP_707N){vendorProtocolVerified=true;emit("Perfil de pantalla JieLi confirmado.");readFlashlight();}
-     else{vendorProtocolVerified=false;emit("Micrófono RCSP disponible; controles de pantalla bloqueados por chip no compatible.");}
+     if(info!=null)emit(modelLabel()+" · chip "+chip+" · pantalla "+info.getScreenWidth()+"×"+info.getScreenHeight()+".");
+     if(chip==SDKMessage.CHIP_701N||chip==SDKMessage.CHIP_707N){vendorProtocolVerified=true;emit("Perfil de pantalla JieLi confirmado para "+modelLabel()+".");readFlashlight();}
+     else{vendorProtocolVerified=false;emit("Micrófono RCSP disponible; controles de pantalla bloqueados para "+modelLabel()+" por chip no compatible.");}
     }
     @Override public void onError(BluetoothDevice d,BaseError error){if(isCurrentConnection(d,epoch))emit("Pantalla Z02 no disponible: "+error.getMessage());}
    });
@@ -306,7 +321,7 @@ public final class GoroZn02Controller {
    final BluetoothDevice selected=audioTarget;
    bondSession.start(selected,()->{
     if(closed||epoch!=connectionEpoch||!isTarget(device))return;
-    try{controller.getBluetoothManager().startConnectByBreProfiles(selected);emit("Perfil de audio clásico solicitado. Verificando salida multimedia Z02…");}
+    try{controller.getBluetoothManager().startConnectByBreProfiles(selected);emit("Perfil de audio clásico solicitado. Verificando salida multimedia "+modelLabel()+"…");}
     catch(Exception error){emit("No se pudo iniciar el perfil de audio Z02: "+error.getClass().getSimpleName());}
    },this::emit);
   }catch(Exception error){emit("No se pudo resolver el perfil de audio Z02: "+error.getClass().getSimpleName());}
@@ -314,7 +329,7 @@ public final class GoroZn02Controller {
  public synchronized boolean isVoiceCaptureActive(){return recording||draining;}
  public synchronized boolean startVoice(){
   if(screenUpload!=null){emit("La escucha permanece pausada mientras se instala la animación.");return false;}
-  if(closed||!connected||target==null||recording||draining||controller==null){emit("El micrófono Z02 no está listo o ya hay una captura activa.");return false;}
+  if(closed||!connected||target==null||recording||draining||controller==null){emit("El micrófono de "+modelLabel()+" no está listo o ya hay una captura activa.");return false;}
   if(!controller.getRcspOp().isRcspInit(target)||!controller.getRcspOp().isDeviceAuthPass(target)){emit("La sesión RCSP del Z02 dejó de estar autenticada.");return false;}
   final BluetoothDevice device=target;final long epoch=connectionEpoch;final long capture=++voiceEpoch;
   microphonePcm=new ByteArrayOutputStream();final ByteArrayOutputStream out=microphonePcm;
@@ -451,16 +466,16 @@ public final class GoroZn02Controller {
  }
  public synchronized void uploadGoroScreenSaver(File sourceGif){
   if(closed||!connected||!vendorProtocolVerified||target==null||caseOp==null){
-   emit("ZN02 sin protocolo de pantalla verificado. No se inició la transferencia.");return;
+   emit(modelLabel()+" sin protocolo de pantalla verificado. No se inició la transferencia.");return;
   }
   if(screenUpload!=null){emit("Ya hay una transferencia de animación en curso.");return;}
   cancelVoice();
   if(sourceGif==null||!sourceGif.isFile()||!sourceGif.canRead()){
-   emit("No se encuentra la animación GORO para el ZN02.");return;
+   emit("No se encuentra la animación GORO para "+modelLabel()+".");return;
   }
   ChargingCaseInfo info=caseOp.getChargingCaseInfo(target);
   if(info==null||info.getScreenWidth()<=0||info.getScreenHeight()<=0){
-   emit("La resolución real del visor ZN02 todavía no está disponible. No se envió ningún archivo.");return;
+   emit("La resolución real del visor "+modelLabel()+" todavía no está disponible. No se envió ningún archivo.");return;
   }
   try(java.io.FileInputStream input=new java.io.FileInputStream(sourceGif)){
    byte[] header=new byte[10];
@@ -480,7 +495,7 @@ public final class GoroZn02Controller {
    emit("La transferencia del visor agotó el tiempo. La animación no quedó confirmada.");cancelScreenUpload();
   };
   mainHandler.postDelayed(upload.timeout,120000);
-  emit("Preparando animación GORO para el visor ZN02 "+info.getScreenWidth()+"×"+info.getScreenHeight()+"…");
+  emit("Preparando animación GORO para el visor "+modelLabel()+" "+info.getScreenWidth()+"×"+info.getScreenHeight()+"…");
   try{caseOp.readSDKMessage(upload.device,new OnRcspActionCallback<SDKMessage>(){
    @Override public void onSuccess(BluetoothDevice device,SDKMessage sdk){
     if(!currentScreenUpload(upload)||!upload.device.equals(device))return;
@@ -579,6 +594,11 @@ public final class GoroZn02Controller {
   return (actual.startsWith("/")?actual:"/"+actual).equals(path.startsWith("/")?path:"/"+path);
  }
  private boolean isCurrentConnection(BluetoothDevice device,long epoch){return !closed&&connected&&epoch==connectionEpoch&&isTarget(device);}
+ public synchronized boolean isConnectedTo(String model){
+  return connected&&target!=null&&activeModel.equals(model==null?"":model.trim().toUpperCase(java.util.Locale.ROOT));
+ }
+ public String connectedModelLabel(){return modelLabel();}
+ private String modelLabel(){return "ZNP "+activeModel;}
  public synchronized boolean isScreenUploadActive(){return screenUpload!=null;}
  private synchronized boolean currentScreenUpload(ScreenUpload upload){return screenUpload==upload&&isCurrentConnection(upload.device,upload.epoch);}
  private static void deletePreparedScreen(File output){
