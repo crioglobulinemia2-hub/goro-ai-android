@@ -142,8 +142,17 @@ public final class GoroAvatarView extends FrameLayout {
    // Vulkan avoids the GL_MAX_VERTEX_UNIFORM_VECTORS(256) limitation
    // triggered by GORO's skinned PBR model on the API 36 emulator.
    // Do not silently fall back to unsafe GLES, which aborts natively.
-   engine=Engine.create(Engine.Backend.VULKAN);
-   if(engine==null)throw new IllegalStateException("Vulkan is not available");
+   Throwable vulkanFailure=null;
+   try{engine=Engine.create(Engine.Backend.VULKAN);}
+   catch(Throwable unsupportedVulkan){vulkanFailure=unsupportedVulkan;engine=null;}
+   if(engine==null){
+    try{engine=Engine.create(Engine.Backend.OPENGL);}
+    catch(Throwable unsupportedOpenGl){
+     if(vulkanFailure!=null)unsupportedOpenGl.addSuppressed(vulkanFailure);
+     throw new IllegalStateException("Ni Vulkan ni OpenGL pudieron iniciar el motor 3D",unsupportedOpenGl);
+    }
+   }
+   if(engine==null)throw new IllegalStateException("Filament no pudo crear un motor gráfico");
    UiHelper helper=new UiHelper(UiHelper.ContextErrorPolicy.DONT_CHECK);
    helper.setOpaque(false);
    // A null argument creates GoroModelViewer's default orbit controller, which
