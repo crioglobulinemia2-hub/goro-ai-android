@@ -24,3 +24,8 @@ La animación que se muestra dentro de Android y el recurso que admite el visor 
 - GLB humanoide autorado y comparación visual contra el diseño aprobado; el robot procedural de CI no es una entrega final.
 
 No marcar una función como operativa por una prueba unitaria, un emulador o un nombre anunciado por BLE.
+
+
+## Variante paralela 1.2.5
+
+El build paralelo usa `applicationId ar.goro.ai.parallel` para instalarse junto a `ar.goro.ai.personal` sin reemplazar sus datos. La variante de prueba tiene firma de depuración propia. Gmail OAuth no se considera listo hasta registrar el paquete paralelo y el SHA-1 de su certificado en el cliente Android de Google Cloud y completar el consentimiento desde el dispositivo. El certificado de depuración no se usa para publicar una versión estable.
