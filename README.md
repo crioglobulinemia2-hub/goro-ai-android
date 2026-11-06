@@ -31,3 +31,7 @@ No marcar una función como operativa por una prueba unitaria, un emulador o un 
 El build paralelo usa `applicationId ar.goro.ai.parallel` para instalarse junto a `ar.goro.ai.personal` sin reemplazar sus datos. La variante de prueba tiene firma de depuración propia. Gmail OAuth no se considera listo hasta registrar el paquete paralelo y el SHA-1 de su certificado en el cliente Android de Google Cloud y completar el consentimiento desde el dispositivo. El certificado de depuración no se usa para publicar una versión estable.
 
 Build paralelo solicitado: applicationId ar.goro.ai.parallel. No instalar sobre la versión personal.
+
+## Diagnóstico 1.2.7
+
+La animación del avatar de desarrollo fue corregida para usar rotaciones de hombros y codos sobre el eje visible del gesto, con mayor amplitud y clips de cuerpo completo. El renderer usa Vulkan únicamente; no intenta OpenGL porque el modelo skinned excede límites GLES en algunos dispositivos. La salida Magpie usa el altavoz Android como respaldo si no hay ruta ZNP confirmada. La voz local informa explícitamente si Android no tiene un motor/idioma TTS disponible.
