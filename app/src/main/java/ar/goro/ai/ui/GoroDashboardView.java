@@ -178,13 +178,18 @@ public final class GoroDashboardView extends LinearLayout {
  public void showWeather(String value){weather.setText(value==null?"Clima sin consultar":value);}
  public void showDeviceStatus(String value){String status=value==null?"Sin datos del dispositivo.":value;devicesValue.setText(status);homeDevices.setText(deviceSummary(status));homeDevices.setContentDescription(status);}
  private static String deviceSummary(String status){
-  if(status.startsWith("Buscando exclusivamente ZN02")||status.equals("La búsqueda ZNP ya está activa."))return "Buscando Z02…";
-  if(status.startsWith("Conectando ZNP Z02"))return "Conectando Z02…";
-  if(status.startsWith("Anuncio ZNP Z02 detectado.")||status.startsWith("Enlace BLE Z02 abierto."))return "Z02 · verificando conexión…";
-  if(status.equals("Autenticación RCSP del Z02 confirmada."))return "Z02 · conexión verificada";
-  if(status.startsWith("Micrófono Z02 activo."))return "Z02 · escuchando";
-  if(status.startsWith("PCM16 recibido desde el micrófono Z02."))return "Z02 · recibiendo voz";
-  if(status.startsWith("Captura del micrófono Z02 recibida ("))return "Z02 · voz recibida";
+  String model=null;
+  for(String candidate:new String[]{"Z01","Z02","N02"})if(status.contains("ZNP "+candidate))model=candidate;
+  if(model==null)return status;
+  String label="ZNP "+model;
+  if(status.startsWith("Buscando "+label))return "Buscando "+model+"…";
+  if(status.startsWith("Conectando "+label))return "Conectando "+model+"…";
+  if(status.startsWith("Anuncio "+label+" detectado.")||status.startsWith("Enlace BLE "+label+" abierto."))return model+" · verificando conexión…";
+  if(status.startsWith("Autenticación RCSP de "+label+" confirmada."))return model+" · conexión verificada";
+  if(status.startsWith("Micrófono de "+label+" activo."))return model+" · escuchando";
+  if(status.startsWith("PCM16 recibido desde el micrófono de "+label))return model+" · recibiendo voz";
+  if(status.startsWith("Captura del micrófono de "+label+" recibida"))return model+" · voz recibida";
+  if(status.startsWith("Salida A2DP confirmada por Android para "+label))return model+" · audio verificado";
   return status;
  }
  public void setVoiceActive(boolean active){conversationStatus.setText(listeningPaused?"Escucha pausada":active?"Te escucho desde ZNP":"ZNP · preparando conexión");conversationStatus.setTextColor(active&&!listeningPaused?CYAN:MUTED);microphone.setAlpha(active&&!listeningPaused?1f:.55f);}
