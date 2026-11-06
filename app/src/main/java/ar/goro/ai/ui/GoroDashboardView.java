@@ -1,6 +1,7 @@
 package ar.goro.ai.ui;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.Typeface;
@@ -14,6 +15,7 @@ import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import ar.goro.ai.R;
@@ -152,7 +154,11 @@ public final class GoroDashboardView extends LinearLayout {
   addAction(devicePanel,"Instalar animación GORO en Z02","face",()->actions.onInstallGoroAnimation("Z02"));
   addAction(devicePanel,"Instalar animación GORO en N02","face",()->actions.onInstallGoroAnimation("N02"));
   settingsPanel=panel();settingsPanel.addView(card("TU CUENTA",accountLabel));addAction(settingsPanel,"Vincular cuenta Google","link",()->actions.onLinkAccount());addAction(settingsPanel,"Autorizar Calendar","agenda",()->actions.onCalendarPermission());addAction(settingsPanel,"Autorizar Gmail","mail",()->actions.onReadGmail());settingsPanel.addView(card("INTELIGENCIA",nvidiaValue));settingsPanel.addView(card("VOZ DIEGO",voiceValue));addAction(settingsPanel,"Configurar NVIDIA","settings",()->actions.onConfigureNvidia());addAction(settingsPanel,"Verificar NVIDIA","link",()->actions.onTestNvidia());addAction(settingsPanel,"Desvincular cuenta Google","settings",()->actions.onUnlinkAccount());
-  explorePanel=panel();TextView projectNote=text("Tus ideas y proyectos\n\nPedile a Goro que recuerde un dato o consultá lo que ya guardaste.",16,false,TEXT);explorePanel.addView(card("MEMORIA PERSONAL",projectNote));addAction(explorePanel,"Consultar memoria","folder",()->actions.onCommand("qué recordás"));
+  explorePanel=panel();TextView projectNote=text("Tus ideas y proyectos\n\nPedile a Goro que recuerde un dato o consultá lo que ya guardaste.",16,false,TEXT);explorePanel.addView(card("MEMORIA PERSONAL",projectNote));addAction(explorePanel,"Consultar memoria","folder",()->actions.onCommand("qué recordás"));addAction(explorePanel,"Buscar en internet","search",()->{
+    EditText query=new EditText(activity);query.setSingleLine(true);query.setHint("Qué querés buscar…");query.setTextSize(16);query.setPadding(dp(14),dp(12),dp(14),dp(12));
+    new AlertDialog.Builder(activity).setTitle("Buscar en internet").setMessage("GORO abrirá resultados web y podrá leerte los fragmentos en voz alta.").setView(query)
+      .setNegativeButton("Cancelar",null).setPositiveButton("Buscar",(dialog,which)->{String value=query.getText().toString().trim();if(!value.isEmpty())actions.onCommand("buscá por internet "+value);}).show();
+   });
   automationPanel=panel();TextView automaticNote=text("Recordatorios, alarmas y temporizadores. Goro te pide confirmar las acciones que lo requieren.",15,false,TEXT);automationPanel.addView(card("AUTOMATIZAR",automaticNote));addAction(automationPanel,"Activar recordatorios","bolt",()->actions.onReminders());
   navigation=new LinearLayout(a);navigation.setGravity(Gravity.CENTER);navigation.setPadding(0,dp(4),0,0);navigation.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,new int[]{0x00112336,0xff061425}));
   String[] icons={"chat","grid","bolt","settings"};for(int i=0;i<primary.length;i++){GoroSection section=primary[i];Button item=iconButton(section.label,icons[i],()->select(section),false,21);navigation.addView(item,new LinearLayout.LayoutParams(0,dp(59),1));}
