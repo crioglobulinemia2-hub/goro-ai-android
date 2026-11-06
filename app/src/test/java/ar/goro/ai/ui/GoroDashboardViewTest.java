@@ -254,7 +254,7 @@ public class GoroDashboardViewTest {
   assertNull(findVisibleText(dashboard,"Z02 · conexión verificada"));
   findButton(dashboard,"Dispositivos").performClick();
   assertNotNull(findVisibleText(dashboard,connecting));
-  String failure="El SDK no completó la autenticación de ZNP Z02 en 20 segundos. Volvé a conectar el dispositivo."
+  String failure="El SDK no completó la autenticación de ZNP Z02 en 20 segundos. Volvé a conectar el dispositivo.";
   dashboard.showDeviceStatus(failure);
   findButton(dashboard,"Conversar").performClick();
   assertNotNull(findVisibleText(dashboard,failure));
