@@ -13,6 +13,20 @@ final class ZnpScreenAsset {
   "znp_faces_10.b64","znp_faces_11.b64","znp_faces_12.b64","znp_faces_12b.b64",
   "znp_faces_13.b64","znp_faces_14.b64","znp_faces_15.b64","znp_faces_16.b64","znp_faces_17.b64"
  };
+ static File forDevice(Context context,String model,int width,int height)throws IOException{
+  if(model==null||!model.trim().toUpperCase(java.util.Locale.ROOT).matches("Z01|Z02|N02"))
+   throw new IOException("Modelo ZNP desconocido para animación");
+  String profile=ZnpDeviceProfile.detect("ZNP "+model.trim().toUpperCase(java.util.Locale.ROOT)).animationProfile();
+  if("unknown".equals(profile))throw new IOException("No hay perfil de animación para el modelo seleccionado");
+  File display=forDisplay(context,width,height);
+  File selected=new File(context.getCacheDir(),"GORO-"+profile.toUpperCase(java.util.Locale.ROOT)+"-"+width+"x"+height+".gif");
+  try(FileInputStream in=new FileInputStream(display);FileOutputStream out=new FileOutputStream(selected)){
+   byte[] buffer=new byte[8192];int n;
+   while((n=in.read(buffer))!=-1)out.write(buffer,0,n);
+   out.flush();
+  }
+  return selected;
+ }
  static File forDisplay(Context context,int width,int height)throws IOException{
   byte[] gif;
   if(width==320&&height==172){
