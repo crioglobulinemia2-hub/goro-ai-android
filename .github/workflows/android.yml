@@ -108,19 +108,21 @@ jobs:
           SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
           "${SDK_ROOT}/build-tools/36.0.0/apksigner" verify --verbose app/build/outputs/apk/debug/app-debug.apk
           echo "Release compiled unsigned; owner certificate is supplied only for private builds."
-      - name: Check 12-of-12 release readiness without claiming completion
+      - name: Enforce strict 12-of-12 release acceptance
         if: always()
-        run: python3 scripts/release_gate.py --report build/goro-release-readiness.json
+        run: python3 scripts/release_gate.py --strict --report build/goro-release-readiness.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: GoroAI-release-readiness
           path: build/goro-release-readiness.json
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: GoroAI-debug-apk
           path: app/build/outputs/apk/debug/*.apk
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: GoroAI-unsigned-release-apk
           path: app/build/outputs/apk/release/*.apk
