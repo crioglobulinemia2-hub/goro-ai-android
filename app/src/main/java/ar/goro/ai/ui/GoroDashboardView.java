@@ -187,14 +187,14 @@ public final class GoroDashboardView extends LinearLayout {
   if(status.startsWith("Captura del micrófono Z02 recibida ("))return "Z02 · voz recibida";
   return status;
  }
- public void setVoiceActive(boolean active){conversationStatus.setText(listeningPaused?"Escucha pausada":active?"Te escucho desde Z02":"Z02 · preparando conexión");conversationStatus.setTextColor(active&&!listeningPaused?CYAN:MUTED);microphone.setAlpha(active&&!listeningPaused?1f:.55f);}
+ public void setVoiceActive(boolean active){conversationStatus.setText(listeningPaused?"Escucha pausada":active?"Te escucho desde ZNP":"ZNP · preparando conexión");conversationStatus.setTextColor(active&&!listeningPaused?CYAN:MUTED);microphone.setAlpha(active&&!listeningPaused?1f:.55f);}
  public void setListeningPaused(boolean paused){
   listeningPaused=paused;
   String label=paused?"Activar escucha":"Pausar escucha";
   listeningToggle.setText(label);listeningToggle.setContentDescription(label);
   microphone.setContentDescription(label);microphone.setAlpha(paused?.55f:1f);
   listeningLabel.setText(paused?"Escucha pausada":"Escucha activada");listeningLabel.setTextColor(paused?MUTED:CYAN);
-  conversationStatus.setText(paused?"Escucha pausada":"Z02 · preparando conversación");
+  conversationStatus.setText(paused?"Escucha pausada":"ZNP · preparando conversación");
  }
  public void showVoiceStatus(String value){
   String status=value==null||value.trim().isEmpty()?"Voz sin conexión":value.trim();
