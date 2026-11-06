@@ -263,7 +263,7 @@ public class MainActivity extends Activity {
         if(!speechChunks.isEmpty()){speakNextChunk(speechGeneration);return;}
         if(modelReplyStreaming)return;
         speechInProgress=false;pendingSpeechWav=null;
-        if(state!=null)state.setText(voiceActive?"GORO · Escuchando desde Z02":"GORO · Listo");
+        if(state!=null)state.setText(voiceActive?"GORO · Escuchando desde "+currentZnpLabel():"GORO · Listo");
         if(dashboard!=null)dashboard.showAvatarMood(voiceActive?GoroAvatarView.Mood.LISTENING:GoroAvatarView.Mood.IDLE);
         if(voiceActive)startZ02Listening();
         }
@@ -317,6 +317,7 @@ public class MainActivity extends Activity {
       z02Player.playWav(wav);
     });
   }
+  private String currentZnpLabel(){return zn02Controller==null?"ZNP":zn02Controller.connectedModelLabel();}
   private void startZ02Listening(){
     if(listeningPaused||recognitionInProgress||!foreground||!voiceActive||speechInProgress||zn02Controller==null)return;
     cancelVoiceRetry();
@@ -324,10 +325,10 @@ public class MainActivity extends Activity {
     if(!zn02Controller.startVoice()){
       voiceActive=false;
       if(dashboard!=null)dashboard.setVoiceActive(false);
-      if(state!=null)state.setText("GORO · Micrófono Z02 no disponible");
+      if(state!=null)state.setText("GORO · Micrófono "+currentZnpLabel()+" no disponible");
       return;
     }
-    if(state!=null)state.setText("GORO · Abriendo micrófono Z02");
+    if(state!=null)state.setText("GORO · Abriendo micrófono "+currentZnpLabel());
   }
   private void cancelVoiceRetry(){
     if(pendingVoiceRetry!=null)voiceRetryHandler.removeCallbacks(pendingVoiceRetry);
@@ -361,7 +362,7 @@ public class MainActivity extends Activity {
       scheduleZ02ListenRetry();return;
     }
     if(asrGateway==null){say("NVIDIA ASR no está configurado.");return;}
-    if(state!=null)state.setText("GORO · Transcribiendo voz Z02 con NVIDIA");
+    if(state!=null)state.setText("GORO · Transcribiendo voz de "+currentZnpLabel()+" con NVIDIA");
     if(dashboard!=null)dashboard.showAvatarMood(GoroAvatarView.Mood.THINKING);
     final long generation=speechGeneration;
     recognitionInProgress=true;cancelVoiceRetry();
@@ -369,7 +370,7 @@ public class MainActivity extends Activity {
       if(!foreground||!voiceActive||speechInProgress||generation!=speechGeneration)return;
       recognitionInProgress=false;
       if(error!=null||transcript==null||transcript.trim().isEmpty()){
-        if(output!=null)output.setText("No pude reconocer la frase del Z02: "+(error==null?"audio sin transcripción":error));
+        if(output!=null)output.setText("No pude reconocer la frase de "+currentZnpLabel()+": "+(error==null?"audio sin transcripción":error));
         recognitionFailures++;
         if(recognitionFailures>=2){
           setListeningPaused(true);
@@ -600,7 +601,7 @@ public class MainActivity extends Activity {
     if(listeningPaused||!foreground)return;
     if(voiceActive||!zn02ReadyForVoice)return;
     if(!nvidiaChatReady||!magpieDiegoReady||!nvidiaAsrReady||asrGateway==null){
-      if(dashboard!=null)dashboard.showDeviceStatus("Z02 conectado. La conversación manos libres espera la validación de Nemotron, Parakeet y Magpie Diego.");
+      if(dashboard!=null)dashboard.showDeviceStatus(currentZnpLabel()+" conectado. La conversación manos libres espera la validación de Nemotron, Parakeet y Magpie Diego.");
       return;
     }
     if(checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){
