@@ -223,6 +223,19 @@ public class GoroDashboardViewTest {
   assertNotNull(findVisibleText(dashboard,reply));
   assertTrue(dashboard.output.isTextSelectable());
  }
+ @Test public void internetSearchActionSubmitsTheTypedQuery(){
+  Activity activity=Robolectric.buildActivity(Activity.class).setup().get();
+  Calls calls=new Calls();
+  GoroDashboardView dashboard=new GoroDashboardView(activity,calls,null,false);
+  activity.setContentView(dashboard);
+  findButton(dashboard,"Explorar").performClick();
+  findButton(dashboard,"Buscar en internet").performClick();
+  android.widget.EditText query=(android.widget.EditText)((android.app.AlertDialog)org.robolectric.Shadows.shadowOf(activity).getLatestDialog()).findViewById(android.R.id.edit);
+  assertNotNull(query);
+  query.setText("conexión Bluetooth ZNP N02");
+  ((android.app.AlertDialog)org.robolectric.Shadows.shadowOf(activity).getLatestDialog()).getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick();
+  assertEquals("buscá por internet conexión Bluetooth ZNP N02",calls.lastCommand);
+ }
  @Test public void deviceSummaryDoesNotTurnUnverifiedTransportIntoConnectedState(){
   Activity activity=Robolectric.buildActivity(Activity.class).setup().get();
   GoroDashboardView dashboard=new GoroDashboardView(activity,new Calls(),null,false);
