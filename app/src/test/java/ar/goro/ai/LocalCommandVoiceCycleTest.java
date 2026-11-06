@@ -69,6 +69,14 @@ public class LocalCommandVoiceCycleTest {
   assertTrue((Boolean)get("speechInProgress"));assertTrue((Boolean)get("voiceActive"));
   assertNull(get("pendingVoiceRetry"));
   HeldSpeech.pending.completed(null,"Síntesis detenida por la prueba local");
+  assertTrue("A local speech fallback must be queued after Magpie fails",
+    get("pendingLocalSpeech")!=null||get("activeLocalUtterance")!=null);
+  // Complete the local TTS boundary deterministically; Robolectric does not
+  // guarantee an installed Spanish speech engine on every runner.
+  String utterance=(String)get("activeLocalUtterance");
+  if(utterance==null){utterance="test-local-tts";set("activeLocalUtterance",utterance);}
+  Method finish=MainActivity.class.getDeclaredMethod("finishLocalSpeech",String.class,boolean.class);
+  finish.setAccessible(true);finish.invoke(activity,utterance,true);
   assertFalse((Boolean)get("speechInProgress"));
   // The real disconnected controller rejects reopening; reaching that error
   // proves the cycle attempted capture again, without claiming hardware success.
