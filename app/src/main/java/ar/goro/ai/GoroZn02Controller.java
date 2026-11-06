@@ -475,16 +475,18 @@ public final class GoroZn02Controller {
    emit(modelLabel()+" no tiene una pantalla RCSP verificada. No se envió ninguna animación.");
    return;
   }
-  ChargingCaseInfo info=caseOp.getChargingCaseInfo(target);
-  if(info==null||info.getScreenWidth()<=0||info.getScreenHeight()<=0){
-   emit("No se pudo leer la resolución física del visor "+modelLabel()+". No se envió ningún archivo.");
-   return;
-  }
+  int width=-1,height=-1;
   try{
-   File animation=ZnpScreenAsset.forDevice(context,selected,info.getScreenWidth(),info.getScreenHeight());
+   ChargingCaseInfo info=caseOp.getChargingCaseInfo(target);
+   if(info==null||info.getScreenWidth()<=0||info.getScreenHeight()<=0){
+    emit("No se pudo leer la resolución física del visor "+modelLabel()+". No se envió ningún archivo.");
+    return;
+   }
+   width=info.getScreenWidth();height=info.getScreenHeight();
+   File animation=ZnpScreenAsset.forDevice(context,selected,width,height);
    uploadGoroScreenSaver(animation);
   }catch(Exception error){
-   emit("No hay una animación validada para "+modelLabel()+" a "+info.getScreenWidth()+"×"+info.getScreenHeight()+": "+error.getClass().getSimpleName());
+   emit("No hay una animación validada para "+modelLabel()+" a "+width+"×"+height+": "+error.getClass().getSimpleName());
   }
  }
  public synchronized void uploadGoroScreenSaver(File sourceGif){
