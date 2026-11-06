@@ -45,3 +45,8 @@ Registrar por separado Z01, Z02 y N02. No copiar la aprobación de un modelo a o
 - La versión personal `ar.goro.ai.personal` permanece instalada y sin cambios.
 - La variante paralela usa la firma de depuración de CI y no puede actualizar ni sustituir la versión personal.
 - Gmail OAuth requiere un cliente Android registrado para `ar.goro.ai.parallel` y el SHA-1 exacto de la firma de la APK paralela. Hasta completar ese registro y el consentimiento en Android, Gmail se debe mostrar como pendiente, nunca como conectado.
+
+
+## Diagnóstico visual y voz 1.2.7
+
+La captura de la compilación 1.2.5 mostró el avatar procedural visible, pero la UI indicó literalmente que faltaba la API key NVIDIA y que la salida Magpie estaba deshabilitada. El APK original 1.2.4 contiene `assets/goro-personal.json`; la variante paralela no lo incluía. El flujo de importación ya existe en Ajustes y el intento de activar escucha sin clave explica ahora la ruta de importación. El robot GLB empaquetado en 1.2.4 fue inspeccionado: su `asset.generator` es `GORO procedural articulated robot authoring`, por lo que no es el GLB G1 aprobado. Sus seis clips tenían gestos de pocos grados y hombros/codos rotando en el eje X; la revisión 1.2.7 aumenta los gestos y usa el eje Z para brazos. Esto mejora el modelo de desarrollo, pero no lo convierte en el GLB aprobado.
