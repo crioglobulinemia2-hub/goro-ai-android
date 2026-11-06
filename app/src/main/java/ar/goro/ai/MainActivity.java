@@ -55,6 +55,7 @@ public class MainActivity extends Activity {
   private GoroZn02GattInspector zn02GattInspector;
   private boolean pendingZn02Inspection=false;
   private String pendingZnpInspectionModel=null;
+  private String pendingZnpConnectionModel="Z02";
   private static final int ZN02_BLE_PERMISSION_REQUEST=65;
   private SharedPreferences memory;
   private MemoryStore memoryStore;
@@ -188,15 +189,17 @@ public class MainActivity extends Activity {
       public void onForecast(){runCommand("pronóstico");}
       public void onConfigureNvidia(){configureNvidia();}
       public void onTestNvidia(){testNemotron();}
-      public void onConnectZn02(){connectZn02();}
+      public void onConnectZn02(){connectZnpModel("Z02");}
+      public void onConnectZnpModel(String model){connectZnpModel(model);}
       public void onInspectZn02(){inspectZn02();}
       public void onInspectZnpModel(String model){inspectZnpModel(model);}
+      public void onInstallGoroAnimation(String model){installGoroAnimationOnZnpModel(model);}
       public void onZn02LightOn(){if(zn02Controller!=null)zn02Controller.setFlashlight(true);}
       public void onZn02LightOff(){if(zn02Controller!=null)zn02Controller.setFlashlight(false);}
       public void onZn02ReadLight(){if(zn02Controller!=null)zn02Controller.readFlashlight();}
       public void onZn02AudioOn(){if(dashboard!=null)dashboard.showDeviceStatus(z02Player!=null&&!z02Player.outputs().isEmpty()?"Salida multimedia Z02 disponible y verificada por Android.":"La salida multimedia Z02 todavía no está disponible.");}
       public void onZn02AudioOff(){if(z02Player!=null)z02Player.stop();if(dashboard!=null)dashboard.showDeviceStatus("Reproducción Z02 detenida.");}
-      public void onInstallGoroAnimation(){installGoroAnimationOnZn02();}
+      public void onInstallGoroAnimation(){installGoroAnimationOnZnpModel("Z02");}
       public void onReminders(){
         if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)
           requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},52);
@@ -678,8 +681,10 @@ public class MainActivity extends Activity {
     });}catch(RuntimeException error){if(output!=null)output.setText("Android no pudo abrir la búsqueda integrada. Revisá que Android System WebView esté actualizado.");}
   }
   private void closeWebSearch(){ar.goro.ai.ui.WebSearchPanel current=webSearchPanel;webSearchPanel=null;if(current!=null)current.close();}
-  private void installGoroAnimationOnZn02(){
-    if(zn02Controller==null){say("El controlador propio del ZN02 no está disponible.");return;}
+  private void installGoroAnimationOnZnpModel(String model){
+    String selected=model==null?"Z02":model.trim().toUpperCase(Locale.ROOT);
+    if(zn02Controller==null){say("El controlador Bluetooth ZNP no está disponible.");return;}
+    if(!zn02Controller.isConnectedTo(selected)){say("Primero conectá el ZNP "+selected+". No voy a enviar la animación a otro dispositivo.");return;}
     setListeningPaused(true);
     if(dashboard!=null)dashboard.showDeviceStatus("Escucha pausada para instalar GORO. Se mantiene pausada al terminar.");
     String[] parts={"znp_faces_00.b64","znp_faces_00b.b64","znp_faces_01.b64","znp_faces_02.b64","znp_faces_03.b64","znp_faces_04.b64","znp_faces_05.b64","znp_faces_05b.b64","znp_faces_06.b64","znp_faces_07.b64","znp_faces_08.b64","znp_faces_09.b64","znp_faces_10.b64","znp_faces_11.b64","znp_faces_12.b64","znp_faces_12b.b64","znp_faces_13.b64","znp_faces_14.b64","znp_faces_15.b64","znp_faces_16.b64","znp_faces_17.b64"};
@@ -693,7 +698,7 @@ public class MainActivity extends Activity {
         }
       }
       byte[] gif=Base64.decode(encoded.toString(),Base64.DEFAULT);
-      File file=new File(getCacheDir(),"GORO-ZN02-320x172.gif");
+      File file=new File(getCacheDir(),"GORO-ZNP-"+selected+"-320x172.gif");
       try(FileOutputStream outputFile=new FileOutputStream(file)){outputFile.write(gif);outputFile.flush();}
       zn02Controller.uploadGoroScreenSaver(file);
     }catch(Exception error){
@@ -709,12 +714,16 @@ public class MainActivity extends Activity {
     pendingZn02Inspection=false;
     zn02GattInspector.scan(model);
   }
-  private void connectZn02(){
-    if(zn02Controller==null){say("El controlador Bluetooth Z02 no está disponible.");return;}
+  private void connectZn02(){connectZnpModel("Z02");}
+  private void connectZnpModel(String model){
+    String selected=model==null?"Z02":model.trim().toUpperCase(Locale.ROOT);
+    if(!selected.matches("Z01|Z02|N02")){say("Modelo ZNP no reconocido.");return;}
+    pendingZnpConnectionModel=selected;
+    if(zn02Controller==null){say("El controlador Bluetooth ZNP no está disponible.");return;}
     String[] missing=zn02Controller.neededPermissions();
     if(missing.length>0){pendingZn02Connection=true;requestPermissions(missing,ZN02_BLE_PERMISSION_REQUEST);return;}
     pendingZn02Connection=false;
-    zn02Controller.startScan();
+    zn02Controller.startScan(selected);
   }
   @Override protected void onResume(){
     super.onResume();
@@ -731,7 +740,7 @@ public class MainActivity extends Activity {
     if(pendingZn02Connection&&zn02Controller!=null){
       String[] missing=zn02Controller.neededPermissions();
       if(missing.length>0)requestPermissions(missing,ZN02_BLE_PERMISSION_REQUEST);
-      else{pendingZn02Connection=false;zn02Controller.startScan();}
+      else{pendingZn02Connection=false;zn02Controller.startScan(pendingZnpConnectionModel);}
     }
     if(pendingZn02Inspection&&zn02GattInspector!=null){
       String[] missing=zn02GattInspector.neededPermissions();
@@ -940,7 +949,7 @@ public class MainActivity extends Activity {
     if(request==ZN02_BLE_PERMISSION_REQUEST){
       boolean granted=zn02Controller!=null&&zn02Controller.neededPermissions().length==0;
       if(granted&&pendingZn02Connection){
-        pendingZn02Connection=false;zn02Controller.startScan();
+        pendingZn02Connection=false;zn02Controller.startScan(pendingZnpConnectionModel);
       }else if(granted&&pendingZn02Inspection&&zn02GattInspector!=null){
         pendingZn02Inspection=false;zn02GattInspector.scan(pendingZnpInspectionModel);pendingZnpInspectionModel=null;
       }else if(!granted&&dashboard!=null){
