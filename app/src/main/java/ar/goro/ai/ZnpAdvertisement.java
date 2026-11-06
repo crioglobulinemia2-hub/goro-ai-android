@@ -5,9 +5,13 @@ import java.nio.charset.StandardCharsets;
 /** BLE local-name fallback; an advertisement never proves RCSP authentication. */
 final class ZnpAdvertisement {
  static ZnpDeviceProfile profile(String cachedName,byte[] advertisement){
+  // The current advertisement is newer than Android's cached remote name.
+  // Prefer its complete/shortened local-name AD structure to avoid identifying
+  // a replacement N02 as a stale Z02 (or vice versa).
+  ZnpDeviceProfile advertised=ZnpDeviceProfile.detect(localName(advertisement));
+  if(advertised.isCandidate())return advertised;
   ZnpDeviceProfile cached=ZnpDeviceProfile.detect(cachedName);
-  if(cached.isCandidate())return cached;
-  return ZnpDeviceProfile.detect(localName(advertisement));
+  return cached.isCandidate()?cached:advertised;
  }
  static String localName(byte[] data){
   if(data==null)return null;
