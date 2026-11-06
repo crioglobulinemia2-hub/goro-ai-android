@@ -90,6 +90,9 @@ public class MainActivity extends Activity {
   private boolean modelReplyStreaming;
   private boolean speechChunkActive;
   private final android.os.Handler voiceRetryHandler=new android.os.Handler(android.os.Looper.getMainLooper());
+  private final android.os.Handler znpAudioRouteHandler=new android.os.Handler(android.os.Looper.getMainLooper());
+  private Runnable pendingZnpAudioRouteCheck;
+  private String pendingZnpAudioModel;
   private Runnable pendingVoiceRetry;
   private boolean foreground;
   private Runnable pendingGmailSpeechConsent;
@@ -144,6 +147,7 @@ public class MainActivity extends Activity {
         if(message!=null){
           String normalized=message.toLowerCase(Locale.ROOT);
           if(normalized.contains("desconectado")||normalized.contains("conexión fallida")||normalized.contains("conexión rechazada")){
+            cancelZnpAudioRouteCheck();
             zn02ReadyForVoice=false;
             invalidateVoiceConversation();
           }
@@ -194,7 +198,7 @@ public class MainActivity extends Activity {
       public void onConnectZnpModel(String model){connectZnpModel(model);}
       public void onInspectZn02(){inspectZn02();}
       public void onInspectZnpModel(String model){inspectZnpModel(model);}
-      public void onDisconnectZnp(){if(zn02Controller!=null)zn02Controller.disconnect();invalidateVoiceConversation();zn02ReadyForVoice=false;}
+      public void onDisconnectZnp(){cancelZnpAudioRouteCheck();if(zn02Controller!=null)zn02Controller.disconnect();invalidateVoiceConversation();zn02ReadyForVoice=false;}
       public void onInstallGoroAnimation(String model){installGoroAnimationOnZnpModel(model);}
       public void onZn02LightOn(){if(zn02Controller!=null)zn02Controller.setFlashlight(true);}
       public void onZn02LightOff(){if(zn02Controller!=null)zn02Controller.setFlashlight(false);}
@@ -316,6 +320,38 @@ public class MainActivity extends Activity {
       pendingSpeechWav=wav;
       z02Player.playWav(wav);
     });
+  }
+  private void cancelZnpAudioRouteCheck(){
+    if(pendingZnpAudioRouteCheck!=null)znpAudioRouteHandler.removeCallbacks(pendingZnpAudioRouteCheck);
+    pendingZnpAudioRouteCheck=null;
+    pendingZnpAudioModel=null;
+  }
+  private void verifyZnpAudioRoute(String model,int attempt){
+    if(!foreground||z02Player==null||zn02Controller==null||!zn02Controller.isConnectedTo(model)){
+      zn02ReadyForVoice=false;return;
+    }
+    java.util.List<android.media.AudioDeviceInfo> outputs=z02Player.outputs();
+    if(outputs.size()==1){
+      cancelZnpAudioRouteCheck();
+      zn02ReadyForVoice=true;
+      if(dashboard!=null)dashboard.showDeviceStatus("Salida A2DP confirmada por Android para "+zn02Controller.connectedModelLabel()+".");
+      resumeVoiceAfterZ02Connected();
+      return;
+    }
+    if(attempt>=30){
+      cancelZnpAudioRouteCheck();
+      zn02ReadyForVoice=false;
+      if(dashboard!=null)dashboard.showDeviceStatus(outputs.size()>1
+        ?"Android informa varias salidas de audio posibles para "+zn02Controller.connectedModelLabel()+". No se inició la escucha para evitar usar otro dispositivo."
+        :"Android no confirmó una salida A2DP para "+zn02Controller.connectedModelLabel()+" después de 15 segundos. La conexión BLE no se considera audio listo.");
+      return;
+    }
+    pendingZnpAudioModel=model;
+    pendingZnpAudioRouteCheck=()->{
+      pendingZnpAudioRouteCheck=null;
+      verifyZnpAudioRoute(model,attempt+1);
+    };
+    znpAudioRouteHandler.postDelayed(pendingZnpAudioRouteCheck,500);
   }
   private String currentZnpLabel(){return zn02Controller==null?"ZNP":zn02Controller.connectedModelLabel();}
   private void startZ02Listening(){
