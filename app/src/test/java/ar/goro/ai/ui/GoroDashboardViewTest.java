@@ -235,7 +235,7 @@ public class GoroDashboardViewTest {
   activity.setContentView(dashboard);
   findButton(dashboard,"Explorar").performClick();
   findButton(dashboard,"Buscar en internet").performClick();
-  android.app.AlertDialog dialog=(android.app.AlertDialog)org.robolectric.Shadows.shadowOf(activity).getLatestDialog();
+  android.app.AlertDialog dialog=(android.app.AlertDialog)org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();
   android.widget.EditText query=findEditText(dialog.getWindow().getDecorView());
   assertNotNull(query);
   query.setText("conexión Bluetooth ZNP N02");
