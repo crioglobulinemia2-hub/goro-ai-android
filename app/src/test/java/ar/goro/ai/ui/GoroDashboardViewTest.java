@@ -16,8 +16,8 @@ import static org.junit.Assert.*;
 @RunWith(RobolectricTestRunner.class)
 public class GoroDashboardViewTest {
  private static final class Calls implements GoroDashboardView.Actions {
-  int commands,link,gmail,calendar,unlink,weather,forecast,reminders,connect,inspect,lightOn,lightOff,lightRead,animation,nvidia,toggle,disconnect; java.util.List<String> models=new java.util.ArrayList<>(); java.util.List<String> animationModels=new java.util.ArrayList<>();
-  public void onCommand(String value){commands++;}
+  int commands,link,gmail,calendar,unlink,weather,forecast,reminders,connect,inspect,lightOn,lightOff,lightRead,animation,nvidia,toggle,disconnect; String lastCommand; java.util.List<String> models=new java.util.ArrayList<>(); java.util.List<String> animationModels=new java.util.ArrayList<>();
+  public void onCommand(String value){commands++;lastCommand=value;}
   public void onToggleListening(){toggle++;}
   public void onLinkAccount(){link++;}
   public void onReadGmail(){gmail++;}
@@ -49,6 +49,11 @@ public class GoroDashboardViewTest {
     if(found!=null)return found;
    }
   }
+  return null;
+ }
+ private android.widget.EditText findEditText(View root){
+  if(root instanceof android.widget.EditText)return (android.widget.EditText)root;
+  if(root instanceof ViewGroup){ViewGroup group=(ViewGroup)root;for(int i=0;i<group.getChildCount();i++){android.widget.EditText found=findEditText(group.getChildAt(i));if(found!=null)return found;}}
   return null;
  }
  private android.widget.TextView findText(View root,String label){
@@ -230,10 +235,11 @@ public class GoroDashboardViewTest {
   activity.setContentView(dashboard);
   findButton(dashboard,"Explorar").performClick();
   findButton(dashboard,"Buscar en internet").performClick();
-  android.widget.EditText query=(android.widget.EditText)((android.app.AlertDialog)org.robolectric.Shadows.shadowOf(activity).getLatestDialog()).findViewById(android.R.id.edit);
+  android.app.AlertDialog dialog=(android.app.AlertDialog)org.robolectric.Shadows.shadowOf(activity).getLatestDialog();
+  android.widget.EditText query=findEditText(dialog.getWindow().getDecorView());
   assertNotNull(query);
   query.setText("conexión Bluetooth ZNP N02");
-  ((android.app.AlertDialog)org.robolectric.Shadows.shadowOf(activity).getLatestDialog()).getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick();
+  dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick();
   assertEquals("buscá por internet conexión Bluetooth ZNP N02",calls.lastCommand);
  }
  @Test public void deviceSummaryDoesNotTurnUnverifiedTransportIntoConnectedState(){
