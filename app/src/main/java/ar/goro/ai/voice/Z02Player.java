@@ -50,7 +50,7 @@ public final class Z02Player {
   if(closed||audio==null||targetAddress.isEmpty())return Collections.emptyList();
   List<AudioDeviceInfo> connected=new ArrayList<>();
   for(AudioDeviceInfo d:audio.getDevices(AudioManager.GET_DEVICES_OUTPUTS))
-   if(d.getType()==AudioDeviceInfo.TYPE_BLUETOOTH_A2DP)connected.add(d);
+   if(isBluetoothOutput(d))connected.add(d);
   List<AudioDeviceInfo> exact=new ArrayList<>();
   if(Build.VERSION.SDK_INT>=28)for(AudioDeviceInfo d:connected)
    if(targetAddress.equalsIgnoreCase(d.getAddress()))exact.add(d);
@@ -149,9 +149,9 @@ public final class Z02Player {
      if(isSelectedRoute(actual,selected.getId())){routed=true;break;}
      SystemClock.sleep(15);
     }
-    if(!routed||!session.running.get())throw new IllegalStateException("No se verificó la ruta real al Z02.");
+    if(!routed||!session.running.get())throw new IllegalStateException("No se verificó la ruta real al dispositivo ZNP.");
     session.routeVerified=true;
-    track.setVolume(1f);emitState(session,"Reproduciendo por Z02");
+    track.setVolume(1f);emitState(session,"Reproduciendo por ZNP");
     int offset=0;long writeDeadline=SystemClock.elapsedRealtime()+pcm.length*1000L/(rate*channels*2)+5000;
     long lastProgress=SystemClock.elapsedRealtime();
     while(session.running.get()&&offset<pcm.length){
@@ -173,7 +173,7 @@ public final class Z02Player {
     if(!session.running.get()||!isSelectedRoute(track.getRoutedDevice(),selected.getId())||(track.getPlaybackHeadPosition()&0xffffffffL)<frames)
      throw new IllegalStateException("Audio interrumpido antes de completar.");
     completed=true;
-   }catch(Exception error){playbackError=error.getMessage()==null?"Falló la reproducción por Z02.":error.getMessage();}
+   }catch(Exception error){playbackError=error.getMessage()==null?"Falló la reproducción por el dispositivo ZNP.":error.getMessage();}
    finally{
     session.running.set(false);
     if(track!=null){try{track.setVolume(0f);}catch(Exception ignored){}try{track.removeOnRoutingChangedListener(routing);}catch(Exception ignored){}try{track.pause();}catch(Exception ignored){}try{track.flush();}catch(Exception ignored){}try{track.release();}catch(Exception ignored){}}
@@ -193,8 +193,15 @@ public final class Z02Player {
  }
  private void emitError(String message){final long request=sequence;main.post(()->{if(sequence==request&&listener!=null)listener.onError(message);});}
  private void emitState(Playback session,String state){main.post(()->{if(active==session&&listener!=null)listener.onState(state);});}
+ private static boolean isBluetoothOutput(AudioDeviceInfo device){
+  if(device==null)return false;
+  int type=device.getType();
+  return type==AudioDeviceInfo.TYPE_BLUETOOTH_A2DP
+    ||type==AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+    ||(Build.VERSION.SDK_INT>=31&&type==AudioDeviceInfo.TYPE_BLE_HEADSET);
+ }
  private static boolean isSelectedRoute(AudioDeviceInfo device,int targetId){
-  return device!=null&&device.getType()==AudioDeviceInfo.TYPE_BLUETOOTH_A2DP&&device.getId()==targetId;
+  return device!=null&&isBluetoothOutput(device)&&device.getId()==targetId;
  }
  private static void silence(Playback session){
   session.running.set(false);
