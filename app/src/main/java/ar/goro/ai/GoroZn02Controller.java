@@ -465,6 +465,28 @@ public final class GoroZn02Controller {
    }
   };
  }
+ public synchronized void uploadGoroScreenSaverForModel(String model){
+  String selected=model==null?"":model.trim().toUpperCase(java.util.Locale.ROOT);
+  if(!isConnectedTo(selected)){
+   emit("Primero conectá el ZNP "+selected+". No se envió ninguna animación.");
+   return;
+  }
+  if(!connected||!vendorProtocolVerified||target==null||caseOp==null){
+   emit(modelLabel()+" no tiene una pantalla RCSP verificada. No se envió ninguna animación.");
+   return;
+  }
+  ChargingCaseInfo info=caseOp.getChargingCaseInfo(target);
+  if(info==null||info.getScreenWidth()<=0||info.getScreenHeight()<=0){
+   emit("No se pudo leer la resolución física del visor "+modelLabel()+". No se envió ningún archivo.");
+   return;
+  }
+  try{
+   File animation=ZnpScreenAsset.forDevice(context,selected,info.getScreenWidth(),info.getScreenHeight());
+   uploadGoroScreenSaver(animation);
+  }catch(Exception error){
+   emit("No hay una animación validada para "+modelLabel()+" a "+info.getScreenWidth()+"×"+info.getScreenHeight()+": "+error.getClass().getSimpleName());
+  }
+ }
  public synchronized void uploadGoroScreenSaver(File sourceGif){
   if(closed||!connected||!vendorProtocolVerified||target==null||caseOp==null){
    emit(modelLabel()+" sin protocolo de pantalla verificado. No se inició la transferencia.");return;
