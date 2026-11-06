@@ -11,7 +11,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 
-/** Plays PCM only through the selected and verified ZNP A2DP endpoint. */
+/** Plays Magpie PCM through verified ZNP audio, or Android media output when no ZNP route is ready. */
 public final class Z02Player {
  public interface Listener {void onState(String state);void onError(String error);void onCompleted();}
  private final AudioManager audio;
@@ -34,7 +34,7 @@ public final class Z02Player {
   @Override public void onAudioDevicesRemoved(AudioDeviceInfo[] devices){
    Playback session=active;
    if(session==null)return;
-   for(AudioDeviceInfo device:devices)if(device.getId()==session.targetId){silence(session);return;}
+   for(AudioDeviceInfo device:devices)if(session.targetId>=0&&device.getId()==session.targetId){silence(session);return;}
   }
  };
  public Z02Player(Context context,Listener listener){
@@ -46,6 +46,7 @@ public final class Z02Player {
   if(closed)return;
   stop();targetAddress=address==null?"":address;targetName=name==null?"":name.trim();
  }
+ static boolean shouldUseAndroidOutput(String address){return address==null||address.trim().isEmpty();}
  public List<AudioDeviceInfo> outputs(){
   if(closed||audio==null||targetAddress.isEmpty())return Collections.emptyList();
   List<AudioDeviceInfo> connected=new ArrayList<>();
@@ -86,10 +87,11 @@ public final class Z02Player {
  }
  private void waitForOutput(byte[] pcm,int rate,int channels,int attempt){
   if(closed)return;
-  if(attempt==0)emitStateText("Esperando audio multimedia del dispositivo ZNP");
+  if(shouldUseAndroidOutput(targetAddress)){play(pcm,rate,channels,-1);return;}
+  if(attempt==0)emitStateText("Buscando salida ZNP; el teléfono queda como respaldo");
   List<AudioDeviceInfo> devices=outputs();
   if(devices.size()==1){play(pcm,rate,channels,devices.get(0).getId());return;}
-  if(attempt>=30){emitError("El dispositivo ZNP seleccionado no presentó una salida A2DP única después de 15 segundos. No se reprodujo por la tablet.");return;}
+  if(attempt>=6){play(pcm,rate,channels,-1);return;}
   final long request=sequence;
   pendingStart=()->{if(sequence==request)waitForOutput(pcm,rate,channels,attempt+1);};
   main.postDelayed(pendingStart,500);
@@ -100,8 +102,8 @@ public final class Z02Player {
   stop();
   Playback session=new Playback(++sequence,targetId);active=session;
   AudioDeviceInfo target=null;
-  for(AudioDeviceInfo d:outputs())if(d.getId()==targetId)target=d;
-  if(target==null){fail(session,"La salida multimedia ZNP no está conectada o no es inequívoca.");return;}
+  if(targetId>=0)for(AudioDeviceInfo d:outputs())if(d.getId()==targetId)target=d;
+  if(targetId>=0&&target==null){fail(session,"La salida multimedia ZNP no está conectada o no es inequívoca.");return;}
   if(audio.getStreamVolume(AudioManager.STREAM_MUSIC)==0){fail(session,"El volumen multimedia está en cero.");return;}
   if(pcm==null||pcm.length==0||channels<1||channels>2||pcm.length%(channels*2)!=0||rate<8000||rate>96000){
    fail(session,"Formato PCM de voz inválido.");return;
@@ -113,7 +115,7 @@ public final class Z02Player {
    if(closed||active!=session||!session.running.get())return;
    AudioTrack track=null;
    AudioRouting.OnRoutingChangedListener routing=router->{
-    if(session.routeVerified&&!isSelectedRoute(router.getRoutedDevice(),session.targetId))silence(session);
+    if(session.targetId>=0&&session.routeVerified&&!isSelectedRoute(router.getRoutedDevice(),session.targetId))silence(session);
    };
    AudioManager.OnAudioFocusChangeListener focus=change->{
     if(change!=AudioManager.AUDIOFOCUS_GAIN)silence(session);
@@ -136,29 +138,33 @@ public final class Z02Player {
       Math.max(minimum,rate*channels/5),AudioTrack.MODE_STREAM,AudioManager.AUDIO_SESSION_ID_GENERATE);
     session.track=track;
     if(track.getState()!=AudioTrack.STATE_INITIALIZED)throw new IllegalStateException("AudioTrack no se inicializó.");
-    if(!track.setPreferredDevice(selected))throw new IllegalStateException("Android rechazó la salida multimedia ZNP.");
-    track.addOnRoutingChangedListener(routing,main);
-    track.setVolume(0f);track.play();
-    byte[] silence=new byte[(rate/50)*channels*2];
-    long frames=0,deadline=SystemClock.elapsedRealtime()+5000;boolean routed=false;
-    while(session.running.get()&&SystemClock.elapsedRealtime()<deadline){
-     int n=track.write(silence,0,silence.length,AudioTrack.WRITE_NON_BLOCKING);
-     if(n<0)throw new IllegalStateException("Error preparando audio: "+n);
-     frames+=n/(channels*2);
-     AudioDeviceInfo actual=track.getRoutedDevice();
-     if(isSelectedRoute(actual,selected.getId())){routed=true;break;}
-     SystemClock.sleep(15);
-    }
-    if(!routed||!session.running.get())throw new IllegalStateException("No se verificó la ruta real al dispositivo ZNP.");
-    session.routeVerified=true;
-    track.setVolume(1f);emitState(session,"Reproduciendo por ZNP");
+    long frames=0;
+    if(selected!=null){
+     if(!track.setPreferredDevice(selected))throw new IllegalStateException("Android rechazó la salida multimedia ZNP.");
+     track.addOnRoutingChangedListener(routing,main);
+     track.setVolume(0f);track.play();
+     byte[] silence=new byte[(rate/50)*channels*2];
+     long deadline=SystemClock.elapsedRealtime()+5000;boolean routed=false;
+     while(session.running.get()&&SystemClock.elapsedRealtime()<deadline){
+      int n=track.write(silence,0,silence.length,AudioTrack.WRITE_NON_BLOCKING);
+      if(n<0)throw new IllegalStateException("Error preparando audio: "+n);
+      frames+=n/(channels*2);
+      AudioDeviceInfo actual=track.getRoutedDevice();
+      if(isSelectedRoute(actual,selected.getId())){routed=true;break;}
+      SystemClock.sleep(15);
+     }
+     if(!routed||!session.running.get())throw new IllegalStateException("No se verificó la ruta real al dispositivo ZNP.");
+     session.routeVerified=true;
+    }else{track.setVolume(1f);track.play();}
+    track.setVolume(1f);
+    emitState(session,selected!=null?"Reproduciendo por ZNP":"Reproduciendo por salida Android");
     int offset=0;long writeDeadline=SystemClock.elapsedRealtime()+pcm.length*1000L/(rate*channels*2)+5000;
     long lastProgress=SystemClock.elapsedRealtime();
     while(session.running.get()&&offset<pcm.length){
      long now=SystemClock.elapsedRealtime();
      if(now>=writeDeadline||now-lastProgress>=2000)throw new IllegalStateException("La salida de audio dejó de avanzar.");
      AudioDeviceInfo actual=track.getRoutedDevice();
-     if(!isSelectedRoute(actual,selected.getId()))
+     if(selected!=null&&!isSelectedRoute(actual,selected.getId()))
       throw new IllegalStateException("La ruta cambió durante la respuesta.");
      int n=track.write(pcm,offset,Math.min(1280,pcm.length-offset),AudioTrack.WRITE_NON_BLOCKING);
      if(n<0)throw new IllegalStateException("Falló la escritura de audio: "+n);
@@ -166,17 +172,17 @@ public final class Z02Player {
     }
     long drain=SystemClock.elapsedRealtime()+5000;
     while(session.running.get()&&(track.getPlaybackHeadPosition()&0xffffffffL)<frames&&SystemClock.elapsedRealtime()<drain){
-     if(!isSelectedRoute(track.getRoutedDevice(),selected.getId()))
+     if(selected!=null&&!isSelectedRoute(track.getRoutedDevice(),selected.getId()))
       throw new IllegalStateException("La ruta cambió antes de completar la respuesta.");
      SystemClock.sleep(10);
     }
-    if(!session.running.get()||!isSelectedRoute(track.getRoutedDevice(),selected.getId())||(track.getPlaybackHeadPosition()&0xffffffffL)<frames)
+    if(!session.running.get()||(selected!=null&&!isSelectedRoute(track.getRoutedDevice(),selected.getId()))||(track.getPlaybackHeadPosition()&0xffffffffL)<frames)
      throw new IllegalStateException("Audio interrumpido antes de completar.");
     completed=true;
    }catch(Exception error){playbackError=error.getMessage()==null?"Falló la reproducción por el dispositivo ZNP.":error.getMessage();}
    finally{
     session.running.set(false);
-    if(track!=null){try{track.setVolume(0f);}catch(Exception ignored){}try{track.removeOnRoutingChangedListener(routing);}catch(Exception ignored){}try{track.pause();}catch(Exception ignored){}try{track.flush();}catch(Exception ignored){}try{track.release();}catch(Exception ignored){}}
+    if(track!=null){try{track.setVolume(0f);}catch(Exception ignored){}if(selected!=null)try{track.removeOnRoutingChangedListener(routing);}catch(Exception ignored){}try{track.pause();}catch(Exception ignored){}try{track.flush();}catch(Exception ignored){}try{track.release();}catch(Exception ignored){}}
     session.track=null;
     if(focused){@SuppressWarnings("deprecation") boolean ignored=audio.abandonAudioFocus(focus)==AudioManager.AUDIOFOCUS_REQUEST_GRANTED;}
    }
