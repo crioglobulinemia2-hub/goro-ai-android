@@ -53,7 +53,7 @@ class AvatarSourceTests(unittest.TestCase):
         generate.assert_not_called()
         self.assertEqual(original, self.authored.read_bytes())
         self.assertEqual(original, self.runtime.read_bytes())
-        self.assertEqual("authored", report["source_kind"])
+        self.assertEqual("authored-source", report["source_kind"])
 
     def test_invalid_authored_source_never_falls_back_or_overwrites_runtime(self):
         self.write(self.authored, b"invalid export")
