@@ -20,6 +20,7 @@ import ar.goro.ai.weather.DeviceLocationProvider;
 import ar.goro.ai.core.NemotronGateway;
 import ar.goro.ai.core.NvidiaCredentialStore;
 import ar.goro.ai.core.NvidiaSetupImporter;
+import ar.goro.ai.core.NvidiaInstalledApkRecovery;
 import android.net.Uri;
 import ar.goro.ai.core.NemotronSpeechGateway;
 import ar.goro.ai.core.ParakeetAsrGateway;
@@ -79,6 +80,7 @@ public class MainActivity extends Activity {
   private WeatherService weatherService;
   private DeviceLocationProvider locationProvider;
   private NvidiaCredentialStore nvidiaCredentialStore;
+  private boolean recoveringPreviousNvidia;
   private NemotronGateway nemotronGateway;
   private NemotronSpeechGateway speechGateway;
   private ParakeetAsrGateway asrGateway;
@@ -245,8 +247,35 @@ public class MainActivity extends Activity {
     dashboard.showNvidiaStatus(nemotronGateway==null?"NVIDIA NIM: requiere API key":"NVIDIA NIM: clave guardada · sin prueba de conexión");
     dashboard.showVoiceStatus(speechGateway!=null?"NVIDIA Magpie · voz Diego · pendiente de prueba":"NVIDIA Magpie: falta API key · salida de voz deshabilitada");
     setContentView(dashboard);
+    if(nemotronGateway==null){
+      // A saved 'listening' preference is not proof of a working NVIDIA session.
+      listeningPaused=true;
+      getSharedPreferences("goro_voice_control",MODE_PRIVATE).edit().putBoolean("paused",true).apply();
+    }
     dashboard.setListeningPaused(listeningPaused);
+    recoverNvidiaFromInstalledGoro();
     connectZn02();
+  }
+  private void recoverNvidiaFromInstalledGoro(){
+    if(nemotronGateway!=null||recoveringPreviousNvidia)return;
+    recoveringPreviousNvidia=true;
+    if(dashboard!=null)dashboard.showNvidiaStatus("Buscando configuración NVIDIA en GORO IA anterior…");
+    new Thread(()->{
+      String recovered=NvidiaInstalledApkRecovery.recover(getApplicationContext());
+      runOnUiThread(()->{
+        recoveringPreviousNvidia=false;
+        if(isFinishing()||isDestroyed()||nemotronGateway!=null)return;
+        if(recovered!=null){
+          activateNvidiaKey(recovered); // Stored only inside this app's Android Keystore.
+          if(dashboard!=null)dashboard.showNvidiaStatus("Configuración NVIDIA recuperada de GORO anterior · comprobando servicios");
+        }else{
+          if(dashboard!=null){
+            dashboard.showNvidiaStatus("No hay configuración NVIDIA exportable en las instalaciones anteriores.");
+            dashboard.showVoiceStatus("Nemotron, Parakeet y Diego no están disponibles hasta recuperar la credencial.");
+          }
+        }
+      });
+    },"goro-nvidia-local-recovery").start();
   }
   @Override protected void onActivityResult(int request,int result,Intent data) {
     super.onActivityResult(request,result,data);
@@ -275,6 +304,16 @@ public class MainActivity extends Activity {
     setListeningPaused(!listeningPaused);
   }
   private void setListeningPaused(boolean paused){
+    if(!paused&&nemotronGateway==null){
+      listeningPaused=true;
+      getSharedPreferences("goro_voice_control",MODE_PRIVATE).edit().putBoolean("paused",true).apply();
+      if(dashboard!=null){
+        dashboard.setListeningPaused(true);
+        dashboard.showVoiceStatus("No se inició una conversación: falta la credencial NVIDIA. Buscando la configuración anterior…");
+      }
+      recoverNvidiaFromInstalledGoro();
+      return;
+    }
     if(!paused&&zn02Controller!=null&&zn02Controller.isScreenUploadActive()){
       if(output!=null)output.setText("Esperá a que termine la instalación de la animación para activar la escucha.");
       return;
@@ -294,8 +333,7 @@ public class MainActivity extends Activity {
       if(!zn02ReadyForVoice)connectZn02();
       if(nemotronGateway!=null)resumeVoiceAfterZ02Connected();
       else{
-        if(dashboard!=null)dashboard.showVoiceStatus("Falta la clave NVIDIA · importá la configuración del APK original 1.2.4.");
-        say("Todavía falta la clave NVIDIA. Para habilitar Nemotron, Parakeet y la voz Diego, abrí Ajustes e importá la configuración desde el APK original GORO IA 1.2.4.");
+        if(dashboard!=null)dashboard.showVoiceStatus("NVIDIA no configurado. La escucha no está operativa.");
       }
     }
     if(dashboard!=null)dashboard.setListeningPaused(paused);
