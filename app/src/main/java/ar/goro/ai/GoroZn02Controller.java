@@ -707,6 +707,10 @@ public final class GoroZn02Controller {
   }catch(Exception ignored){return false;}
  }
  private static String readCreateFileOutputPath(CreateFileParam param){
+  for(String name:new String[]{"getOutput","getOutputPath"}){
+   try{Method method=param.getClass().getMethod(name);Object value=method.invoke(param);if(value!=null)return String.valueOf(value);}
+   catch(Exception ignored){}
+  }
   try{Field field=param.getClass().getDeclaredField("output");field.setAccessible(true);Object value=field.get(param);return value==null?null:String.valueOf(value);}
   catch(Exception ignored){return null;}
  }
