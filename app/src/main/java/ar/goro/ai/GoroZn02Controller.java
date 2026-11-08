@@ -259,10 +259,8 @@ public final class GoroZn02Controller {
   if(closed){emit("Controlador ZNP cerrado.");return;}
   if(connected&&target!=null){
    if(activeModel.equals(requested)){emit("El "+activeModel+" ya tiene una sesión Bluetooth abierta.");return;}
-   final String nextModel=requested;
-   emit("Cambiando de "+modelLabel()+" a ZNP "+nextModel+"; cerrando la sesión anterior…");
-   disconnect();
-   mainHandler.postDelayed(()->startScan(nextModel),650);
+   emit(modelLabel()+" sigue conectado. Desconectalo antes de buscar ZNP "+requested+
+     ". No interrumpí la sesión actual ni reutilicé el enlace.");
    return;
   }
   if(scanning){
