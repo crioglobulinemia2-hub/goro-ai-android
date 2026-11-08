@@ -11,11 +11,11 @@ android {
         targetCompatibility JavaVersion.VERSION_17
     }
     defaultConfig {
-        applicationId 'ar.goro.ai.safe20261108'
+        applicationId 'ar.goro.ai.repair20261108'
         minSdk 26
         targetSdk 35
-        versionCode 12
-        versionName '1.2.8'
+        versionCode 13
+        versionName '1.2.9'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
     testOptions {
