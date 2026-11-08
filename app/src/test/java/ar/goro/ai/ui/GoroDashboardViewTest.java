@@ -105,10 +105,10 @@ public class GoroDashboardViewTest {
   GoroDashboardView dashboard=new GoroDashboardView(activity,calls,null,false);
   activity.setContentView(dashboard);
   findButton(dashboard,"Dispositivos").performClick();
-  findButton(dashboard,"Conectar ZNP Z02").performClick();
+  findButton(dashboard,"Conectar AZ02 / Z02").performClick();
   assertNull(findButton(dashboard,"Hablar con GORO"));
   assertNotNull(findText(dashboard,"Activá o pausá la escucha con el botón superior. La pausa se mantiene al reconectar."));
-  assertEquals(java.util.Arrays.asList("Z02"),calls.models);
+  assertEquals(java.util.Arrays.asList("AZ02"),calls.models);
   findButton(dashboard,"Ajustes").performClick();
   findButton(dashboard,"Vincular cuenta Google").performClick();
   findButton(dashboard,"Autorizar Calendar").performClick();
@@ -128,13 +128,13 @@ public class GoroDashboardViewTest {
   GoroDashboardView dashboard=new GoroDashboardView(activity,calls,null,false);
   activity.setContentView(dashboard);
   findButton(dashboard,"Dispositivos").performClick();
-  for(String model:new String[]{"Z01","Z02","N02"}){
-   findButton(dashboard,"Conectar ZNP "+model).performClick();
-   findButton(dashboard,"Instalar animación GORO en "+model).performClick();
+  for(String model:new String[]{"AN02","AZ02","AZ01"}){
+   findButton(dashboard,"Conectar "+model+" / "+(model.equals("AN02")?"N02":model.equals("AZ02")?"Z02":"Z01")).performClick();
+   findButton(dashboard,"Instalar animación GORO en "+model+" / "+(model.equals("AN02")?"N02":model.equals("AZ02")?"Z02":"Z01")).performClick();
   }
   findButton(dashboard,"Desconectar dispositivo ZNP").performClick();
-  assertEquals(java.util.Arrays.asList("Z01","Z02","N02"),calls.models);
-  assertEquals(java.util.Arrays.asList("Z01","Z02","N02"),calls.animationModels);
+  assertEquals(java.util.Arrays.asList("AN02","AZ02","AZ01"),calls.models);
+  assertEquals(java.util.Arrays.asList("AN02","AZ02","AZ01"),calls.animationModels);
   assertEquals(1,calls.disconnect);
  }
  @Test public void fullReplySurvivesNavigationAndRemainsReadable(){
