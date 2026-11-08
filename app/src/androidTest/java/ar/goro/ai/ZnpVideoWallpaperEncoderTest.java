@@ -21,7 +21,7 @@ public class ZnpVideoWallpaperEncoderTest {
    try(FileInputStream in=new FileInputStream(avi)){assertEquals(12,in.read(header));}
    assertEquals("RIFF",new String(header,0,4,java.nio.charset.StandardCharsets.US_ASCII));
    assertEquals("AVI ",new String(header,8,4,java.nio.charset.StandardCharsets.US_ASCII));
-   byte[] data=new byte[(int)Math.min(avi.length(),avi.length())];
+   byte[] data=new byte[(int)avi.length()];
    try(FileInputStream in=new FileInputStream(avi)){
     int read=0,n;while(read<data.length&&(n=in.read(data,read,data.length-read))>0)read+=n;
     assertEquals(data.length,read);
