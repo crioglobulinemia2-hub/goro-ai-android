@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -uo pipefail
 mkdir -p build
-PACKAGE_NAME=ar.goro.ai.personal
+# Keep this in sync with app/build.gradle's applicationId.
+PACKAGE_NAME=ar.goro.ai.parallel
+APP_ACTIVITY=ar.goro.ai.MainActivity
 adb logcat -c >/dev/null 2>&1 || true
 adb logcat -v threadtime > build/goro-emulator-logcat.txt 2>&1 &
 LOG_PID=$!
@@ -25,7 +27,15 @@ if adb get-state >/dev/null 2>&1; then
       adb shell pm grant "$PACKAGE_NAME" "android.permission.$permission" >/dev/null 2>&1 || true
     done
     adb shell am force-stop "$PACKAGE_NAME" >/dev/null 2>&1 || true
-    adb shell am start -W -n "$PACKAGE_NAME"/ar.goro.ai.MainActivity       > build/goro-emulator-launch.txt 2>&1
+    adb shell pm path "$PACKAGE_NAME" > build/goro-emulator-package-path.txt 2>&1
+    if ! grep -q '^package:' build/goro-emulator-package-path.txt; then
+      echo "Installed package $PACKAGE_NAME was not found on the emulator." >> build/goro-emulator-launch.txt
+      cat build/goro-emulator-package-path.txt >> build/goro-emulator-launch.txt
+      START_STATUS=1
+    else
+      adb shell am start -W -n "$PACKAGE_NAME/$APP_ACTIVITY" > build/goro-emulator-launch.txt 2>&1
+      START_STATUS=$?
+    fi
     START_STATUS=$?
     sleep 6
     adb exec-out screencap -p > build/goro-emulator-ui.png 2>/dev/null || true
@@ -36,7 +46,7 @@ if adb get-state >/dev/null 2>&1; then
     adb shell wm size 1920x1200 >/dev/null 2>&1
     adb shell wm density 240 >/dev/null 2>&1
     adb shell am force-stop "$PACKAGE_NAME" >/dev/null 2>&1
-    adb shell am start -W -n "$PACKAGE_NAME"/ar.goro.ai.MainActivity > build/goro-emulator-tablet-launch.txt 2>&1
+    adb shell am start -W -n "$PACKAGE_NAME/$APP_ACTIVITY" > build/goro-emulator-tablet-launch.txt 2>&1
     sleep 4
     adb exec-out screencap -p > build/goro-emulator-tablet.png 2>/dev/null || true
     test -s build/goro-emulator-tablet.png || rm -f build/goro-emulator-tablet.png
