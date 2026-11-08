@@ -93,10 +93,12 @@ public class GoroLaunchSmokeTest {
     TextView device=findText(root,"Dispositivos");
     assertNotNull(device);
     device.performClick();
+    TextView lastDeviceConnect=null;
     for(String label:new String[]{"Conectar AN02 / N02","Conectar AZ02 / Z02","Conectar AZ01 / Z01"}){
      TextView connect=findText(root,label);
      assertNotNull("All three requested ZNP models must remain available: "+label,connect);
      assertTrue(connect.isShown());
+     lastDeviceConnect=connect;
     }
     TextView settings=findText(root,"Ajustes");
     assertNotNull(settings);
@@ -104,7 +106,7 @@ public class GoroLaunchSmokeTest {
     TextView nvidia=findText(root,"Configurar NVIDIA");
     assertNotNull(nvidia);
     assertTrue(nvidia.isShown());
-    assertFalse(connect.isShown());
+    assertFalse(lastDeviceConnect.isShown());
    });
   }
  }
