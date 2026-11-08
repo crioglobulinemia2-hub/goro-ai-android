@@ -189,6 +189,12 @@ jobs:
             build/goro-emulator-ui.png
             build/goro-emulator-tablet.png
             build/goro-emulator-gfxinfo.txt
+            build/goro-emulator-launch.txt
+            build/goro-emulator-tablet-launch.txt
+            build/goro-emulator-install.txt
+            build/goro-emulator-package-path.txt
+            build/goro-emulator-activities.txt
+            build/goro-emulator-tablet.png
             build/goro-visual-test/**
             build/goro-visual-evidence-pull.txt
             build/parallel-install/*.json
