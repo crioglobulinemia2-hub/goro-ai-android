@@ -84,7 +84,7 @@ public final class GoroDashboardView extends LinearLayout {
   clock.setText(new SimpleDateFormat("HH:mm · EEE dd MMM",new Locale("es","AR")).format(new Date()));
   LinearLayout.LayoutParams clockParams=new LinearLayout.LayoutParams(0,dp(52),1f);
   header.addView(clock,clockParams);
-  TextView logo=text("GORO   ASISTENTE PERSONAL",tablet?22:16,true,palette.text);
+  TextView logo=text("GORO  IA",tablet?22:16,true,palette.text);
   header.addView(logo);
   addView(header,new LinearLayout.LayoutParams(-1,dp(56)));
 
@@ -120,17 +120,17 @@ public final class GoroDashboardView extends LinearLayout {
   LinearLayout hero=new LinearLayout(activity);hero.setOrientation(VERTICAL);
   hero.setPadding(dp(12),dp(10),dp(12),dp(12));
   hero.setBackground(gradient(palette.robotBackdrop,palette.surfaceElevated,dp(24)));
-  LinearLayout.LayoutParams heroParams=new LinearLayout.LayoutParams(-1,tablet?dp(340):dp(260));
+  LinearLayout.LayoutParams heroParams=new LinearLayout.LayoutParams(-1,tablet?dp(500):dp(315));
   heroParams.setMargins(dp(8),dp(4),dp(8),dp(8));
   mainColumn.addView(hero,heroParams);
-  TextView title=text("GORO  ·  ASISTENTE PERSONAL",tablet?18:16,true,palette.text);
+  TextView title=text("GORO · CENTRO DE CONTROL",tablet?18:16,true,palette.text);
   hero.addView(title,new LinearLayout.LayoutParams(-1,dp(36)));
   avatarStage=new FrameLayout(activity);
   if(enableAvatar){avatarStage.addView(new GoroAvatarView(activity,this::onAvatarStatus),
       new FrameLayout.LayoutParams(-1,-1));}
   else{TextView testStage=text("Avatar renderer disabled in JVM test",13,false,palette.muted);testStage.setGravity(Gravity.CENTER);avatarStage.addView(testStage,new FrameLayout.LayoutParams(-1,-1));}
   hero.addView(avatarStage,new LinearLayout.LayoutParams(-1,0,1f));
-  sectionValue=text("Inicio · Panel personal",15,true,palette.text);
+  sectionValue=text("GORO · INTERFAZ 3D",15,true,palette.text);
   hero.addView(sectionValue,new LinearLayout.LayoutParams(-1,dp(30)));
 
   state=text("GORO · Servicios locales",15,true,palette.accentSecondary);
@@ -139,7 +139,7 @@ public final class GoroDashboardView extends LinearLayout {
   sp.setMargins(dp(12),dp(2),dp(8),0);
   mainColumn.addView(state,sp);
 
-  output=text("Las funciones locales están disponibles. NVIDIA remoto y el avatar 3D todavía no están conectados.",16,false,palette.text);
+  output=text("GORO listo para recibir órdenes. Voz, agenda, clima y dispositivos se activan según sus permisos y conexiones.",16,false,palette.text);
   output.setPadding(dp(14),dp(12),dp(14),dp(12));
   output.setBackground(gradient(palette.surface,palette.surfaceElevated,dp(15)));
   LinearLayout.LayoutParams op=new LinearLayout.LayoutParams(-1,-2);
@@ -236,8 +236,8 @@ public final class GoroDashboardView extends LinearLayout {
  public void showNvidiaStatus(String value){nvidiaValue.setText(value==null?"NVIDIA NIM: sin estado":value);}
  private static GoroTheme.Mode readTheme(Activity a){
   String saved=a.getSharedPreferences("goro_ui",Activity.MODE_PRIVATE).getString("theme_mode",null);
-  if(saved==null){return a.getSharedPreferences("goro_ui",Activity.MODE_PRIVATE).getBoolean("dark",false)?GoroTheme.Mode.DARK:GoroTheme.Mode.LIGHT;}
-  try{return GoroTheme.Mode.valueOf(saved);}catch(Exception e){return GoroTheme.Mode.LIGHT;}
+  if(saved==null){return GoroTheme.Mode.DARK;}
+  try{return GoroTheme.Mode.valueOf(saved);}catch(Exception e){return GoroTheme.Mode.DARK;}
  }
  private void selectTheme(GoroTheme.Mode mode){
   activity.getSharedPreferences("goro_ui",Activity.MODE_PRIVATE).edit().putString("theme_mode",mode.name()).apply();
@@ -258,7 +258,7 @@ public final class GoroDashboardView extends LinearLayout {
  }
  private Button button(String label,Runnable click,boolean primary){
   Button b=new Button(activity);
-  b.setText(label);b.setAllCaps(false);b.setTextSize(12);
+  b.setText(label);b.setAllCaps(false);b.setTextSize(tablet?14:13);
   b.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
   b.setTextColor(primary?Color.WHITE:palette.text);
   b.setGravity(Gravity.CENTER);
