@@ -195,7 +195,7 @@ public final class GoroDashboardView extends LinearLayout {
   tools.addView(button("Configurar clave NVIDIA",()->actions.onConfigureNvidia(),false),new LinearLayout.LayoutParams(-1,dp(44)));
   tools.addView(button("Probar conexión Nemotron",()->actions.onTestNvidia(),false),new LinearLayout.LayoutParams(-1,dp(44)));
   tools.addView(card("DISPOSITIVOS",devicesValue),cardParams());
-  tools.addView(button("Inspeccionar BLE Z02/N02",()->actions.onBleScan(),false),new LinearLayout.LayoutParams(-1,dp(44)));
+  tools.addView(button("Buscar BLE · Z02/N02/AN02/AZ02/AZ01",()->actions.onBleScan(),false),new LinearLayout.LayoutParams(-1,dp(44)));
   tools.addView(button("Conectar ZNP por RCSP JieLi",()->actions.onConnectZnp(),true),new LinearLayout.LayoutParams(-1,dp(48)));
   tools.addView(button("Encender luz del estuche",()->actions.onZnpLightOn(),false),new LinearLayout.LayoutParams(-1,dp(44)));
   tools.addView(button("Apagar luz del estuche",()->actions.onZnpLightOff(),false),new LinearLayout.LayoutParams(-1,dp(44)));
