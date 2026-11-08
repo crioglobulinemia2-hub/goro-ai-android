@@ -703,7 +703,7 @@ public final class GoroZn02Controller {
     @Override public void onStop(){
      mainHandler.post(()->{
      if(!currentScreenUpload(upload))return;
-     String devicePath=upload.devicePath==null?"/"+output.getName():upload.devicePath;
+     String devicePath="/"+output.getName();
      activateUploadedScreenResource(upload,selectedFlash.getDevHandler(),devicePath);
      });
     }
