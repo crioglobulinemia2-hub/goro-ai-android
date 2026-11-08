@@ -14,6 +14,7 @@ import android.view.Gravity;
 import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
@@ -45,7 +46,7 @@ public final class GoroDashboardView extends LinearLayout {
  private final Actions actions;
  private final boolean tablet;
  private final GoroAvatarView avatar;
- private final FrameLayout body,home;
+ private final FrameLayout body,home,conversationAvatarStage;
  private final ScrollView pages,homeScroll;
  private final LinearLayout pageContent,navigation;
  private final TextView title,clock,date,weather,agenda,homeDevices,speechBubble,conversationStatus;
@@ -138,6 +139,11 @@ public final class GoroDashboardView extends LinearLayout {
   home.addView(lower,new FrameLayout.LayoutParams(-1,dp(124),Gravity.BOTTOM));
   pages=new ScrollView(a);pages.setFillViewport(true);pageContent=new LinearLayout(a);pageContent.setOrientation(VERTICAL);pageContent.setPadding(dp(4),dp(16),dp(4),dp(20));pages.addView(pageContent);body.addView(pages,new FrameLayout.LayoutParams(-1,-1));
   output=text("GORO IA · Tocá Activar escucha para conversar con el dispositivo ZNP conectado. Podés pausarla en cualquier momento.",16,false,TEXT);output.setTextIsSelectable(true);output.setPadding(dp(16),dp(14),dp(16),dp(14));output.setBackground(glass(16));pageContent.addView(output,new LinearLayout.LayoutParams(-1,-2));
+  conversationAvatarStage=new FrameLayout(a);
+  LinearLayout.LayoutParams conversationAvatarParams=new LinearLayout.LayoutParams(-1,dp(tablet?365:260));
+  conversationAvatarParams.setMargins(dp(8),dp(18),dp(8),dp(8));
+  pageContent.addView(conversationAvatarStage,conversationAvatarParams);
+  conversationAvatarStage.setVisibility(GONE);
   output.addTextChangedListener(new android.text.TextWatcher(){public void beforeTextChanged(CharSequence t,int start,int count,int after){}public void onTextChanged(CharSequence t,int start,int before,int count){showAssistantMessage(t.toString());}public void afterTextChanged(android.text.Editable text){}});
   agendaValue=text("Todavía no consultaste tu agenda.",15,false,TEXT);gmailValue=text("Autorizá tu cuenta para consultar Gmail.",15,false,TEXT);devicesValue=text("ZNP · Conexión automática pendiente.",15,false,TEXT);nvidiaValue=text("NVIDIA · pendiente de conexión",13,false,TEXT);voiceValue=text("Diego · pendiente de conexión",13,false,TEXT);accountLabel=text(account==null?"Google Calendar: sin vincular":"Calendar · "+account,13,false,MUTED);
   agendaPanel=panel();agendaPanel.addView(card("TU AGENDA",agendaValue));addAction(agendaPanel,"Consultar agenda de hoy","agenda",()->actions.onCommand("agenda hoy"));addAction(agendaPanel,"Consultar agenda de mañana","agenda",()->actions.onCommand("agenda mañana"));
@@ -164,10 +170,21 @@ public final class GoroDashboardView extends LinearLayout {
   String[] icons={"chat","grid","bolt","settings"};for(int i=0;i<primary.length;i++){GoroSection section=primary[i];Button item=iconButton(section.label,icons[i],()->select(section),false,21);navigation.addView(item,new LinearLayout.LayoutParams(0,dp(59),1));}
   addView(navigation,new LinearLayout.LayoutParams(-1,dp(65)));clockTick.run();select(GoroSection.HOME);
  }
- private void openTranscript(){showTranscript=true;selected=GoroSection.HOME;homeScroll.setVisibility(GONE);pages.setVisibility(VISIBLE);hidePanels();title.setText("CONVERSACIÓN");back.setCompoundDrawables(null,new GoroIcon("back",TEXT,dp(22)),null,null);output.setVisibility(VISIBLE);pages.post(()->pages.scrollTo(0,0));}
+ private void openTranscript(){showTranscript=true;selected=GoroSection.HOME;showConversationAvatar(true);homeScroll.setVisibility(GONE);pages.setVisibility(VISIBLE);hidePanels();title.setText("CONVERSACIÓN");back.setCompoundDrawables(null,new GoroIcon("back",TEXT,dp(22)),null,null);output.setVisibility(VISIBLE);pages.post(()->pages.scrollTo(0,0));}
+ private void showConversationAvatar(boolean inConversation){
+  // Reuse one Filament renderer rather than launching two engines simultaneously.
+  // The old code hid the only avatar inside the HOME view during conversation.
+  if(avatar==null){conversationAvatarStage.setVisibility(GONE);return;}
+  FrameLayout target=inConversation?conversationAvatarStage:avatarStage;
+  if(avatar.getParent()!=target){
+   if(avatar.getParent() instanceof ViewGroup)((ViewGroup)avatar.getParent()).removeView(avatar);
+   target.addView(avatar,new FrameLayout.LayoutParams(-1,-1));
+  }
+  conversationAvatarStage.setVisibility(inConversation?VISIBLE:GONE);
+ }
  private void hidePanels(){for(LinearLayout p:new LinearLayout[]{agendaPanel,gmailPanel,devicePanel,settingsPanel,explorePanel,automationPanel})p.setVisibility(GONE);}
  private void select(GoroSection section){
-  selected=section;showTranscript=false;hidePanels();boolean isHome=section==GoroSection.HOME;homeScroll.setVisibility(isHome?VISIBLE:GONE);pages.setVisibility(isHome?GONE:VISIBLE);output.setVisibility(GONE);title.setText(isHome?"GORO IA":section.label.toUpperCase(new Locale("es","AR")));title.setTextSize(isHome?23:19);back.setCompoundDrawables(null,new GoroIcon(isHome?"menu":"back",TEXT,dp(22)),null,null);
+  selected=section;showTranscript=false;showConversationAvatar(false);hidePanels();boolean isHome=section==GoroSection.HOME;homeScroll.setVisibility(isHome?VISIBLE:GONE);pages.setVisibility(isHome?GONE:VISIBLE);output.setVisibility(GONE);title.setText(isHome?"GORO IA":section.label.toUpperCase(new Locale("es","AR")));title.setTextSize(isHome?23:19);back.setCompoundDrawables(null,new GoroIcon(isHome?"menu":"back",TEXT,dp(22)),null,null);
   for(int i=0;i<navigation.getChildCount();i++){Button b=(Button)navigation.getChildAt(i);boolean active=primary[i]==section;b.setTextColor(active?CYAN:MUTED);b.setBackground(ripple(active?0xff10294c:0x00000000,active?0xff06162c:0x00000000,15,active?0xff235b82:0x0023455f));String icon=new String[]{"chat","grid","bolt","settings"}[i];b.setCompoundDrawables(null,new GoroIcon(icon,active?CYAN:MUTED,dp(21)),null,null);}
   switch(section){
    case HOME:break;
