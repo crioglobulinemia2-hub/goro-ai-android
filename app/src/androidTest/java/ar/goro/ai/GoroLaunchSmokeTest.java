@@ -50,14 +50,13 @@ public class GoroLaunchSmokeTest {
    });
   }
  }
- @Test public void listeningTogglePausesImmediatelyAndSurvivesRecreation(){
+ @Test public void listeningWithoutNvidiaNeverReportsFalseActiveState(){
   try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)){
    scenario.onActivity(activity->{
     View root=activity.findViewById(android.R.id.content);
     TextView activate=findText(root,"Activar escucha");assertNotNull(activate);assertTrue(activate.isShown());
-    activate.performClick();TextView pause=findText(root,"Pausar escucha");assertNotNull(pause);
-    assertFalse(activity.getSharedPreferences("goro_voice_control",0).getBoolean("paused",true));
-    findText(root,"Dispositivos").performClick();assertTrue(pause.isShown());pause.performClick();
+    activate.performClick();
+    assertNull("The app cannot claim to be listening before NVIDIA is configured",findText(root,"Pausar escucha"));
     assertTrue(activity.getSharedPreferences("goro_voice_control",0).getBoolean("paused",false));
    });
    scenario.recreate();
@@ -66,6 +65,24 @@ public class GoroLaunchSmokeTest {
     assertNotNull(findText(root,"Activar escucha"));assertNotNull(findText(root,"Escucha pausada"));
     try{java.lang.reflect.Field field=MainActivity.class.getDeclaredField("voiceActive");field.setAccessible(true);assertFalse(field.getBoolean(activity));}
     catch(ReflectiveOperationException error){throw new AssertionError(error);}
+   });
+  }
+ }
+ @Test public void conversationScreenKeepsTheSameAnimatedAvatarVisible(){
+  try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)){
+   scenario.onActivity(activity->{
+    View root=activity.findViewById(android.R.id.content);
+    GoroAvatarView avatar=findAvatar(root);
+    assertNotNull("GORO avatar must exist on the home page",avatar);
+    View open=findDescription(root,"Abrir respuesta completa de Goro");
+    assertNotNull(open);
+    open.performClick();
+    assertNotNull(findText(root,"CONVERSACIÓN"));
+    assertTrue("GORO avatar must remain visible in conversation",avatar.isShown());
+    View back=findDescription(root,"Menú y volver");
+    assertNotNull(back);
+    back.performClick();
+    assertTrue("GORO avatar must return to the home page",avatar.isShown());
    });
   }
  }
