@@ -39,7 +39,8 @@ final class ZnpVideoWallpaperEncoder {
   if(movie==null||movie.width()<=0||movie.height()<=0)
    throw new IOException("Android no pudo decodificar el GIF de GORO");
   int sourceWidth=movie.width(),sourceHeight=movie.height();
-  int naturalDuration=Math.max(1,movie.duration());
+  int reportedDuration=movie.duration();
+  int naturalDuration=reportedDuration>0?reportedDuration:1000;
   int frameCount=FPS*seconds;
   float scale=Math.max(width/(float)sourceWidth,height/(float)sourceHeight);
   float drawWidth=sourceWidth*scale,drawHeight=sourceHeight*scale;
