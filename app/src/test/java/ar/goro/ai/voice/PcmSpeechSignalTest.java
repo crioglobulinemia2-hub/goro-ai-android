@@ -11,6 +11,11 @@ public class PcmSpeechSignalTest {
   assertNull(PcmSpeechSignal.prepare(tone(1000,0,8000)));
   assertNull(PcmSpeechSignal.prepare(tone(1000,30,0)));
  }
+ @Test public void lowAmplitudeVoiceStillPassesLocalSpeechGate(){
+  byte[] result=PcmSpeechSignal.prepare(tone(1000,65,0));
+  assertNotNull("Low-level speech must not be discarded before Parakeet",result);
+  assertTrue(PcmSpeechSignal.rms(result,0,result.length)>100);
+ }
  @Test public void quietVoiceIsTrimmedAmplifiedAndNotClipped(){
   byte[] p=new byte[32000*3];System.arraycopy(tone(1000,300,200),0,p,32000,32000);
   byte[] result=PcmSpeechSignal.prepare(p);assertNotNull(result);assertTrue(result.length<p.length);
