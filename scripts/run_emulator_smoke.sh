@@ -41,8 +41,20 @@ if adb get-state >/dev/null 2>&1; then
       adb shell am start -W -n "$PACKAGE_NAME/$APP_ACTIVITY" > build/goro-emulator-launch.txt 2>&1
       START_STATUS=$?
     fi
-    START_STATUS=$?
     sleep 6
+    adb shell dumpsys activity activities > build/goro-emulator-activities.txt 2>&1 || true
+    if ! grep -Fq "$APP_ACTIVITY" build/goro-emulator-activities.txt; then
+      echo "GORO MainActivity not visible after explicit launch; retrying launcher entry." >> build/goro-emulator-launch.txt
+      adb shell monkey -p "$PACKAGE_NAME" -c android.intent.category.LAUNCHER 1 >> build/goro-emulator-launch.txt 2>&1 || true
+      sleep 3
+      adb shell dumpsys activity activities > build/goro-emulator-activities.txt 2>&1 || true
+    fi
+    if grep -Fq "$APP_ACTIVITY" build/goro-emulator-activities.txt; then
+      START_STATUS=0
+    else
+      echo "GORO MainActivity is not the resumed activity after retry." >> build/goro-emulator-launch.txt
+      START_STATUS=1
+    fi
     adb exec-out screencap -p > build/goro-emulator-ui.png 2>/dev/null || true
     test -s build/goro-emulator-ui.png || rm -f build/goro-emulator-ui.png
     adb shell dumpsys gfxinfo "$PACKAGE_NAME"       > build/goro-emulator-gfxinfo.txt 2>&1 || true
@@ -53,6 +65,11 @@ if adb get-state >/dev/null 2>&1; then
     adb shell am force-stop "$PACKAGE_NAME" >/dev/null 2>&1
     adb shell am start -W -n "$PACKAGE_NAME/$APP_ACTIVITY" > build/goro-emulator-tablet-launch.txt 2>&1
     sleep 4
+    adb shell dumpsys activity activities > build/goro-emulator-tablet-activities.txt 2>&1 || true
+    if ! grep -Fq "$APP_ACTIVITY" build/goro-emulator-tablet-activities.txt; then
+      echo "GORO MainActivity is not visible at tablet geometry." >> build/goro-emulator-tablet-launch.txt
+      RESULT=1
+    fi
     adb exec-out screencap -p > build/goro-emulator-tablet.png 2>/dev/null || true
     test -s build/goro-emulator-tablet.png || rm -f build/goro-emulator-tablet.png
     adb shell wm size reset >/dev/null 2>&1
