@@ -40,6 +40,7 @@ import com.jieli.bluetooth.bean.settings.v0.SettingFunction;
 import com.jieli.bluetooth.constant.BluetoothConstant;
 import com.jieli.bluetooth.constant.JL_DeviceType;
 import com.jieli.bluetooth.constant.StateCode;
+import com.jieli.bluetooth.tool.DeviceAddrManager;
 import com.jieli.bluetooth.impl.rcsp.RCSPController;
 import com.jieli.bluetooth.impl.rcsp.charging_case.ChargingCaseOpImpl;
 import com.jieli.bluetooth.interfaces.rcsp.callback.BTRcspEventCallback;
@@ -48,9 +49,10 @@ import com.jieli.bluetooth.interfaces.rcsp.charging_case.OnChargingCaseListener;
 import java.util.List;
 
 /**
- * GORO-owned ZN02 controller. Uses the vendor RCSP transport only; no Cabezón,
- * Tuya, vacuum-control, or cross-app state is imported into this application.
- * A device must identify itself as N02 before the controller will connect.
+ * GORO-owned ZNP charging-case controller. RCSP control is forced over BLE;
+ * charging-case EDR addresses are not treated as audio endpoints. Advertised
+ * model names are candidates only; RCSP operations require authentication and
+ * device-reported chipset and screen capabilities.
  */
 public final class GoroZn02Controller {
  public interface Listener { void onStatus(String status); default void onMicrophonePcm(byte[] pcm16Mono){} default void onAudioTarget(BluetoothDevice audioTarget){} default void onMicrophoneStarted(){} default void onMicrophoneIdle(){} default void onMicrophoneError(String error){} }
@@ -70,7 +72,9 @@ public final class GoroZn02Controller {
  private volatile BluetoothDevice target;
  private volatile String requestedModel="Z02";
  private volatile String activeModel="Z02";
+ private volatile int targetDeviceType=-1;
  private boolean scanning;
+ private boolean screenInfoReadInProgress;
  private boolean callbackRegistered;
  private volatile boolean connected;
  private volatile boolean vendorProtocolVerified=false;
@@ -91,7 +95,12 @@ public final class GoroZn02Controller {
    @Override public void onInit(BluetoothDevice device,int state){
     mainHandler.post(()->{
      if(!isCurrentConnection(device,epoch))return;
-     emit(state==0?modelLabel()+" · inicialización Bluetooth completada.":modelLabel()+" · error de inicialización: "+state);
+     if(state==0){
+      ChargingCaseInfo info=caseOp==null?null:caseOp.getChargingCaseInfo(device);
+      if(info!=null&&info.getScreenWidth()>0&&info.getScreenHeight()>0)
+       emit(modelLabel()+" · inicialización completa; visor "+info.getScreenWidth()+"×"+info.getScreenHeight()+".");
+      else emit(modelLabel()+" · inicialización Bluetooth completada; esperando resolución del visor.");
+     }else emit(modelLabel()+" · error de inicialización: "+state);
     });
    }
    @Override public void onChargingCaseInfoChange(BluetoothDevice device,int function,ChargingCaseInfo info){
@@ -141,11 +150,16 @@ public final class GoroZn02Controller {
      // No device commands are enabled until authentication and chipset checks pass.
      activeModel=candidate;
      target=device;
+     targetDeviceType=message==null?-1:message.getDeviceType();
      try{controller.stopScan();}catch(RuntimeException ignored){}
      scanning=false;
-     emit("Anuncio "+profile.modelLabel()+" detectado. Abriendo enlace RCSP y verificando autenticación…");
-     try{controller.connectDevice(device);}
-     catch(RuntimeException error){emit("El SDK JieLi no pudo iniciar la conexión BLE RCSP: "+error.getClass().getSimpleName());}
+     emit("Anuncio "+profile.modelLabel()+" detectado. Abriendo enlace RCSP por BLE y verificando autenticación…");
+     try{
+      // ZNP charging cases are BLE RCSP endpoints. Persist the same transport
+      // choice used by JieLi's charging-bin reference implementation.
+      DeviceAddrManager.getInstance().saveDeviceConnectWay(device,BluetoothConstant.PROTOCOL_TYPE_BLE);
+      controller.connectDevice(device,BluetoothConstant.PROTOCOL_TYPE_BLE);
+     }catch(RuntimeException error){emit("El SDK JieLi no pudo iniciar la conexión BLE RCSP: "+error.getClass().getSimpleName());}
     });
    }
    @Override public void onConnection(BluetoothDevice device,int status){
@@ -206,9 +220,9 @@ public final class GoroZn02Controller {
  static BluetoothOption scanOptions(){
   return BluetoothOption.createDefaultOption()
       .setUseMultiDevice(true)
-      .setPriority(0)
-      .setMandatoryUseBLE(false)
-      .setMtu(509)
+      .setPriority(BluetoothOption.PREFER_BLE)
+      .setMandatoryUseBLE(true)
+      .setMtu(BluetoothConstant.BLE_MTU_MAX)
       .setUseDeviceAuth(true)
       .setBleScanMode(2)
       // SDK defaults filter vendor advertising formats and discard devices
@@ -220,8 +234,8 @@ public final class GoroZn02Controller {
  }
  public synchronized void startScan(){startScan("Z02");}
  public synchronized void startScan(String model){
-  String requested=model==null?"Z02":model.trim().toUpperCase(java.util.Locale.ROOT);
-  if(!requested.matches("Z01|Z02|N02")){emit("Modelo ZNP no reconocido. Elegí Z01, Z02 o N02.");return;}
+  String requested=ZnpDeviceProfile.canonicalModel(model==null?"Z02":model);
+  if(requested==null){emit("Modelo ZNP no reconocido. Elegí AZ01, AZ02 o AN02; también se aceptan Z01, Z02 y N02.");return;}
   if(closed){emit("Controlador ZNP cerrado.");return;}
   if(connected&&target!=null){
    if(activeModel.equals(requested))emit("El "+activeModel+" ya tiene una sesión Bluetooth abierta.");
@@ -304,7 +318,16 @@ public final class GoroZn02Controller {
     @Override public void onError(BluetoothDevice d,BaseError error){if(isCurrentConnection(d,epoch))emit("Pantalla "+modelLabel()+" no disponible: "+error.getMessage());}
    });
    operation.readScreenInfo(device,new OnRcspActionCallback<ScreenInfo>(){
-    @Override public void onSuccess(BluetoothDevice d,ScreenInfo info){if(isCurrentConnection(d,epoch))emit("Pantalla "+modelLabel()+" leída por SDK: "+String.valueOf(info));}
+    @Override public void onSuccess(BluetoothDevice d,ScreenInfo info){
+     mainHandler.post(()->{
+      if(!isCurrentConnection(d,epoch))return;
+      ChargingCaseInfo current=operation.getChargingCaseInfo(d);
+      int width=current==null?-1:current.getScreenWidth();
+      int height=current==null?-1:current.getScreenHeight();
+      if(width<=0||height<=0){width=readScreenDimension(info,true);height=readScreenDimension(info,false);}
+      emit(width>0&&height>0?"Pantalla "+modelLabel()+" confirmada por SDK: "+width+"×"+height+".":"SDK respondió la lectura del visor "+modelLabel()+" sin dimensiones utilizables: "+String.valueOf(info));
+     });
+    }
     @Override public void onError(BluetoothDevice d,BaseError error){if(isCurrentConnection(d,epoch))emit("Pantalla "+modelLabel()+" no disponible: "+error.getMessage());}
    });
    operation.getBrightness(device,new OnRcspActionCallback<Integer>(){
@@ -312,6 +335,14 @@ public final class GoroZn02Controller {
     @Override public void onError(BluetoothDevice d,BaseError error){if(isCurrentConnection(d,epoch))emit("Brillo "+modelLabel()+" no disponible: "+error.getMessage());}
    });
   }catch(RuntimeException error){emit("RCSP autenticado; perfil de pantalla no disponible: "+error.getClass().getSimpleName());}
+  if(targetDeviceType!=JL_DeviceType.JL_DEVICE_TYPE_TWS_HEADSET_V1){
+   // A charging case is not an A2DP headset. Keep its RCSP link independent
+   // and let Android route Magpie output to the phone or an already-connected headset.
+   bondSession.close();
+   if(listener!=null)listener.onAudioTarget(null);
+   emit("Control RCSP de "+modelLabel()+" confirmado por BLE. El estuche no se empareja como auricular; audio por la ruta Android predeterminada.");
+   return;
+  }
   try{
    String edr=null;
    if(controller.getRcspOp().getDeviceInfo(device)!=null)edr=controller.getRcspOp().getDeviceInfo(device).getEdrAddr();
@@ -466,7 +497,8 @@ public final class GoroZn02Controller {
   };
  }
  public synchronized void uploadGoroScreenSaverForModel(String model){
-  String selected=model==null?"":model.trim().toUpperCase(java.util.Locale.ROOT);
+  String selected=ZnpDeviceProfile.canonicalModel(model);
+  if(selected==null){emit("Modelo ZNP no reconocido para instalar la animación.");return;}
   if(!isConnectedTo(selected)){
    emit("Primero conectá el ZNP "+selected+". No se envió ninguna animación.");
    return;
@@ -475,21 +507,71 @@ public final class GoroZn02Controller {
    emit(modelLabel()+" no tiene una pantalla RCSP verificada. No se envió ninguna animación.");
    return;
   }
-  int width=-1,height=-1;
+  if(screenInfoReadInProgress){emit("Ya se está leyendo la resolución física del visor "+modelLabel()+".");return;}
+  final long epoch=connectionEpoch;
+  final BluetoothDevice device=target;
+  final ChargingCaseOpImpl operation=caseOp;
+  screenInfoReadInProgress=true;
+  emit("Consultando la resolución física del visor "+modelLabel()+" antes de seleccionar el GIF…");
   try{
-   ChargingCaseInfo info=caseOp.getChargingCaseInfo(target);
-   if(info==null||info.getScreenWidth()<=0||info.getScreenHeight()<=0){
-    emit("No se pudo leer la resolución física del visor "+modelLabel()+". No se envió ningún archivo.");
-    return;
-   }
-   width=info.getScreenWidth();height=info.getScreenHeight();
-   File animation=ZnpScreenAsset.forDevice(context,selected,width,height);
-   uploadGoroScreenSaver(animation);
+   operation.readScreenInfo(device,new OnRcspActionCallback<ScreenInfo>(){
+    @Override public void onSuccess(BluetoothDevice d,ScreenInfo screenInfo){
+     mainHandler.post(()->{
+      if(epoch!=connectionEpoch)return;
+      screenInfoReadInProgress=false;
+      if(!isCurrentConnection(d,epoch))return;
+      ChargingCaseInfo cached=operation.getChargingCaseInfo(d);
+      int width=cached==null?-1:cached.getScreenWidth();
+      int height=cached==null?-1:cached.getScreenHeight();
+      if(width<=0||height<=0){width=readScreenDimension(screenInfo,true);height=readScreenDimension(screenInfo,false);}
+      if(width<=0||height<=0){
+       emit("El SDK respondió la lectura del visor pero no entregó una resolución utilizable. No se envió ningún archivo. "+String.valueOf(screenInfo));
+       return;
+      }
+      try{
+       File animation=ZnpScreenAsset.forDevice(context,selected,width,height);
+       uploadGoroScreenSaver(animation,width,height);
+      }catch(Exception error){
+       emit("No hay una animación validada para "+modelLabel()+" a "+width+"×"+height+": "+error.getClass().getSimpleName());
+      }
+     });
+    }
+    @Override public void onError(BluetoothDevice d,BaseError error){
+     mainHandler.post(()->{
+      if(epoch!=connectionEpoch)return;
+      screenInfoReadInProgress=false;
+      if(isCurrentConnection(d,epoch))emit("No se pudo leer la resolución física del visor "+modelLabel()+": "+error.getMessage()+". No se envió ningún archivo.");
+     });
+    }
+   });
   }catch(Exception error){
-   emit("No hay una animación validada para "+modelLabel()+" a "+width+"×"+height+": "+error.getClass().getSimpleName());
+   screenInfoReadInProgress=false;
+   emit("No se pudo consultar la resolución física del visor "+modelLabel()+": "+error.getClass().getSimpleName());
   }
  }
+ static int readScreenDimension(Object screenInfo,boolean width){
+  if(screenInfo==null)return -1;
+  String[] names=width?new String[]{"getScreenWidth","getWidth","getLcdWidth"}:new String[]{"getScreenHeight","getHeight","getLcdHeight"};
+  for(String name:names){
+   try{
+    java.lang.reflect.Method method=screenInfo.getClass().getMethod(name);
+    Object value=method.invoke(screenInfo);
+    if(value instanceof Number&&((Number)value).intValue()>0)return ((Number)value).intValue();
+   }catch(Exception ignored){}
+  }
+  return -1;
+ }
  public synchronized void uploadGoroScreenSaver(File sourceGif){
+  if(closed||!connected||!vendorProtocolVerified||target==null||caseOp==null){
+   emit(modelLabel()+" sin protocolo de pantalla verificado. No se inició la transferencia.");return;
+  }
+  ChargingCaseInfo info=caseOp.getChargingCaseInfo(target);
+  if(info==null||info.getScreenWidth()<=0||info.getScreenHeight()<=0){
+   emit("La resolución real del visor "+modelLabel()+" todavía no está disponible. No se envió ningún archivo.");return;
+  }
+  uploadGoroScreenSaver(sourceGif,info.getScreenWidth(),info.getScreenHeight());
+ }
+ private synchronized void uploadGoroScreenSaver(File sourceGif,int screenWidth,int screenHeight){
   if(closed||!connected||!vendorProtocolVerified||target==null||caseOp==null){
    emit(modelLabel()+" sin protocolo de pantalla verificado. No se inició la transferencia.");return;
   }
@@ -498,9 +580,8 @@ public final class GoroZn02Controller {
   if(sourceGif==null||!sourceGif.isFile()||!sourceGif.canRead()){
    emit("No se encuentra la animación GORO para "+modelLabel()+".");return;
   }
-  ChargingCaseInfo info=caseOp.getChargingCaseInfo(target);
-  if(info==null||info.getScreenWidth()<=0||info.getScreenHeight()<=0){
-   emit("La resolución real del visor "+modelLabel()+" todavía no está disponible. No se envió ningún archivo.");return;
+  if(screenWidth<=0||screenHeight<=0){
+   emit("La resolución física del visor "+modelLabel()+" no es válida. No se envió ningún archivo.");return;
   }
   try(java.io.FileInputStream input=new java.io.FileInputStream(sourceGif)){
    byte[] header=new byte[10];
@@ -509,8 +590,8 @@ public final class GoroZn02Controller {
    }
    int gifWidth=(header[6]&255)|((header[7]&255)<<8);
    int gifHeight=(header[8]&255)|((header[9]&255)<<8);
-   if(gifWidth!=info.getScreenWidth()||gifHeight!=info.getScreenHeight()){
-    sourceGif=ZnpScreenAsset.forDisplay(context,info.getScreenWidth(),info.getScreenHeight());
+   if(gifWidth!=screenWidth||gifHeight!=screenHeight){
+    sourceGif=ZnpScreenAsset.forDisplay(context,screenWidth,screenHeight);
    }
   }catch(Exception error){emit("No se pudo verificar la resolución del GIF: "+error.getClass().getSimpleName());return;}
   final File matchedGif=sourceGif;
@@ -520,7 +601,7 @@ public final class GoroZn02Controller {
    emit("La transferencia del visor agotó el tiempo. La animación no quedó confirmada.");cancelScreenUpload();
   };
   mainHandler.postDelayed(upload.timeout,120000);
-  emit("Preparando animación GORO para el visor "+modelLabel()+" "+info.getScreenWidth()+"×"+info.getScreenHeight()+"…");
+  emit("Preparando animación GORO para el visor "+modelLabel()+" "+screenWidth+"×"+screenHeight+"…");
   try{caseOp.readSDKMessage(upload.device,new OnRcspActionCallback<SDKMessage>(){
    @Override public void onSuccess(BluetoothDevice device,SDKMessage sdk){
     if(!currentScreenUpload(upload)||!upload.device.equals(device))return;
@@ -647,13 +728,16 @@ public final class GoroZn02Controller {
   bondSession.close();
   BluetoothDevice previous=target;
   target=null;
+  targetDeviceType=-1;
+  screenInfoReadInProgress=false;
   connected=false;
   vendorProtocolVerified=false;
   if(controller!=null&&previous!=null)try{controller.disconnectDevice(previous);}catch(RuntimeException ignored){}
   emit("Dispositivo ZNP desconectado desde GORO.");
  }
  public synchronized boolean isConnectedTo(String model){
-  return connected&&target!=null&&activeModel.equals(model==null?"":model.trim().toUpperCase(java.util.Locale.ROOT));
+  String selected=ZnpDeviceProfile.canonicalModel(model);
+  return selected!=null&&connected&&target!=null&&activeModel.equals(selected);
  }
  public String connectedModelLabel(){return modelLabel();}
  private String modelLabel(){return "ZNP "+activeModel;}
@@ -692,6 +776,6 @@ public final class GoroZn02Controller {
   }
   releaseCaseObservation();
   resourceExecutor.shutdownNow();
-  scanning=false;connected=false;vendorProtocolVerified=false;target=null;caseOp=null;
+  scanning=false;connected=false;vendorProtocolVerified=false;target=null;targetDeviceType=-1;screenInfoReadInProgress=false;caseOp=null;
  }
 }
