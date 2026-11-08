@@ -143,16 +143,16 @@ public final class GoroDashboardView extends LinearLayout {
   agendaPanel=panel();agendaPanel.addView(card("TU AGENDA",agendaValue));addAction(agendaPanel,"Consultar agenda de hoy","agenda",()->actions.onCommand("agenda hoy"));addAction(agendaPanel,"Consultar agenda de mañana","agenda",()->actions.onCommand("agenda mañana"));
   gmailPanel=panel();gmailPanel.addView(card("TU CORREO",gmailValue));addAction(gmailPanel,"Actualizar bandeja","mail",()->actions.onReadGmail());
   devicePanel=panel();devicePanel.addView(card("DISPOSITIVOS ZNP",devicesValue));TextView deviceCaption=text("Activá o pausá la escucha con el botón superior. La pausa se mantiene al reconectar.",13,false,MUTED);deviceCaption.setPadding(dp(10),dp(8),dp(10),dp(14));devicePanel.addView(deviceCaption);
-  addAction(devicePanel,"Conectar ZNP Z01","link",()->actions.onConnectZnpModel("Z01"));
-  addAction(devicePanel,"Conectar ZNP Z02","link",()->actions.onConnectZnpModel("Z02"));
-  addAction(devicePanel,"Conectar ZNP N02","link",()->actions.onConnectZnpModel("N02"));
+  addAction(devicePanel,"Conectar AN02 / N02","link",()->actions.onConnectZnpModel("AN02"));
+  addAction(devicePanel,"Conectar AZ02 / Z02","link",()->actions.onConnectZnpModel("AZ02"));
+  addAction(devicePanel,"Conectar AZ01 / Z01","link",()->actions.onConnectZnpModel("AZ01"));
   addAction(devicePanel,"Desconectar dispositivo ZNP","unlink",()->actions.onDisconnectZnp());
-  addAction(devicePanel,"Diagnosticar ZNP Z01 (BLE)","devices",()->actions.onInspectZnpModel("Z01"));
-  addAction(devicePanel,"Diagnosticar ZNP Z02 (BLE)","devices",()->actions.onInspectZnpModel("Z02"));
-  addAction(devicePanel,"Diagnosticar ZNP N02 (BLE)","devices",()->actions.onInspectZnpModel("N02"));
-  addAction(devicePanel,"Instalar animación GORO en Z01","face",()->actions.onInstallGoroAnimation("Z01"));
-  addAction(devicePanel,"Instalar animación GORO en Z02","face",()->actions.onInstallGoroAnimation("Z02"));
-  addAction(devicePanel,"Instalar animación GORO en N02","face",()->actions.onInstallGoroAnimation("N02"));
+  addAction(devicePanel,"Diagnosticar AN02 / N02 (BLE)","devices",()->actions.onInspectZnpModel("AN02"));
+  addAction(devicePanel,"Diagnosticar AZ02 / Z02 (BLE)","devices",()->actions.onInspectZnpModel("AZ02"));
+  addAction(devicePanel,"Diagnosticar AZ01 / Z01 (BLE)","devices",()->actions.onInspectZnpModel("AZ01"));
+  addAction(devicePanel,"Instalar animación GORO en AN02 / N02","face",()->actions.onInstallGoroAnimation("AN02"));
+  addAction(devicePanel,"Instalar animación GORO en AZ02 / Z02","face",()->actions.onInstallGoroAnimation("AZ02"));
+  addAction(devicePanel,"Instalar animación GORO en AZ01 / Z01","face",()->actions.onInstallGoroAnimation("AZ01"));
   settingsPanel=panel();settingsPanel.addView(card("TU CUENTA",accountLabel));addAction(settingsPanel,"Vincular cuenta Google","link",()->actions.onLinkAccount());addAction(settingsPanel,"Autorizar Calendar","agenda",()->actions.onCalendarPermission());addAction(settingsPanel,"Autorizar Gmail","mail",()->actions.onReadGmail());settingsPanel.addView(card("INTELIGENCIA",nvidiaValue));settingsPanel.addView(card("VOZ DIEGO",voiceValue));addAction(settingsPanel,"Configurar NVIDIA","settings",()->actions.onConfigureNvidia());addAction(settingsPanel,"Importar NVIDIA desde GORO 1.2.4","download",()->actions.onImportNvidiaConfig());addAction(settingsPanel,"Verificar NVIDIA","link",()->actions.onTestNvidia());addAction(settingsPanel,"Probar altavoz del teléfono","volume-2",()->actions.onTestLocalVoice());addAction(settingsPanel,"Desvincular cuenta Google","settings",()->actions.onUnlinkAccount());
   explorePanel=panel();TextView projectNote=text("Tus ideas y proyectos\n\nPedile a Goro que recuerde un dato o consultá lo que ya guardaste.",16,false,TEXT);explorePanel.addView(card("MEMORIA PERSONAL",projectNote));addAction(explorePanel,"Consultar memoria","folder",()->actions.onCommand("qué recordás"));addAction(explorePanel,"Buscar en internet","search",()->{
     EditText query=new EditText(activity);query.setSingleLine(true);query.setHint("Qué querés buscar…");query.setTextSize(16);query.setPadding(dp(14),dp(12),dp(14),dp(12));
