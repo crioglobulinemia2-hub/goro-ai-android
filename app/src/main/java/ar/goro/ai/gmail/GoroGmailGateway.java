@@ -125,7 +125,7 @@ public final class GoroGmailGateway {
   if(callback==null)throw new IllegalArgumentException("callback");
   if(closed||activity.isFinishing()||activity.isDestroyed()){callback.complete(null,"Gmail cerrado");return;}
   String email=session.account();
-  if(email==null){callback.complete(null,"Elegí tu cuenta Google en Ajustes para vincular Calendar y Gmail.");return;}
+  if(email==null){callback.complete(null,"Elegí tu cuenta Google. Para leer Gmail no hace falta sincronizar Calendar.");return;}
   if(revokingAccounts.contains(email.toLowerCase(Locale.ROOT))){callback.complete(null,"Esperá a que termine la revocación de esta cuenta Google antes de autorizar Gmail.");return;}
   if(pending!=null||resolutionEpoch!=-1){callback.complete(null,"Completá o cerrá la autorización Google en curso.");return;}
   final long epoch=messageId==null?session.begin():session.beginMessageRead();
@@ -156,9 +156,23 @@ public final class GoroGmailGateway {
      }
     }else onAuthorized(epoch,result);
    })
-   .addOnFailureListener(e->complete(epoch,null,"No se pudo iniciar OAuth Gmail: "+e.getClass().getSimpleName()))
+   .addOnFailureListener(e->complete(epoch,null,authorizationFailure(e)))
    .addOnCanceledListener(()->complete(epoch,null,"Autorización Gmail cancelada"));
-  }catch(RuntimeException e){complete(epoch,null,"No se pudo iniciar la autorización Google.");}
+  }catch(RuntimeException e){complete(epoch,null,authorizationFailure(e));}
+ }
+ /**
+  * Never claim that missing Google Cloud registration or an unavailable
+  * Google Play Services client is an inbox or network problem.
+  */
+ public static String authorizationFailure(Exception error){
+  if(error instanceof ApiException){
+   int status=((ApiException)error).getStatusCode();
+   if(status==10)return "Gmail · Error OAuth 10: esta APK no está autorizada por Google. Registrar su paquete y SHA-1 en el cliente OAuth Android.";
+   if(status==12501||status==16)return "Gmail · La autorización fue cancelada. Podés volver a intentarlo.";
+   if(status==17||status==12500)return "Gmail · Google Play Services no pudo iniciar la autorización (código "+status+"). Revisar el cliente OAuth y Google Play Services.";
+   return "Gmail · Google rechazó la autorización (código "+status+").";
+  }
+  return "Gmail · No se pudo iniciar la autorización Google ("+error.getClass().getSimpleName()+").";
  }
  public void onActivityResult(int requestCode,int resultCode,Intent intent){
   if(requestCode!=REQUEST_AUTHORIZATION||resolutionEpoch==-1)return;
@@ -166,7 +180,7 @@ public final class GoroGmailGateway {
   if(!current(epoch))return;
   if(resultCode!=Activity.RESULT_OK||intent==null){complete(epoch,null,"Autorización Gmail cancelada");return;}
   try{onAuthorized(epoch,Identity.getAuthorizationClient(activity).getAuthorizationResultFromIntent(intent));}
-  catch(ApiException e){complete(epoch,null,"Gmail OAuth rechazado: "+e.getStatusCode());}
+  catch(ApiException e){complete(epoch,null,authorizationFailure(e));}
  }
  private void onAuthorized(long epoch,AuthorizationResult result){
   if(!current(epoch))return;
