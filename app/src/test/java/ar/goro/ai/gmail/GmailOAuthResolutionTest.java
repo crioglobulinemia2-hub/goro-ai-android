@@ -8,6 +8,8 @@ import android.content.IntentSender;
 import android.os.Looper;
 import com.google.android.gms.auth.api.identity.AuthorizationResult;
 import com.google.android.gms.tasks.Tasks;
+import com.google.android.gms.common.api.ApiException;
+import com.google.android.gms.common.api.Status;
 import java.util.Collections;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Test;
@@ -56,4 +58,15 @@ public class GmailOAuthResolutionTest {
  @Test public void missingConsentActivityReturnsErrorAndAllowsRetry(){
   assertConsentFailureIsRecoverable(new ActivityNotFoundException("Consent activity unavailable"));
  }
+ @Test public void oauthDeveloperErrorIdentifiesMissingRegisteredAndroidClient(){
+  String detail=GoroGmailGateway.authorizationFailure(new ApiException(new Status(10)));
+  assertTrue(detail.contains("OAuth 10"));
+  assertTrue(detail.contains("SHA-1"));
+ }
+ @Test public void cancelledOAuthConsentIsNotMisreportedAsMissingInternet(){
+  String detail=GoroGmailGateway.authorizationFailure(new ApiException(new Status(12501)));
+  assertTrue(detail.contains("cancelada"));
+  assertFalse(detail.toLowerCase().contains("internet"));
+ }
+
 }
