@@ -12,7 +12,7 @@
   <uses-feature android:name="android.hardware.bluetooth_le" android:required="false"/>
   <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
   <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
-  <queries><intent><action android:name="android.speech.RecognitionService"/></intent><package android:name="ar.goro.ai.personal"/><package android:name="ar.goro.ai.preview"/><package android:name="ar.goro.ai.recovery"/><package android:name="ar.goro.ai.parallel"/></queries>
+  <queries><intent><action android:name="android.speech.RecognitionService"/></intent><package android:name="ar.goro.ai"/><package android:name="ar.goro.ai.personal"/><package android:name="ar.goro.ai.preview"/><package android:name="ar.goro.ai.recovery"/><package android:name="ar.goro.ai.parallel"/><package android:name="ar.goro.ai.safe20261108"/></queries>
   <application android:name=".GoroApplication" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:usesCleartextTraffic="false">
     <activity android:name=".MainActivity" android:exported="true">
       <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
