@@ -25,6 +25,10 @@ public class ZnpScreenAssetTest {
   byte[] b=new byte[10];try(FileInputStream in=new FileInputStream(f)){assertEquals(10,in.read(b));}
   assertEquals(240,(b[6]&255)|((b[7]&255)<<8));assertEquals(296,(b[8]&255)|((b[9]&255)<<8));
  }
+ @Test public void AZ02AliasGetsTheZ02PortraitAsset()throws Exception{
+  File f=ZnpScreenAsset.forDevice(InstrumentationRegistry.getInstrumentation().getTargetContext(),"AZ02",240,296);
+  assertTrue(f.getName().startsWith("GORO-Z02-"));
+ }
  @Test public void selectedModelGetsItsOwnNamedLandscapeAsset()throws Exception{
   File f=ZnpScreenAsset.forDevice(InstrumentationRegistry.getInstrumentation().getTargetContext(),"N02",320,172);
   assertTrue(f.getName().startsWith("GORO-N02-"));
