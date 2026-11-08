@@ -26,6 +26,16 @@ public final class ZnpDeviceProfile {
   return new ZnpDeviceProfile(Model.UNKNOWN);
  }
  public boolean isCandidate(){return model!=Model.UNKNOWN;}
+ /** Converts advertised aliases such as AN02/AZ02/AZ01 to canonical model codes. */
+ public static String canonicalModel(String value){
+  ZnpDeviceProfile profile=detect(value);
+  switch(profile.model){
+   case Z01_CANDIDATE:return "Z01";
+   case Z02_CANDIDATE:return "Z02";
+   case N02_CANDIDATE:return "N02";
+   default:return null;
+  }
+ }
  /** The current RCSP charging-case implementation is validated only for Z02. */
  public boolean isRcspCandidate(){return model==Model.Z02_CANDIDATE;}
  public String modelLabel(){
