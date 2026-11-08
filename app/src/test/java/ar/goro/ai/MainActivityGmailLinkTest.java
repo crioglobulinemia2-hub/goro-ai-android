@@ -57,4 +57,15 @@ public class MainActivityGmailLinkTest {
   assertFalse(field("googlePickerForGmail").getBoolean(a));
   gateway.close();
  }
+ @Test public void gmailSearchKeepsQueryAcrossAccountSelection()throws Exception{
+  MainActivity a=activity();
+  Method m=MainActivity.class.getDeclaredMethod("searchGmail",String.class,boolean.class);
+  m.setAccessible(true);m.invoke(a,"turnos de noviembre",false);
+  assertTrue(field("googlePickerForGmail").getBoolean(a));
+  assertEquals("turnos de noviembre",field("pendingGmailSearchAfterAccount").get(a));
+  a.onActivityResult(63,Activity.RESULT_CANCELED,null);
+  assertNull(field("pendingGmailSearchAfterAccount").get(a));
+  ((DeviceCalendarGateway)field("calendarGateway").get(a)).close();
+ }
+
 }
