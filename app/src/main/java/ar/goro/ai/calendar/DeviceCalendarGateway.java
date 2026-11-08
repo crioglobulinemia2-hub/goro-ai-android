@@ -114,7 +114,7 @@ public final class DeviceCalendarGateway implements CalendarGateway {
     long begin=millis(min),end=millis(max);
     if(begin>=end)throw new IllegalArgumentException("Rango de agenda inválido.");
     Set<Long> ids=selectedCalendarIds(ticket,false);
-    if(ids.isEmpty())throw new IllegalStateException("La cuenta seleccionada no tiene calendarios visibles con sincronización habilitada en este dispositivo.");
+    if(ids.isEmpty())throw new IllegalStateException("La tablet no tiene calendarios Google visibles y sincronizados para esta cuenta. No significa que Gmail esté desconectado ni que la agenda online esté vacía. Abrí Google Calendar en este dispositivo y revisá qué calendarios están visibles y sincronizados.");
     List<CalendarEvent> out=new ArrayList<>();
     String[] cols={CalendarContract.Instances.EVENT_ID,CalendarContract.Instances.TITLE,CalendarContract.Instances.BEGIN,CalendarContract.Instances.END,CalendarContract.Instances.EVENT_TIMEZONE,CalendarContract.Instances.DESCRIPTION,CalendarContract.Instances.CALENDAR_ID};
     try(Cursor c=CalendarContract.Instances.query(context.getContentResolver(),cols,begin,end)){
