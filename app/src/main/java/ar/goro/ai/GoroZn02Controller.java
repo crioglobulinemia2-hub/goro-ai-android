@@ -538,7 +538,7 @@ public final class GoroZn02Controller {
   final BluetoothDevice device=target;
   final ChargingCaseOpImpl operation=caseOp;
   screenInfoReadInProgress=true;
-  emit("Consultando la resolución física del visor "+modelLabel()+" antes de seleccionar el GIF…");
+  emit("Consultando la resolución física del visor "+modelLabel()+" antes de elegir el formato de animación compatible…");
   try{
    operation.readScreenInfo(device,new OnRcspActionCallback<ScreenInfo>(){
     @Override public void onSuccess(BluetoothDevice d,ScreenInfo screenInfo){
@@ -698,7 +698,7 @@ public final class GoroZn02Controller {
  }
  private static boolean setCreateFileOutputPath(CreateFileParam param,String path){
   for(String name:new String[]{"setOutput","setOutputPath"}){
-   try{Method method=param.getClass().getMethod(name,String.class);method.invoke(param,path);return path.equals(readCreateFileOutputPath(param));}
+   try{Method method=param.getClass().getMethod(name,String.class);method.invoke(param,path);if(path.equals(readCreateFileOutputPath(param)))return true;}
    catch(Exception ignored){}
   }
   try{
