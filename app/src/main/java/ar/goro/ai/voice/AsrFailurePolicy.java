@@ -8,10 +8,19 @@ import java.util.Locale;
  * the microphone, and the original diagnostic must remain visible.
  */
 public final class AsrFailurePolicy {
- public static final int MAX_SERVICE_FAILURES=3;
+ public static final int MAX_SERVICE_FAILURES=5;
  private AsrFailurePolicy(){}
+ public static boolean isNoSpeech(String error){
+  if(error==null)return true;
+  String normalized=error.toLowerCase(Locale.ROOT);
+  return normalized.contains("no detectó palabras")
+      ||normalized.contains("sin palabras reconocidas")
+      ||normalized.contains("audio sin transcripción")
+      ||normalized.contains("empty transcript")
+      ||normalized.contains("no speech detected");
+ }
  public static boolean shouldPause(String error,int consecutiveErrors){
-  if(error==null||error.trim().isEmpty())return false;
+  if(error==null||error.trim().isEmpty()||isNoSpeech(error))return false;
   String normalized=error.toUpperCase(Locale.ROOT);
   if(normalized.contains("UNAUTHENTICATED")||normalized.contains("PERMISSION_DENIED")
       ||normalized.contains("INVALID_ARGUMENT")||normalized.contains("UNIMPLEMENTED")
