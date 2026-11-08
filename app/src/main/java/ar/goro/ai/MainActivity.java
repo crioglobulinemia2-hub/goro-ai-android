@@ -765,45 +765,21 @@ public class MainActivity extends Activity {
     if(speechProbe!=null)speechProbe.reset();
     verifyNvidiaServices();
   }
-  private boolean hasInternetNetwork(){
-    try{
-      android.net.ConnectivityManager manager=(android.net.ConnectivityManager)
-        getSystemService(android.content.Context.CONNECTIVITY_SERVICE);
-      if(manager==null)return false;
-      android.net.Network active=manager.getActiveNetwork();
-      if(active==null)return false;
-      android.net.NetworkCapabilities caps=manager.getNetworkCapabilities(active);
-      return caps!=null&&caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET);
-    }catch(SecurityException error){return false;}
-  }
   private void verifyNvidiaChatConnection(){
     if(!foreground||nemotronGateway==null)return;
-    if(!hasInternetNetwork()){
-      nvidiaChatReady=false;
-      if(dashboard!=null)dashboard.showNvidiaStatus("Android no detecta una red con acceso a Internet · revisá Wi-Fi o datos móviles");
-      return;
-    }
     final long check=++chatCheckGeneration;
-    if(dashboard!=null)dashboard.showNvidiaStatus("Internet disponible · conectando con NVIDIA Nemotron…");
+    if(dashboard!=null)dashboard.showNvidiaStatus("Probando conexión real con NVIDIA Nemotron…");
     nemotronGateway.request("goro-healthcheck","Respondé exactamente: GORO conectado.",(reply,error)->{
       if(!foreground||check!=chatCheckGeneration)return;
       nvidiaChatReady=error==null&&reply!=null&&!reply.trim().isEmpty();
       if(dashboard!=null)dashboard.showNvidiaStatus(nvidiaChatReady
-        ?"Internet activo · NVIDIA Nemotron conectado"
-        :"Internet activo · NVIDIA no respondió: "+(error==null?"respuesta vacía":error));
+        ?"NVIDIA Nemotron conectado · "+NemotronGateway.MODEL
+        :"NVIDIA NIM no respondió: "+(error==null?"respuesta vacía":error));
     });
   }
   private void verifyNvidiaServices(){
     if(!foreground)return;
     final long verification=++serviceCheckGeneration;
-    if(!hasInternetNetwork()){
-      nvidiaChatReady=false;magpieDiegoReady=false;nvidiaAsrReady=false;
-      if(dashboard!=null){
-        dashboard.showNvidiaStatus("Android no detecta una red con acceso a Internet · revisá Wi-Fi o datos móviles");
-        dashboard.showVoiceStatus("NVIDIA y Magpie esperan una conexión a Internet disponible.");
-      }
-      return;
-    }
     if(nemotronGateway==null||speechGateway==null||asrGateway==null||speechProbe==null){
       nvidiaChatReady=false;magpieDiegoReady=false;nvidiaAsrReady=false;
       if(dashboard!=null)dashboard.showVoiceStatus("Falta configurar NVIDIA NIM para la conversación automática.");
@@ -866,11 +842,6 @@ public class MainActivity extends Activity {
     startZ02Listening();
   }
   private void requestNemotron(String text){
-    if(!hasInternetNetwork()){
-      if(dashboard!=null)dashboard.showNvidiaStatus("Sin red con acceso a Internet · Nemotron no puede recibir el mensaje");
-      say("No tengo acceso a Internet en este momento. La tablet debe tener Wi-Fi o datos móviles con salida a Internet.");
-      return;
-    }
     speechGeneration++;
     speechChunks.clear();speechChunkActive=false;pendingSpeechWav=null;
     if(speechGateway!=null)speechGateway.cancelSynthesis();
@@ -879,7 +850,7 @@ public class MainActivity extends Activity {
     modelReplyStreaming=true;speechInProgress=true;
     final long command=commandGeneration,conversation=speechGeneration;
     final ar.goro.ai.core.StreamingSpeechText streamedText=new ar.goro.ai.core.StreamingSpeechText();
-    if(dashboard!=null)dashboard.showNvidiaStatus("Conectado a Internet · consultando NVIDIA Nemotron…");
+    if(dashboard!=null)dashboard.showNvidiaStatus("Consultando NVIDIA Nemotron…");
     output.setText("GORO está consultando Nemotron…");
     if(dashboard!=null)dashboard.showAvatarMood(GoroAvatarView.Mood.THINKING);
     String prompt=text;
@@ -934,11 +905,6 @@ public class MainActivity extends Activity {
   }
 
   private void searchInternet(String query){
-    if(!hasInternetNetwork()){
-      if(dashboard!=null)dashboard.showNvidiaStatus("Sin red con acceso a Internet · búsqueda web no disponible");
-      say("No puedo buscar en la web porque Android no detecta una conexión a Internet activa.");
-      return;
-    }
     invalidateVoiceConversation();
     final long command=commandGeneration;
     if(state!=null)state.setText("GORO · Buscando en internet");
@@ -992,8 +958,10 @@ public class MainActivity extends Activity {
     // A permission/account screen may have interrupted the initial health
     // checks. Retry on return rather than leaving hands-free mode waiting
     // forever for callbacks that onStop correctly cancelled.
-    if(nemotronGateway!=null&&!nvidiaChatReady)verifyNvidiaChatConnection();
-    if(!listeningPaused&&nemotronGateway!=null&&(!magpieDiegoReady||!nvidiaAsrReady))verifyNvidiaServices();
+    if(nemotronGateway!=null&&!nvidiaChatReady){
+      if(!listeningPaused&&(!magpieDiegoReady||!nvidiaAsrReady))verifyNvidiaServices();
+      else verifyNvidiaChatConnection();
+    }
     if(!listeningPaused&&magpieDiegoReady&&!nvidiaAsrReady)startSpeechReadinessProbe();
     if(zn02ReadyForVoice&&nvidiaChatReady&&magpieDiegoReady&&nvidiaAsrReady&&!voiceActive)maybeStartHandsFreeConversation();
     if(pendingZn02Connection&&zn02Controller!=null){
