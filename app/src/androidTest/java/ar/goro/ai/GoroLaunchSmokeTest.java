@@ -76,7 +76,7 @@ public class GoroLaunchSmokeTest {
     TextView device=findText(root,"Dispositivos");
     assertNotNull(device);
     device.performClick();
-    TextView connect=findText(root,"Conectar ZNP Z02");
+    TextView connect=findText(root,"Conectar AZ02 / Z02");
     assertNotNull(connect);
     assertTrue(connect.isShown());
     TextView settings=findText(root,"Ajustes");
