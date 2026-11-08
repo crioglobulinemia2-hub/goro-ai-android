@@ -111,6 +111,7 @@ public class MainActivity extends Activity {
   // Gmail authorization and local Calendar synchronization are independent flows.
   private boolean googlePickerForGmail=false;
   private boolean gmailPickerFromVoice=false;
+  private String pendingGmailSearchAfterAccount;
   private boolean pendingZn02Connection=false;
   private TextView calendarAccountLabel;
   private boolean pendingWeatherForecast=false;
@@ -216,7 +217,7 @@ public class MainActivity extends Activity {
     dashboard=new ar.goro.ai.ui.GoroDashboardView(this,new ar.goro.ai.ui.GoroDashboardView.Actions(){
       public void onCommand(String text){runCommand(text);}
       public void onToggleListening(){toggleListening();}
-      public void onLinkAccount(){chooseGoogleAccount();}
+      public void onLinkAccount(){chooseGoogleAccount(true,false);}
       public void onReadGmail(){runCommand("gmail");}
       public void onCalendarPermission(){
         if(calendarGateway.selectedGoogleAccount()==null)chooseGoogleAccount();
@@ -302,7 +303,8 @@ public class MainActivity extends Activity {
     if(request==GOOGLE_ACCOUNT_REQUEST){
       boolean authorizeGmail=googlePickerForGmail;
       boolean fromVoice=gmailPickerFromVoice;
-      googlePickerForGmail=false;gmailPickerFromVoice=false;
+      String searchAfterAccount=pendingGmailSearchAfterAccount;
+      googlePickerForGmail=false;gmailPickerFromVoice=false;pendingGmailSearchAfterAccount=null;
       if(result==RESULT_OK&&data!=null){
         String email=data.getStringExtra(AccountManager.KEY_ACCOUNT_NAME);
         String type=data.getStringExtra(AccountManager.KEY_ACCOUNT_TYPE);
@@ -316,7 +318,8 @@ public class MainActivity extends Activity {
           if(dashboard!=null)dashboard.showGmailStatus("Cuenta Google seleccionada. Solicitando permiso de lectura de Gmail…");
           if(authorizeGmail){
             // Do not request Calendar permissions: they are unrelated to Gmail OAuth.
-            readGmail(fromVoice);
+            if(searchAfterAccount==null)readGmail(fromVoice);
+            else searchGmail(searchAfterAccount,fromVoice);
           }else{
             say("Cuenta "+email+" seleccionada para GORO. Autorizá el calendario si querés consultar eventos.");
             requestCalendarPermissions();
@@ -986,6 +989,12 @@ public class MainActivity extends Activity {
     }
   }
   private void searchGmail(String query,boolean fromVoice){
+    if(calendarGateway!=null&&calendarGateway.selectedGoogleAccount()==null){
+      pendingGmailSearchAfterAccount=query;
+      if(dashboard!=null)dashboard.showGmailStatus("Elegí la cuenta Google para autorizar la búsqueda de Gmail.");
+      chooseGoogleAccount(true,fromVoice);
+      return;
+    }
     final long generation=speechGeneration,command=commandGeneration;
     if(gmailGateway==null){if(dashboard!=null)dashboard.showGmailStatus("Gmail no disponible");resumeVoiceAfterScreenResult(generation,fromVoice);return;}
     if(dashboard!=null)dashboard.showGmailStatus("Buscando correos con autorización Google…");
@@ -1109,7 +1118,7 @@ public class MainActivity extends Activity {
       Intent picker=AccountManager.newChooseAccountIntent(null,null,new String[]{"com.google"},null,null,null,null);
       startActivityForResult(picker,GOOGLE_ACCOUNT_REQUEST);
     }catch(Exception e){
-      googlePickerForGmail=false;gmailPickerFromVoice=false;
+      googlePickerForGmail=false;gmailPickerFromVoice=false;pendingGmailSearchAfterAccount=null;
       String error="Android no pudo abrir el selector de cuentas Google.";
       if(dashboard!=null&&forGmail)dashboard.showGmailStatus(error);
       else say(error);
