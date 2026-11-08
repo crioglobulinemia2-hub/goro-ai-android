@@ -14,5 +14,6 @@ public class Z02ScanOptionsTest {
   assertEquals(BluetoothConstant.NONE_FILTER,option.getBleScanStrategy());
   assertFalse(option.isSkipNoNameDev());
   assertTrue(option.isUseDeviceAuth());
+  assertTrue("RCSP control of ZNP charging cases must use BLE",option.isMandatoryUseBLE());
  }
 }
