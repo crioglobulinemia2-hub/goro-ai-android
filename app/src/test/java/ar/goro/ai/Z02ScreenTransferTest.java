@@ -65,6 +65,15 @@ public class Z02ScreenTransferTest {
   assertEquals(Boolean.FALSE,call("currentScreenUpload",current));assertFalse(file.exists());
   assertNull(ReflectionHelpers.getField(controller,"screenUpload"));
  }
+ private static final class ScreenInfoFixture {
+  public int getWidth(){return 240;}
+  public int getHeight(){return 296;}
+ }
+ @Test public void sdkScreenInfoFallbackReadsPhysicalDimensionsWhenCaseCacheIsEmpty(){
+  ScreenInfoFixture info=new ScreenInfoFixture();
+  assertEquals(240,GoroZn02Controller.readScreenDimension(info,true));
+  assertEquals(296,GoroZn02Controller.readScreenDimension(info,false));
+ }
  @Test public void activeResourceMustMatchBothStorageAndExactPath(){
   assertTrue(GoroZn02Controller.matchesScreenResource(new ResourceInfo(7,"GORO-1234.RES"),7,"/GORO-1234.RES"));
   assertFalse(GoroZn02Controller.matchesScreenResource(new ResourceInfo(8,"GORO-1234.RES"),7,"/GORO-1234.RES"));
