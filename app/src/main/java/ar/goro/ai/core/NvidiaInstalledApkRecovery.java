@@ -14,10 +14,10 @@ import java.io.FileInputStream;
  */
 public final class NvidiaInstalledApkRecovery {
  private static final String[] PREVIOUS_GORO_PACKAGES={
-  "ar.goro.ai.personal","ar.goro.ai.preview","ar.goro.ai.recovery",
-  "ar.goro.ai.parallel"
+  "ar.goro.ai","ar.goro.ai.personal","ar.goro.ai.preview","ar.goro.ai.recovery",
+  "ar.goro.ai.parallel","ar.goro.ai.safe20261108"
  };
- private NvidiaInstalledApkRecovery(){}
+private NvidiaInstalledApkRecovery(){}
  public static String recover(Context context){
   if(context==null)return null;
   PackageManager pm=context.getPackageManager();
