@@ -844,7 +844,8 @@ public class MainActivity extends Activity {
   }
   private void closeWebSearch(){ar.goro.ai.ui.WebSearchPanel current=webSearchPanel;webSearchPanel=null;if(current!=null)current.close();}
   private void installGoroAnimationOnZnpModel(String model){
-    String selected=model==null?"Z02":model.trim().toUpperCase(Locale.ROOT);
+    String selected=ZnpDeviceProfile.canonicalModel(model==null?"Z02":model);
+    if(selected==null){say("Modelo ZNP no reconocido. Usá AN02, AZ02 o AZ01.");return;}
     if(zn02Controller==null){say("El controlador Bluetooth ZNP no está disponible.");return;}
     if(!zn02Controller.isConnectedTo(selected)){say("Primero conectá el ZNP "+selected+". No voy a enviar la animación a otro dispositivo.");return;}
     setListeningPaused(true);
@@ -862,8 +863,8 @@ public class MainActivity extends Activity {
   }
   private void connectZn02(){connectZnpModel(preferredZnpModel);}
   private void connectZnpModel(String model){
-    String selected=model==null?"Z02":model.trim().toUpperCase(Locale.ROOT);
-    if(!selected.matches("Z01|Z02|N02")){say("Modelo ZNP no reconocido.");return;}
+    String selected=ZnpDeviceProfile.canonicalModel(model==null?"Z02":model);
+    if(selected==null){say("Modelo ZNP no reconocido. Usá AN02, AZ02 o AZ01.");return;}
     pendingZnpConnectionModel=selected;
     preferredZnpModel=selected;
     if(zn02Controller==null){say("El controlador Bluetooth ZNP no está disponible.");return;}
