@@ -15,7 +15,7 @@ import static org.hamcrest.Matchers.startsWith;
 public class GoroLaunchSmokeTest {
  @Test public void appLaunchesAndPrimaryVoiceControlsAreVisible(){
   try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)){
-   onView(withText("GORO   ASISTENTE PERSONAL")).check(matches(isDisplayed()));
+   onView(withText("GORO  IA")).check(matches(isDisplayed()));
    onView(withText("Micrófono · Conversación continua")).check(matches(isDisplayed()));
    onView(withText("Enviar")).check(matches(isDisplayed()));
   }
