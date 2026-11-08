@@ -130,7 +130,9 @@ public class GoroDashboardViewTest {
   findButton(dashboard,"Dispositivos").performClick();
   for(String model:new String[]{"AN02","AZ02","AZ01"}){
    findButton(dashboard,"Conectar "+model+" / "+(model.equals("AN02")?"N02":model.equals("AZ02")?"Z02":"Z01")).performClick();
-   findButton(dashboard,"Instalar animación GORO en "+model+" / "+(model.equals("AN02")?"N02":model.equals("AZ02")?"Z02":"Z01")).performClick();
+   String animationLabel="Instalar animación GORO en "+model+" / "+(model.equals("AN02")?"N02":model.equals("AZ02")?"Z02":"Z01");
+   if(model.equals("AZ02"))animationLabel+=" (AVI si GIF no compatible)";
+   findButton(dashboard,animationLabel).performClick();
   }
   findButton(dashboard,"Desconectar dispositivo ZNP").performClick();
   assertEquals(java.util.Arrays.asList("AN02","AZ02","AZ01"),calls.models);
