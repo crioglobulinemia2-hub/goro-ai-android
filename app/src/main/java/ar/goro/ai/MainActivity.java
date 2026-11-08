@@ -267,7 +267,7 @@ public class MainActivity extends Activity {
         if(isFinishing()||isDestroyed()||nemotronGateway!=null)return;
         if(recovered!=null){
           activateNvidiaKey(recovered); // Stored only inside this app's Android Keystore.
-          if(dashboard!=null)dashboard.showNvidiaStatus("Configuración NVIDIA recuperada de GORO anterior · comprobando servicios");
+          if(dashboard!=null)dashboard.showNvidiaStatus("Configuración NVIDIA recuperada y cifrada de GORO anterior · lista para usar");
         }else{
           if(dashboard!=null){
             dashboard.showNvidiaStatus("No hay configuración NVIDIA exportable en las instalaciones anteriores.");
@@ -289,7 +289,7 @@ public class MainActivity extends Activity {
         String key=NvidiaSetupImporter.readKey(input);
         activateNvidiaKey(key);
         if(dashboard!=null)dashboard.showNvidiaStatus("Configuración NVIDIA importada de GORO 1.2.4 · verificando conexión");
-        say("Configuración NVIDIA importada y guardada cifrada en este dispositivo. Estoy verificando Nemotron y Diego.");
+        say("Configuración NVIDIA importada y guardada cifrada en este dispositivo. La conexión se comprobará cuando inicies una conversación.");
       }catch(Exception error){
         say("No pude importar la configuración NVIDIA. Elegí el APK original GORO IA 1.2.4 que contiene la configuración personal. No se modificó la versión anterior.");
       }
@@ -750,9 +750,9 @@ public class MainActivity extends Activity {
       speechGateway=new NemotronSpeechGateway(key);
       asrGateway=new ParakeetAsrGateway(key);
       speechProbe=new NvidiaSpeechProbe(key);
-      if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: clave cifrada · verificando…");
-      if(dashboard!=null)dashboard.showVoiceStatus("Magpie Diego: consultando catálogo NVIDIA…");
-      verifyNvidiaServices();
+      if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: credencial recuperada y cifrada · lista para usar");
+      if(dashboard!=null)dashboard.showVoiceStatus("Magpie Diego y Parakeet: credencial cargada · prueba bajo demanda");
+      // Do not spend NVIDIA quota on startup or credential import. Verification is explicit.
     }catch(Exception error){
       if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: clave no guardada");
       say("No pude guardar la clave NVIDIA. Verificá la configuración de la cuenta original.");
