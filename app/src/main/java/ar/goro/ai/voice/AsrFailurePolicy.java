@@ -17,7 +17,8 @@ public final class AsrFailurePolicy {
       ||normalized.contains("sin palabras reconocidas")
       ||normalized.contains("audio sin transcripción")
       ||normalized.contains("empty transcript")
-      ||normalized.contains("no speech detected");
+      ||normalized.contains("no speech detected")
+      ||normalized.contains("no words");
  }
  public static boolean shouldPause(String error,int consecutiveErrors){
   if(error==null||error.trim().isEmpty()||isNoSpeech(error))return false;
