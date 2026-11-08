@@ -107,6 +107,10 @@ public class MainActivity extends Activity {
   private Runnable pendingVoiceRetry;
   private boolean foreground;
   private Runnable pendingGmailSpeechConsent;
+  // A Gmail tap must open the account chooser immediately if no account is selected.
+  // Gmail authorization and local Calendar synchronization are independent flows.
+  private boolean googlePickerForGmail=false;
+  private boolean gmailPickerFromVoice=false;
   private boolean pendingZn02Connection=false;
   private TextView calendarAccountLabel;
   private boolean pendingWeatherForecast=false;
@@ -296,8 +300,35 @@ public class MainActivity extends Activity {
       return;
     }
     if(request==GOOGLE_ACCOUNT_REQUEST){
-      if(result==RESULT_OK&&data!=null){String email=data.getStringExtra(AccountManager.KEY_ACCOUNT_NAME);String type=data.getStringExtra(AccountManager.KEY_ACCOUNT_TYPE);if(email==null||!"com.google".equals(type)){say("No se seleccionó una cuenta Google válida.");return;}try{setGoogleAccount(email);dashboard.showGmailStatus("Gmail · cuenta seleccionada: "+email+" · requiere autorización");calendarAccountLabel.setText("Calendario Android · "+email);say("Cuenta "+email+" seleccionada para GORO. Ahora autorizá el acceso al calendario.");requestCalendarPermissions();}catch(Exception e){say("No pude seleccionar esa cuenta Google.");}}
-      else say("Selección de cuenta Google cancelada.");
+      boolean authorizeGmail=googlePickerForGmail;
+      boolean fromVoice=gmailPickerFromVoice;
+      googlePickerForGmail=false;gmailPickerFromVoice=false;
+      if(result==RESULT_OK&&data!=null){
+        String email=data.getStringExtra(AccountManager.KEY_ACCOUNT_NAME);
+        String type=data.getStringExtra(AccountManager.KEY_ACCOUNT_TYPE);
+        if(email==null||!"com.google".equals(type)){
+          if(dashboard!=null)dashboard.showGmailStatus("La selección no devolvió una cuenta Google válida.");
+          return;
+        }
+        try{
+          setGoogleAccount(email);
+          if(calendarAccountLabel!=null)calendarAccountLabel.setText("Cuenta Google · "+email);
+          if(dashboard!=null)dashboard.showGmailStatus("Cuenta Google seleccionada. Solicitando permiso de lectura de Gmail…");
+          if(authorizeGmail){
+            // Do not request Calendar permissions: they are unrelated to Gmail OAuth.
+            readGmail(fromVoice);
+          }else{
+            say("Cuenta "+email+" seleccionada para GORO. Autorizá el calendario si querés consultar eventos.");
+            requestCalendarPermissions();
+          }
+        }catch(Exception e){
+          if(dashboard!=null)dashboard.showGmailStatus("No pude guardar la selección de la cuenta Google.");
+          say("No pude seleccionar esa cuenta Google.");
+        }
+      }else{
+        if(authorizeGmail&&dashboard!=null)dashboard.showGmailStatus("Autorización Gmail pendiente: selección de cuenta cancelada.");
+        else say("Selección de cuenta Google cancelada.");
+      }
     }
   }
   private void toggleListening(){
@@ -970,13 +1001,19 @@ public class MainActivity extends Activity {
     readGmail(false);
   }
   private void readGmail(boolean fromVoice){
+    if(calendarGateway!=null&&calendarGateway.selectedGoogleAccount()==null){
+      if(dashboard!=null)dashboard.showGmailStatus("Elegí una cuenta Google. Después GORO solicitará acceso de solo lectura a Gmail.");
+      chooseGoogleAccount(true,fromVoice);
+      return;
+    }
     final long generation=speechGeneration,command=commandGeneration;
     if(gmailGateway==null){if(dashboard!=null)dashboard.showGmailStatus("Gmail no disponible");resumeVoiceAfterScreenResult(generation,fromVoice);return;}
     if(dashboard!=null)dashboard.showGmailStatus("Solicitando autorización Gmail…");
     gmailGateway.readInbox((text,error)->{
       if(!currentCommand(command))return;
-      if(dashboard!=null)dashboard.showGmailStatus(error==null?text:"Gmail · "+error);
-      if(error==null&&output!=null)output.setText(text);
+      String result=error==null?text:"Gmail · "+error;
+      if(dashboard!=null)dashboard.showGmailStatus(result);
+      if(output!=null)output.setText(result);
       resumeVoiceAfterScreenResult(generation,fromVoice);
     });
   }
@@ -1065,9 +1102,18 @@ public class MainActivity extends Activity {
     return account==null?"Primero seleccioná una cuenta Google para el calendario.":
       "Calendario de Android habilitado para "+account+". La sincronización con Google depende de Android.";
   }
-  private void chooseGoogleAccount(){
-    try{Intent picker=AccountManager.newChooseAccountIntent(null,null,new String[]{"com.google"},null,null,null,null);startActivityForResult(picker,GOOGLE_ACCOUNT_REQUEST);}
-    catch(Exception e){say("Android no pudo abrir el selector de cuentas Google.");}
+  private void chooseGoogleAccount(){chooseGoogleAccount(false,false);}
+  private void chooseGoogleAccount(boolean forGmail,boolean fromVoice){
+    googlePickerForGmail=forGmail;gmailPickerFromVoice=fromVoice;
+    try{
+      Intent picker=AccountManager.newChooseAccountIntent(null,null,new String[]{"com.google"},null,null,null,null);
+      startActivityForResult(picker,GOOGLE_ACCOUNT_REQUEST);
+    }catch(Exception e){
+      googlePickerForGmail=false;gmailPickerFromVoice=false;
+      String error="Android no pudo abrir el selector de cuentas Google.";
+      if(dashboard!=null&&forGmail)dashboard.showGmailStatus(error);
+      else say(error);
+    }
   }
   private void requestCalendarPermissions(){if(checkSelfPermission(Manifest.permission.READ_CALENDAR)!=PackageManager.PERMISSION_GRANTED||checkSelfPermission(Manifest.permission.WRITE_CALENDAR)!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{Manifest.permission.READ_CALENDAR,Manifest.permission.WRITE_CALENDAR},CALENDAR_PERMISSION_REQUEST);else say(calendarSelectionStatus());}
   private void requestWeatherLocation(boolean forecast){pendingWeatherForecast=forecast;if(locationProvider.hasPermission()){if(forecast)showForecastHere();else showWeatherHere();return;}requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION},LOCATION_PERMISSION_REQUEST);}
