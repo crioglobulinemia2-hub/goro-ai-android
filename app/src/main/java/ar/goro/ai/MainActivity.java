@@ -244,8 +244,8 @@ public class MainActivity extends Activity {
     output=dashboard.output;
     state=dashboard.state;
     calendarAccountLabel=dashboard.accountLabel;
-    dashboard.showNvidiaStatus(nemotronGateway==null?"NVIDIA NIM: requiere API key":"NVIDIA NIM: clave guardada · sin prueba de conexión");
-    dashboard.showVoiceStatus(speechGateway!=null?"NVIDIA Magpie · voz Diego · pendiente de prueba":"NVIDIA Magpie: falta API key · salida de voz deshabilitada");
+    dashboard.showNvidiaStatus(nemotronGateway==null?"Recuperando configuración NVIDIA de GORO anterior…":"NVIDIA NIM: clave guardada · sin prueba de conexión");
+    dashboard.showVoiceStatus(speechGateway!=null?"NVIDIA Magpie · voz Diego · pendiente de prueba":"Recuperando configuración de voz de GORO anterior…");
     setContentView(dashboard);
     if(nemotronGateway==null){
       // A saved 'listening' preference is not proof of a working NVIDIA session.
