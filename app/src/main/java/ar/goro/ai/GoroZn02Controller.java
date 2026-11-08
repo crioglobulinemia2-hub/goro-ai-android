@@ -22,9 +22,6 @@ import com.jieli.lib.gif.model.GifConvertResult;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileInputStream;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.util.zip.CRC32;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import com.jieli.bluetooth.bean.BleScanMessage;
@@ -67,7 +64,6 @@ public final class GoroZn02Controller {
  private static final class ScreenUpload {
   final BluetoothDevice device;final long epoch;final ChargingCaseOpImpl operation;
   File output;FileOpImpl fileOperation;Runnable timeout;
-  boolean wallpaperMode;String devicePath;
   ScreenUpload(BluetoothDevice device,long epoch,ChargingCaseOpImpl operation){this.device=device;this.epoch=epoch;this.operation=operation;}
  }
  private RCSPController controller;
@@ -262,8 +258,11 @@ public final class GoroZn02Controller {
   if(requested==null){emit("Modelo ZNP no reconocido. Elegí AZ01, AZ02 o AN02; también se aceptan Z01, Z02 y N02.");return;}
   if(closed){emit("Controlador ZNP cerrado.");return;}
   if(connected&&target!=null){
-   if(activeModel.equals(requested))emit("El "+activeModel+" ya tiene una sesión Bluetooth abierta.");
-   else emit("Ya hay una sesión activa con "+modelLabel()+". Desconectalo antes de cambiar de modelo.");
+   if(activeModel.equals(requested)){emit("El "+activeModel+" ya tiene una sesión Bluetooth abierta.");return;}
+   final String nextModel=requested;
+   emit("Cambiando de "+modelLabel()+" a ZNP "+nextModel+"; cerrando la sesión anterior…");
+   disconnect();
+   mainHandler.postDelayed(()->startScan(nextModel),650);
    return;
   }
   if(scanning){
@@ -636,12 +635,10 @@ public final class GoroZn02Controller {
      finishScreenUpload(upload);return;
     }
     if(!sdk.isSupportGif()){
-     emit("El firmware no admite GIF como salvapantallas. Cambio al formato de video wallpaper del Z02: AVI/MJPEG 240×296 a 30 FPS.");
-     try{resourceExecutor.execute(()->convertAndTransferVideoWallpaper(matchedGif,screenWidth,screenHeight,upload));}
-     catch(java.util.concurrent.RejectedExecutionException ignored){finishScreenUpload(upload);}
+     emit("El firmware de "+modelLabel()+" informa isSupportGif=false. El SDK oficial JieLi no documenta un formato animado alternativo para este visor. Se canceló antes de transferir: no se enviará AVI/MJPEG ni se cambiará la pantalla. Para instalar una animación hace falta firmware compatible con GIF.");
+     finishScreenUpload(upload);
      return;
-    }
-    try{resourceExecutor.execute(()->convertAndTransfer(matchedGif,sdk.getChip(),upload));}
+    }    try{resourceExecutor.execute(()->convertAndTransfer(matchedGif,sdk.getChip(),upload));}
     catch(java.util.concurrent.RejectedExecutionException ignored){finishScreenUpload(upload);}
    }
    @Override public void onError(BluetoothDevice device,BaseError error){
@@ -674,46 +671,6 @@ public final class GoroZn02Controller {
    if(currentScreenUpload(upload))emit("No se pudo preparar la animación GORO: "+error.getClass().getSimpleName());finishScreenUpload(upload);
   }
  }
- private void convertAndTransferVideoWallpaper(File sourceGif,int width,int height,ScreenUpload upload){
-  File output=null;
-  try{
-   if(!currentScreenUpload(upload))return;
-   output=ZnpVideoWallpaperEncoder.encode(context,sourceGif,width,height,ZnpVideoWallpaperEncoder.DEFAULT_SECONDS);
-   if(!currentScreenUpload(upload)){deletePreparedScreen(output);return;}
-   upload.wallpaperMode=true;
-   upload.devicePath="/AVI/"+wallpaperFileName(output);
-   final File prepared=output;
-   emit("GORO convertido a AVI/MJPEG. Preparando transferencia a "+upload.devicePath+"…");
-   mainHandler.post(()->beginScreenTransfer(upload,prepared,(int)prepared.length()));
-  }catch(Exception error){
-   deletePreparedScreen(output);
-   if(currentScreenUpload(upload))emit("No se pudo convertir GORO al video AVI del Z02: "+error.getMessage());
-   finishScreenUpload(upload);
-  }
- }
- private static String wallpaperFileName(File file)throws java.io.IOException{
-  CRC32 crc=new CRC32();byte[] buffer=new byte[8192];int count;
-  try(FileInputStream in=new FileInputStream(file)){while((count=in.read(buffer))!=-1)crc.update(buffer,0,count);}
-  return "GORO-"+Long.toHexString(crc.getValue()).toUpperCase(java.util.Locale.ROOT)+".AVI";
- }
- private static boolean setCreateFileOutputPath(CreateFileParam param,String path){
-  for(String name:new String[]{"setOutput","setOutputPath"}){
-   try{Method method=param.getClass().getMethod(name,String.class);method.invoke(param,path);if(path.equals(readCreateFileOutputPath(param)))return true;}
-   catch(Exception ignored){}
-  }
-  try{
-   Field field=param.getClass().getDeclaredField("output");field.setAccessible(true);field.set(param,path);
-   return path.equals(field.get(param));
-  }catch(Exception ignored){return false;}
- }
- private static String readCreateFileOutputPath(CreateFileParam param){
-  for(String name:new String[]{"getOutput","getOutputPath"}){
-   try{Method method=param.getClass().getMethod(name);Object value=method.invoke(param);if(value!=null)return String.valueOf(value);}
-   catch(Exception ignored){}
-  }
-  try{Field field=param.getClass().getDeclaredField("output");field.setAccessible(true);Object value=field.get(param);return value==null?null:String.valueOf(value);}
-  catch(Exception ignored){return null;}
- }
  private static String gifConverterDiagnostic(GifConvertResult result){
   if(result==null)return "resultado nulo";
   StringBuilder detail=new StringBuilder(result.getClass().getSimpleName());
@@ -737,13 +694,9 @@ public final class GoroZn02Controller {
    if(flash==null){emit(modelLabel()+" no informa memoria flash disponible. No se transfirió la animación.");finishScreenUpload(upload);return;}
    final SDCardBean selectedFlash=flash;
    FileOpImpl fileOp=upload.operation.getFileOp();upload.fileOperation=fileOp;
-   String devicePath=upload.devicePath==null?"/"+output.getName():upload.devicePath;
+   String devicePath="/"+output.getName();
    CreateFileParam createParam=new CreateFileParam(upload.device,output,selectedFlash);
-   if(upload.wallpaperMode&&!setCreateFileOutputPath(createParam,devicePath)){
-    emit("El SDK RCSP no permitió fijar la ruta "+devicePath+". Se canceló antes de transferir para no dejar el AVI en una carpeta incorrecta.");
-    finishScreenUpload(upload);return;
-   }
-   emit(upload.wallpaperMode?"Transfiriendo video wallpaper GORO a "+devicePath+" ("+byteCount+" bytes)…":"Animación GORO convertida. Transfiriendo "+byteCount+" bytes a "+modelLabel()+"…");
+   emit("Animación GORO convertida por el SDK JieLi. Transfiriendo "+byteCount+" bytes a "+modelLabel()+"…");
    fileOp.createBigFile(createParam,new OnTaskStateListener(){
     @Override public void onStart(){if(currentScreenUpload(upload))emit("Transferencia de animación GORO a "+modelLabel()+" iniciada.");}
     @Override public void onProgress(int progress){if(currentScreenUpload(upload))emit(modelLabel()+" · transferencia GORO "+progress+"%.");}
@@ -759,45 +712,44 @@ public final class GoroZn02Controller {
    });
   }catch(Exception error){if(currentScreenUpload(upload))emit("No se pudo transferir la animación GORO: "+error.getClass().getSimpleName());finishScreenUpload(upload);}
  }
- private void activateUploadedScreenResource(ScreenUpload upload,int storage,String devicePath){
-  try{
-   OnRcspActionCallback<Boolean> callback=new OnRcspActionCallback<Boolean>(){
-    @Override public void onSuccess(BluetoothDevice device,Boolean ok){
-     if(!currentScreenUpload(upload)||!upload.device.equals(device))return;
-     if(!Boolean.TRUE.equals(ok)){
-      emit(upload.wallpaperMode?modelLabel()+" no confirmó la activación del video wallpaper AVI.":"El visor no confirmó la activación de la animación GORO.");
-      finishScreenUpload(upload);return;
+  private void activateUploadedScreenResource(ScreenUpload upload,int storage,String devicePath){
+   try{
+    OnRcspActionCallback<Boolean> callback=new OnRcspActionCallback<Boolean>(){
+     @Override public void onSuccess(BluetoothDevice device,Boolean ok){
+      if(!currentScreenUpload(upload)||!upload.device.equals(device))return;
+      if(!Boolean.TRUE.equals(ok)){
+       emit("El visor no confirmó la activación de la animación GORO.");
+       finishScreenUpload(upload);return;
+      }
+      emit("El visor aceptó la animación GORO. Verificando el salvapantallas activo…");
+      OnRcspActionCallback<ResourceInfo> verify=new OnRcspActionCallback<ResourceInfo>(){
+       @Override public void onSuccess(BluetoothDevice d,ResourceInfo resource){
+        if(!currentScreenUpload(upload)||!upload.device.equals(d))return;
+        boolean active=matchesScreenResource(resource,storage,devicePath);
+        emit(active
+         ?"GORO instalado y seleccionado como salvapantallas. La pantalla puede actualizarse al volver al inicio."
+         :"El visor "+modelLabel()+" informa otro recurso activo. GORO no quedó confirmado.");
+        finishScreenUpload(upload);
+       }
+       @Override public void onError(BluetoothDevice d,BaseError error){
+        if(currentScreenUpload(upload)&&upload.device.equals(d)){emit(modelLabel()+" aceptó el cambio, pero no se pudo verificar el recurso activo: "+error.getMessage());finishScreenUpload(upload);}
+       }
+      };
+      try{upload.operation.getCurrentScreenSaver(device,verify);}
+      catch(Exception error){emit("No se pudo verificar el salvapantallas activo: "+error.getClass().getSimpleName());finishScreenUpload(upload);}
      }
-     emit(upload.wallpaperMode?modelLabel()+" aceptó el AVI. Verificando el wallpaper activo…":modelLabel()+" aceptó la animación GORO. Verificando recurso activo…");
-     OnRcspActionCallback<ResourceInfo> verify=new OnRcspActionCallback<ResourceInfo>(){
-      @Override public void onSuccess(BluetoothDevice d,ResourceInfo resource){
-       if(!currentScreenUpload(upload)||!upload.device.equals(d))return;
-       boolean active=matchesScreenResource(resource,storage,devicePath);
-       emit(active
-        ?(upload.wallpaperMode?"Video wallpaper GORO instalado y activo en ZNP Z02 (AVI/MJPEG, 240×296, 30 FPS, 3 s).":"GORO instalado y seleccionado como salvapantallas. Escucha pausada; el visor puede mantener su pantalla de micrófono hasta volver al inicio.")
-        :"El visor "+modelLabel()+" informa otro recurso activo. GORO no quedó confirmado.");
+     @Override public void onError(BluetoothDevice device,BaseError error){
+      if(currentScreenUpload(upload)&&upload.device.equals(device)){
+       emit("El GIF se transfirió, pero no se pudo activar: "+error.getMessage());
        finishScreenUpload(upload);
       }
-      @Override public void onError(BluetoothDevice d,BaseError error){
-       if(currentScreenUpload(upload)&&upload.device.equals(d)){emit(modelLabel()+" aceptó el cambio, pero no se pudo verificar el recurso activo: "+error.getMessage());finishScreenUpload(upload);}
-      }
-     };
-     try{if(upload.wallpaperMode)upload.operation.getCurrentWallPaper(device,verify);else upload.operation.getCurrentScreenSaver(device,verify);}
-     catch(Exception error){emit("No se pudo verificar el recurso activo: "+error.getClass().getSimpleName());finishScreenUpload(upload);}
-    }
-    @Override public void onError(BluetoothDevice device,BaseError error){
-     if(currentScreenUpload(upload)&&upload.device.equals(device)){
-      emit(upload.wallpaperMode?"El AVI se transfirió, pero el firmware rechazó el cambio de wallpaper: "+error.getMessage():"El GIF se transfirió, pero no se pudo activar: "+error.getMessage());
-      finishScreenUpload(upload);
      }
-    }
-   };
-   if(upload.wallpaperMode)upload.operation.setCurrentWallPaper(upload.device,storage,devicePath,callback);
-   else upload.operation.setCurrentScreenSaver(upload.device,storage,devicePath,callback);
-  }catch(Exception error){
-   emit("No se pudo activar el recurso "+devicePath+": "+error.getClass().getSimpleName());finishScreenUpload(upload);
+    };
+    upload.operation.setCurrentScreenSaver(upload.device,storage,devicePath,callback);
+   }catch(Exception error){
+    emit("No se pudo activar el recurso "+devicePath+": "+error.getClass().getSimpleName());finishScreenUpload(upload);
+   }
   }
- }
  static boolean matchesScreenResource(com.jieli.bluetooth.bean.settings.v0.ResourceInfo resource,int storage,String path){
   if(resource==null||resource.isInvalid()||resource.getDevHandle()!=storage||path==null)return false;
   String actual=resource.getFilePath();
