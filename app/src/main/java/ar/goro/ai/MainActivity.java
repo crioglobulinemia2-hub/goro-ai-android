@@ -765,7 +765,7 @@ public class MainActivity extends Activity {
     if(speechProbe!=null)speechProbe.reset();
     verifyNvidiaServices();
   }
-  private boolean hasValidatedInternet(){
+  private boolean hasInternetNetwork(){
     try{
       android.net.ConnectivityManager manager=(android.net.ConnectivityManager)
         getSystemService(android.content.Context.CONNECTIVITY_SERVICE);
@@ -773,15 +773,14 @@ public class MainActivity extends Activity {
       android.net.Network active=manager.getActiveNetwork();
       if(active==null)return false;
       android.net.NetworkCapabilities caps=manager.getNetworkCapabilities(active);
-      return caps!=null&&caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
-        &&caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED);
+      return caps!=null&&caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET);
     }catch(SecurityException error){return false;}
   }
   private void verifyNvidiaChatConnection(){
     if(!foreground||nemotronGateway==null)return;
-    if(!hasValidatedInternet()){
+    if(!hasInternetNetwork()){
       nvidiaChatReady=false;
-      if(dashboard!=null)dashboard.showNvidiaStatus("Android sin acceso validado a Internet · revisá Wi-Fi o datos móviles");
+      if(dashboard!=null)dashboard.showNvidiaStatus("Android no detecta una red con acceso a Internet · revisá Wi-Fi o datos móviles");
       return;
     }
     final long check=++chatCheckGeneration;
@@ -797,10 +796,10 @@ public class MainActivity extends Activity {
   private void verifyNvidiaServices(){
     if(!foreground)return;
     final long verification=++serviceCheckGeneration;
-    if(!hasValidatedInternet()){
+    if(!hasInternetNetwork()){
       nvidiaChatReady=false;magpieDiegoReady=false;nvidiaAsrReady=false;
       if(dashboard!=null){
-        dashboard.showNvidiaStatus("Android sin acceso validado a Internet · revisá Wi-Fi o datos móviles");
+        dashboard.showNvidiaStatus("Android no detecta una red con acceso a Internet · revisá Wi-Fi o datos móviles");
         dashboard.showVoiceStatus("NVIDIA y Magpie esperan una conexión a Internet disponible.");
       }
       return;
@@ -867,8 +866,8 @@ public class MainActivity extends Activity {
     startZ02Listening();
   }
   private void requestNemotron(String text){
-    if(!hasValidatedInternet()){
-      if(dashboard!=null)dashboard.showNvidiaStatus("Sin Internet validado · Nemotron no puede recibir el mensaje");
+    if(!hasInternetNetwork()){
+      if(dashboard!=null)dashboard.showNvidiaStatus("Sin red con acceso a Internet · Nemotron no puede recibir el mensaje");
       say("No tengo acceso a Internet en este momento. La tablet debe tener Wi-Fi o datos móviles con salida a Internet.");
       return;
     }
@@ -935,8 +934,8 @@ public class MainActivity extends Activity {
   }
 
   private void searchInternet(String query){
-    if(!hasValidatedInternet()){
-      if(dashboard!=null)dashboard.showNvidiaStatus("Sin Internet validado · búsqueda web no disponible");
+    if(!hasInternetNetwork()){
+      if(dashboard!=null)dashboard.showNvidiaStatus("Sin red con acceso a Internet · búsqueda web no disponible");
       say("No puedo buscar en la web porque Android no detecta una conexión a Internet activa.");
       return;
     }
