@@ -93,9 +93,11 @@ public class GoroLaunchSmokeTest {
     TextView device=findText(root,"Dispositivos");
     assertNotNull(device);
     device.performClick();
-    TextView connect=findText(root,"Conectar AZ02 / Z02");
-    assertNotNull(connect);
-    assertTrue(connect.isShown());
+    for(String label:new String[]{"Conectar AN02 / N02","Conectar AZ02 / Z02","Conectar AZ01 / Z01"}){
+     TextView connect=findText(root,label);
+     assertNotNull("All three requested ZNP models must remain available: "+label,connect);
+     assertTrue(connect.isShown());
+    }
     TextView settings=findText(root,"Ajustes");
     assertNotNull(settings);
     settings.performClick();
