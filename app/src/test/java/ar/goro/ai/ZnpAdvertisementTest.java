@@ -8,6 +8,16 @@ public class ZnpAdvertisementTest {
  @Test public void findsZ02WhenAndroidNameCacheIsEmpty(){assertTrue(ZnpAdvertisement.profile(null,name(9,"ZNP Z02")).isCandidate());}
  @Test public void findsZ02WhenAndroidCacheContainsOldGenericName(){assertTrue(ZnpAdvertisement.profile("Bluetooth device",name(9,"ZNP Z02")).isCandidate());}
  @Test public void recognizesShortenedLocalName(){assertTrue(ZnpAdvertisement.profile(null,name(8,"ZNP Z02")).isCandidate());}
+ @Test public void recognizesAllThreePhysicalModelAliases(){
+  assertEquals(ZnpDeviceProfile.Model.N02_CANDIDATE,ZnpAdvertisement.profile(null,name(9,"AN02")).model);
+  assertEquals(ZnpDeviceProfile.Model.Z02_CANDIDATE,ZnpAdvertisement.profile(null,name(9,"AZ02")).model);
+  assertEquals(ZnpDeviceProfile.Model.Z01_CANDIDATE,ZnpAdvertisement.profile(null,name(9,"AZ01")).model);
+ }
+ @Test public void canonicalizesAllThreePhysicalModelAliases(){
+  assertEquals("N02",ZnpDeviceProfile.canonicalModel("AN02"));
+  assertEquals("Z02",ZnpDeviceProfile.canonicalModel("AZ02"));
+  assertEquals("Z01",ZnpDeviceProfile.canonicalModel("AZ01"));
+ }
  @Test public void currentAdvertisementOverridesStaleCachedModel(){
   assertEquals(ZnpDeviceProfile.Model.N02_CANDIDATE,ZnpAdvertisement.profile("ZNP Z02",name(9,"ZNP N02")).model);
   assertEquals(ZnpDeviceProfile.Model.Z02_CANDIDATE,ZnpAdvertisement.profile("ZNP N02",name(9,"ZNP Z02")).model);
