@@ -185,8 +185,16 @@ public class MainActivity extends Activity {
         cancelZnpAudioRouteCheck();
         invalidateVoiceConversation();
         zn02ReadyForVoice=false;
+        if(audioTarget==null){
+          if(z02Player!=null)z02Player.setTarget("","");
+          pendingZnpAudioModel=pendingZnpConnectionModel;
+          zn02ReadyForVoice=true;
+          if(dashboard!=null)dashboard.showDeviceStatus("Control RCSP del estuche confirmado por BLE. Audio por la salida Android predeterminada o por auriculares ya conectados; no se empareja el estuche como auricular.");
+          resumeVoiceAfterZ02Connected();
+          return;
+        }
         try{
-          z02Player.setTarget(audioTarget.getAddress(),audioTarget.getName());
+          if(z02Player!=null)z02Player.setTarget(audioTarget.getAddress(),audioTarget.getName());
           pendingZnpAudioModel=pendingZnpConnectionModel;
           if(dashboard!=null)dashboard.showDeviceStatus("Bluetooth RCSP identificado. Verificando la salida real de audio antes de habilitar la conversación…");
           verifyZnpAudioRoute(pendingZnpAudioModel,0);
