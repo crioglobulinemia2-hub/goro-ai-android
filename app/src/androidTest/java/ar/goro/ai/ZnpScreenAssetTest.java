@@ -29,6 +29,14 @@ public class ZnpScreenAssetTest {
   File f=ZnpScreenAsset.forDevice(InstrumentationRegistry.getInstrumentation().getTargetContext(),"AZ02",240,296);
   assertTrue(f.getName().startsWith("GORO-Z02-"));
  }
+ @Test public void AN02AliasGetsTheN02LandscapeAsset()throws Exception{
+  File f=ZnpScreenAsset.forDevice(InstrumentationRegistry.getInstrumentation().getTargetContext(),"AN02",320,172);
+  assertTrue(f.getName().startsWith("GORO-N02-"));
+ }
+ @Test public void AZ01AliasGetsTheZ01PortraitAsset()throws Exception{
+  File f=ZnpScreenAsset.forDevice(InstrumentationRegistry.getInstrumentation().getTargetContext(),"AZ01",240,296);
+  assertTrue(f.getName().startsWith("GORO-Z01-"));
+ }
  @Test public void selectedModelGetsItsOwnNamedLandscapeAsset()throws Exception{
   File f=ZnpScreenAsset.forDevice(InstrumentationRegistry.getInstrumentation().getTargetContext(),"N02",320,172);
   assertTrue(f.getName().startsWith("GORO-N02-"));
