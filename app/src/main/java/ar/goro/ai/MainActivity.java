@@ -518,7 +518,8 @@ public class MainActivity extends Activity {
     if(pendingVoiceRetry!=null)voiceRetryHandler.removeCallbacks(pendingVoiceRetry);
     pendingVoiceRetry=null;
   }
-  private void scheduleZ02ListenRetry(){
+  private void scheduleZ02ListenRetry(){scheduleZ02ListenRetry(500);}
+  private void scheduleZ02ListenRetry(long delayMs){
     if(listeningPaused||recognitionInProgress||!foreground||!voiceActive||speechInProgress||pendingVoiceRetry!=null)return;
     final long generation=speechGeneration;
     pendingVoiceRetry=()->{
@@ -526,7 +527,7 @@ public class MainActivity extends Activity {
       if(generation!=speechGeneration||!foreground||!voiceActive||speechInProgress)return;
       startZ02Listening();
     };
-    voiceRetryHandler.postDelayed(pendingVoiceRetry,500);
+    voiceRetryHandler.postDelayed(pendingVoiceRetry,Math.max(400,Math.min(10000,delayMs)));
   }
   private void invalidateVoiceConversation(){
     voiceActive=false;speechInProgress=false;modelReplyStreaming=false;speechChunkActive=false;recognitionInProgress=false;
@@ -554,12 +555,31 @@ public class MainActivity extends Activity {
       if(!foreground||!voiceActive||speechInProgress||generation!=speechGeneration)return;
       recognitionInProgress=false;
       if(error!=null||transcript==null||transcript.trim().isEmpty()){
-        if(output!=null)output.setText("No pude reconocer la frase de "+currentZnpLabel()+": "+(error==null?"audio sin transcripción":error));
+        String reason=ar.goro.ai.voice.AsrFailurePolicy.safeReason(error);
+        if(error==null||ar.goro.ai.voice.AsrFailurePolicy.isNoSpeech(error)){
+          // Silence and an empty hypothesis are normal in hands-free use.
+          // They must never count as service failures or disable the microphone.
+          recognitionFailures=0;
+          if(state!=null)state.setText("GORO · No detecté palabras; sigo escuchando desde "+currentZnpLabel()+".");
+          if(dashboard!=null)dashboard.showVoiceStatus("Sin palabras reconocidas. Micrófono activo; esperando otra frase.");
+          scheduleZ02ListenRetry(1200);
+          return;
+        }
         recognitionFailures++;
-        if(recognitionFailures>=2){
+        String diagnostic="Parakeet no pudo reconocer el audio de "+currentZnpLabel()+": "+reason;
+        if(output!=null)output.setText(diagnostic);
+        if(ar.goro.ai.voice.AsrFailurePolicy.shouldPause(error,recognitionFailures)){
           setListeningPaused(true);
-          if(output!=null)output.setText("Pausé la escucha después de dos fallos de reconocimiento. Podés reactivarla con Activar escucha.");
-        }else scheduleZ02ListenRetry();
+          String paused="Escucha pausada por un error de Parakeet: "+reason;
+          if(output!=null)output.setText(paused);
+          if(dashboard!=null)dashboard.showVoiceStatus(paused);
+        }else{
+          if(state!=null)state.setText("GORO · Error de reconocimiento "+recognitionFailures+"/"+
+            ar.goro.ai.voice.AsrFailurePolicy.MAX_SERVICE_FAILURES+"; reintentando.");
+          if(dashboard!=null)dashboard.showVoiceStatus(diagnostic+" · reintento "+
+            recognitionFailures+"/"+ar.goro.ai.voice.AsrFailurePolicy.MAX_SERVICE_FAILURES);
+          scheduleZ02ListenRetry(ar.goro.ai.voice.AsrFailurePolicy.retryDelayMillis(error,recognitionFailures));
+        }
         return;
       }
       recognitionFailures=0;
