@@ -73,6 +73,7 @@ public class MainActivity extends Activity {
   private boolean magpieDiegoReady=false;
   private boolean nvidiaAsrReady=false;
   private long serviceCheckGeneration;
+  private long chatCheckGeneration;
   private NvidiaSpeechProbe speechProbe;
   private ReminderScheduler reminderScheduler;
   private DeviceCalendarGateway calendarGateway;
@@ -776,6 +777,23 @@ public class MainActivity extends Activity {
         &&caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED);
     }catch(SecurityException error){return false;}
   }
+  private void verifyNvidiaChatConnection(){
+    if(!foreground||nemotronGateway==null)return;
+    if(!hasValidatedInternet()){
+      nvidiaChatReady=false;
+      if(dashboard!=null)dashboard.showNvidiaStatus("Android sin acceso validado a Internet · revisá Wi-Fi o datos móviles");
+      return;
+    }
+    final long check=++chatCheckGeneration;
+    if(dashboard!=null)dashboard.showNvidiaStatus("Internet disponible · conectando con NVIDIA Nemotron…");
+    nemotronGateway.request("goro-healthcheck","Respondé exactamente: GORO conectado.",(reply,error)->{
+      if(!foreground||check!=chatCheckGeneration)return;
+      nvidiaChatReady=error==null&&reply!=null&&!reply.trim().isEmpty();
+      if(dashboard!=null)dashboard.showNvidiaStatus(nvidiaChatReady
+        ?"Internet activo · NVIDIA Nemotron conectado"
+        :"Internet activo · NVIDIA no respondió: "+(error==null?"respuesta vacía":error));
+    });
+  }
   private void verifyNvidiaServices(){
     if(!foreground)return;
     final long verification=++serviceCheckGeneration;
@@ -862,7 +880,7 @@ public class MainActivity extends Activity {
     modelReplyStreaming=true;speechInProgress=true;
     final long command=commandGeneration,conversation=speechGeneration;
     final ar.goro.ai.core.StreamingSpeechText streamedText=new ar.goro.ai.core.StreamingSpeechText();
-    if(dashboard!=null)dashboard.showNvidiaStatus("NVIDIA NIM: procesando…");
+    if(dashboard!=null)dashboard.showNvidiaStatus("Conectado a Internet · consultando NVIDIA Nemotron…");
     output.setText("GORO está consultando Nemotron…");
     if(dashboard!=null)dashboard.showAvatarMood(GoroAvatarView.Mood.THINKING);
     String prompt=text;
@@ -895,7 +913,12 @@ public class MainActivity extends Activity {
       }
       public void completed(String reply,String error){
         if(!current())return;
-        if(error!=null){modelReplyStreaming=false;say("La consulta a Nemotron falló. "+error);return;}
+        if(error!=null){
+          modelReplyStreaming=false;nvidiaChatReady=false;
+          if(dashboard!=null)dashboard.showNvidiaStatus("Internet activo · fallo de NVIDIA: "+error);
+          say("La conexión a Internet está disponible, pero NVIDIA no respondió. "+error);return;
+        }
+        nvidiaChatReady=true;
         if(dashboard!=null){dashboard.showNvidiaStatus("NVIDIA NIM: conectado");dashboard.showAssistantMessage(reply);}
         if(output!=null)output.setText(reply);
         if(!receivedPartial&&reply!=null)enqueueStreamedSpeech(streamedText.append(reply));
@@ -970,7 +993,8 @@ public class MainActivity extends Activity {
     // A permission/account screen may have interrupted the initial health
     // checks. Retry on return rather than leaving hands-free mode waiting
     // forever for callbacks that onStop correctly cancelled.
-    if(nemotronGateway!=null&&(!nvidiaChatReady||!magpieDiegoReady))verifyNvidiaServices();
+    if(nemotronGateway!=null&&!nvidiaChatReady)verifyNvidiaChatConnection();
+    if(!listeningPaused&&nemotronGateway!=null&&(!magpieDiegoReady||!nvidiaAsrReady))verifyNvidiaServices();
     if(!listeningPaused&&magpieDiegoReady&&!nvidiaAsrReady)startSpeechReadinessProbe();
     if(zn02ReadyForVoice&&nvidiaChatReady&&magpieDiegoReady&&nvidiaAsrReady&&!voiceActive)maybeStartHandsFreeConversation();
     if(pendingZn02Connection&&zn02Controller!=null){
