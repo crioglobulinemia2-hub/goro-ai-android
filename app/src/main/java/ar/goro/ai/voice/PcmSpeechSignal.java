@@ -5,7 +5,7 @@ import java.util.Arrays;
 /** PCM16 little-endian mono signal checks. Never classifies content or stores audio. */
 public final class PcmSpeechSignal {
  public static final int FRAME_SAMPLES=320; // 20 ms at 16 kHz
- public static final double VOICE_RMS=90;
+ public static final double VOICE_RMS=45;
  private PcmSpeechSignal(){}
  public static double rms(byte[] pcm,int start,int bytes){
   int count=bytes/2;if(count==0)return 0;
