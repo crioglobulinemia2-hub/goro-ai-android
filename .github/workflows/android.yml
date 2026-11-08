@@ -42,6 +42,8 @@ jobs:
           test -n "$SDKMANAGER"
           "$SDKMANAGER" --install "platforms;android-36" "build-tools;36.0.0"
           test -f "$SDK_ROOT/platforms/android-36/android.jar"
+      - name: Build animated GORO 3D avatar
+        run: python3 scripts/build_goro_avatar.py
       - name: Static security gate
         run: |
           python3 - <<'PY'
@@ -127,6 +129,8 @@ jobs:
           test "$(git hash-object app/libs/jldecryption_v0.4-release.aar)" = "fd933770e05afe815240922641a76fe62be7778b"
           test "$(git hash-object app/libs/GifConvert_V1.3.0_42-release.aar)" = "2d586af21f244f5337f29a0f656eac2186b40f6f"
           test "$(git hash-object app/libs/BmpConvert_V1.6.0_10605-release.aar)" = "00f1fafab6e4fc1357f09b20275b7d5c7fd7d2c8"
+      - name: Build animated GORO 3D avatar for emulator
+        run: python3 scripts/build_goro_avatar.py
       - name: Android emulator launch and navigation tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
