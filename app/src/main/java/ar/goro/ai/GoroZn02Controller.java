@@ -637,7 +637,7 @@ public final class GoroZn02Controller {
     }
     if(!sdk.isSupportGif()){
      emit("El firmware no admite GIF como salvapantallas. Cambio al formato de video wallpaper del Z02: AVI/MJPEG 240×296 a 30 FPS.");
-     try{resourceExecutor.execute(()->convertAndTransferVideoWallpaper(matchedGif,width,height,upload));}
+     try{resourceExecutor.execute(()->convertAndTransferVideoWallpaper(matchedGif,screenWidth,screenHeight,upload));}
      catch(java.util.concurrent.RejectedExecutionException ignored){finishScreenUpload(upload);}
      return;
     }
