@@ -53,9 +53,14 @@ public class ListeningPauseTest {
   call("toggleListening");TextView output=(TextView)get("output");output.setText("Pausado");
   old.completed("consulta vieja",null);assertEquals("Pausado",output.getText().toString());assertFalse((Boolean)get("recognitionInProgress"));
  }
- @Test public void twoRecognitionFailuresPauseInsteadOfRepeatingForever()throws Exception{
+ @Test public void noWordsDoesNotPauseButFiveServiceFailuresDo()throws Exception{
   byte[] pcm=PcmSpeechSignalTest.tone(700,1000,0);
-  audio(pcm);HeldAsr.pending.completed(null,"No words");assertFalse((Boolean)get("listeningPaused"));
-  audio(pcm);HeldAsr.pending.completed(null,"No words");assertTrue((Boolean)get("listeningPaused"));assertFalse((Boolean)get("voiceActive"));assertEquals(2,HeldAsr.calls);
+  audio(pcm);HeldAsr.pending.completed(null,"No words");
+  assertFalse((Boolean)get("listeningPaused"));assertEquals(0,((Integer)get("recognitionFailures")).intValue());
+  for(int i=1;i<=5;i++){
+   audio(pcm);HeldAsr.pending.completed(null,"NVIDIA Parakeet/Riva: UNAVAILABLE");
+   if(i<5)assertFalse((Boolean)get("listeningPaused"));
+  }
+  assertTrue((Boolean)get("listeningPaused"));assertFalse((Boolean)get("voiceActive"));assertEquals(6,HeldAsr.calls);
  }
 }
