@@ -1,0 +1,134 @@
+{
+  "evidence_kind": "live_cloud_services_from_development_host",
+  "created_utc": "2026-11-05T00:55:22.249957+00:00",
+  "executed_on_android": false,
+  "physical_z02_verified": false,
+  "release_ready": false,
+  "nemotron": {
+    "timestamp_utc": "2026-11-05T00:40:29.381073+00:00",
+    "endpoint": "https://integrate.api.nvidia.com/v1/chat/completions",
+    "model_requested": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+    "kind": "live_synthetic_connectivity_probe",
+    "source_code_sent": false,
+    "personal_data_sent": false,
+    "prompt": "Respondé únicamente: Conexión verificada.",
+    "http_status": 200,
+    "response_model": "private/nvidia/nemotron-3.5-super-120b-a12b",
+    "request_id": "chatcmpl-7347d9e6-48ce-4884-82a6-ed3a3aa043cb",
+    "usage": {
+      "prompt_tokens": 27,
+      "completion_tokens": 7,
+      "total_tokens": 34,
+      "prompt_tokens_details": {
+        "audio_tokens": null,
+        "cached_tokens": 0
+      },
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": null,
+        "audio_tokens": null,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": null
+      }
+    },
+    "response": "Conexión verificada.",
+    "duration_seconds": 6.64
+  },
+  "diego_synthesis": {
+    "timestamp_utc": "2026-11-05T00:53:00.559825+00:00",
+    "kind": "live_application_diagnostic_phrase_synthesis",
+    "endpoint": "https://877104f7-e885-42b9-8de8-f6e4c6303969.invocation.api.nvcf.nvidia.com/v1/audio/synthesize",
+    "voice_requested": "Magpie-Multilingual.ES-US.Diego",
+    "synthetic_text": "Esta es una prueba de voz en español.",
+    "source_code_sent": false,
+    "personal_data_sent": false,
+    "http_status": 200,
+    "sample_rate": 22050,
+    "channels": 1,
+    "bits": 16,
+    "duration_seconds": 2.368,
+    "audio_sha256": "2ae3eb2ec12fd47c46cc31350d4b1ee51cd9c46067a41d836197cb281295283b",
+    "audio_bytes": 104492,
+    "elapsed": 15.06
+  },
+  "parakeet_rnnt_offline": {
+    "timestamp_utc": "2026-11-05T00:54:53.079790+00:00",
+    "kind": "live_app_diagnostic_with_actual_java_converter_on_development_host",
+    "executed_on_android": false,
+    "physical_z02_verified": false,
+    "source_code_sent": false,
+    "personal_data_sent": false,
+    "endpoint": "grpc.nvcf.nvidia.com:443",
+    "function_id": "71203149-d3b7-4460-8231-1be2543a1fca",
+    "language": "multi",
+    "method": "Recognize",
+    "synthetic_phrase": "Esta es una prueba de voz en español.",
+    "audio_converter": "actual application WavToPcm16k.java compiled and executed on JVM",
+    "audio_source": "diego-app-diagnostic.wav",
+    "pcm_sha256": "4af6a308259cfab02684d0f54484bff62dc2389f277d1eaa3d8a018a9901e440",
+    "pcm_bytes": 75790,
+    "pcm_format": "signed16 little endian mono 16000Hz",
+    "tls_verification": true,
+    "ok": true,
+    "transcript": "Esta es una prueba de voz en español.",
+    "elapsed": 9.11
+  },
+  "parakeet_rnnt_streaming": {
+    "timestamp_utc": "2026-11-05T00:51:06.590871+00:00",
+    "kind": "live_synthetic_alternative_asr_probe",
+    "source_code_sent": false,
+    "personal_data_sent": false,
+    "endpoint": "grpc.nvcf.nvidia.com:443",
+    "function_id": "71203149-d3b7-4460-8231-1be2543a1fca",
+    "language": "multi",
+    "method": "streaming",
+    "audio_source": "diego-live-synthetic.wav",
+    "audio_sample_rate": 16000,
+    "audio_channels": 1,
+    "audio_encoding": "LINEAR_PCM signed16 little endian",
+    "tls_verification": true,
+    "responses": [
+      {
+        "is_final": true,
+        "transcript": "Esta es una prueba de voz. La conexión está funcionando. "
+      }
+    ],
+    "channel_ready_seconds": 6.42,
+    "ok": true,
+    "elapsed": 7.93
+  },
+  "replaced_ctc_failure": {
+    "timestamp_utc": "2026-11-05T00:49:04.191218+00:00",
+    "kind": "documented_hosted_parakeet_streaming_probe",
+    "source_code_sent": false,
+    "personal_data_sent": false,
+    "endpoint": "grpc.nvcf.nvidia.com:443",
+    "function_id": "a9eeee8f-b509-4712-b19d-194361fa5f31",
+    "language": "es-US",
+    "audio_source": "diego-live-synthetic.wav",
+    "audio_sample_rate": 16000,
+    "audio_bytes": 130774,
+    "audio_channels": 1,
+    "audio_encoding": "LINEAR_PCM signed16 little endian",
+    "tls_verification": true,
+    "documentation": "https://build.nvidia.com/nvidia/parakeet-ctc-0_6b-es/api",
+    "responses": [],
+    "channel_ready_seconds": 6.18,
+    "ok": false,
+    "error_code": "StatusCode.DEADLINE_EXCEEDED",
+    "details": "reason:\"failed to establish link to worker\"  error_id:\"430dd648-67d3-4898-afcb-1c5735ef9b1a\"",
+    "elapsed": 36.29
+  },
+  "references": [
+    "https://build.nvidia.com/nvidia/parakeet-1_1b-rnnt-multilingual-asr/api",
+    "https://build.nvidia.com/nvidia/parakeet-1_1b-rnnt-multilingual-asr/modelcard",
+    "https://docs.nvidia.com/nim/speech/latest/asr/deploy-asr-models/parakeet-rnnt.html",
+    "https://docs.nvidia.com/nim/speech/latest/reference/api-references/asr/protos.html"
+  ],
+  "limitations": [
+    "These were live requests from the development host, not from the final Android APK.",
+    "The exact application WavToPcm16k Java converter was compiled on the host JVM; this does not prove Android microphone capture or Bluetooth playback.",
+    "No real microphone recording, Z02 audio output, hardware control or physical screen was tested.",
+    "NVIDIA account billing configuration was not modified; requests used the existing NVIDIA credential.",
+    "Rate limiting was not tested."
+  ]
+}

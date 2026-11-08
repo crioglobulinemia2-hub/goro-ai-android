@@ -83,6 +83,11 @@ def main():
         raise SystemExit(f"Unexpected ZNP resolution: {width}x{height}; expected 320x172")
     if frames < 5:
         raise SystemExit(f"Only {frames} animation frames; expected at least 5")
+    portrait = base64.b64decode((ASSET_DIR / "znp_faces_240x296.b64").read_text().strip(), validate=True)
+    pw, ph, pf = gif_info(portrait)
+    if (pw, ph) != (240, 296) or pf != frames:
+        raise SystemExit("Portrait Z02 animation dimensions or frames differ")
+    print(f"GORO Z02 portrait PASS: {pw}x{ph}, {pf} frames, {len(portrait)} bytes")
     print(f"GORO ZNP animation PASS: {width}x{height}, {frames} frames, {len(data)} bytes, {len(PARTS)} fragments")
 
 if __name__ == "__main__":

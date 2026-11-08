@@ -2,9 +2,44 @@ package ar.goro.ai;
 import org.junit.Test;
 import static org.junit.Assert.*;
 public class ZnpDeviceProfileTest {
- @Test public void detectsZ02(){assertEquals(ZnpDeviceProfile.Model.Z02,ZnpDeviceProfile.detect("ZNP-Z02").model);}
- @Test public void detectsN02(){assertEquals(ZnpDeviceProfile.Model.N02,ZnpDeviceProfile.detect("ZNP N02").model);}
+ @Test public void detectsAllThreeRequestedModels(){
+  assertEquals(ZnpDeviceProfile.Model.Z01_CANDIDATE,ZnpDeviceProfile.detect("ZNP Z01").model);
+  assertEquals(ZnpDeviceProfile.Model.Z01_CANDIDATE,ZnpDeviceProfile.detect("ZNP-Z01").model);
+  assertEquals(ZnpDeviceProfile.Model.Z02_CANDIDATE,ZnpDeviceProfile.detect("ZNP Z02").model);
+  assertEquals(ZnpDeviceProfile.Model.Z02_CANDIDATE,ZnpDeviceProfile.detect("ZNP-Z02").model);
+  assertEquals(ZnpDeviceProfile.Model.N02_CANDIDATE,ZnpDeviceProfile.detect("ZNP N02").model);
+  assertEquals(ZnpDeviceProfile.Model.N02_CANDIDATE,ZnpDeviceProfile.detect("ZN02").model);
+  assertEquals(ZnpDeviceProfile.Model.N02_CANDIDATE,ZnpDeviceProfile.detect("AN02").model);
+  assertEquals(ZnpDeviceProfile.Model.Z02_CANDIDATE,ZnpDeviceProfile.detect("AZ02").model);
+  assertEquals(ZnpDeviceProfile.Model.Z01_CANDIDATE,ZnpDeviceProfile.detect("AZ01").model);
+ }
+ @Test public void onlyZ02HasAPreviouslyVerifiedRcspProfile(){
+  assertTrue(ZnpDeviceProfile.detect("ZNP Z02").isRcspCandidate());
+  assertFalse(ZnpDeviceProfile.detect("ZNP Z01").isRcspCandidate());
+  assertFalse(ZnpDeviceProfile.detect("ZNP N02").isRcspCandidate());
+ }
+ @Test public void allThreeModelsAreEligibleForAnExplicitHandshakeAttempt(){
+  assertTrue(ZnpDeviceProfile.detect("ZNP Z01").isCandidate());
+  assertTrue(ZnpDeviceProfile.detect("ZNP Z02").isCandidate());
+  assertTrue(ZnpDeviceProfile.detect("ZNP N02").isCandidate());
+ }
+ @Test public void eachCandidateHasAnExplicitAnimationProfile(){
+  assertEquals("z01",ZnpDeviceProfile.detect("ZNP Z01").animationProfile());
+  assertEquals("z02",ZnpDeviceProfile.detect("ZNP Z02").animationProfile());
+  assertEquals("n02",ZnpDeviceProfile.detect("ZNP N02").animationProfile());
+ }
+ @Test public void aliasesNormalizeToCanonicalConnectionProfiles(){
+  assertEquals("N02",ZnpDeviceProfile.canonicalModel("AN02"));
+  assertEquals("Z02",ZnpDeviceProfile.canonicalModel("AZ02"));
+  assertEquals("Z01",ZnpDeviceProfile.canonicalModel("AZ01"));
+  assertNull(ZnpDeviceProfile.canonicalModel("UNKNOWN"));
+ }
+ @Test public void genericRcspDoesNotIdentifyDevice(){
+  assertEquals(ZnpDeviceProfile.Model.UNKNOWN,ZnpDeviceProfile.detect("Unknown badge",true).model);
+ }
  @Test public void unknownIsSafe(){assertEquals(ZnpDeviceProfile.Model.UNKNOWN,ZnpDeviceProfile.detect(null).model);}
- @Test public void detectsJieliRcspWithoutInventingDeviceCapabilities(){ZnpDeviceProfile p=ZnpDeviceProfile.detect("Unknown badge",true);assertEquals(ZnpDeviceProfile.Model.JIELI_RCSP_UNVERIFIED,p.model);assertFalse(p.canShowGoro());assertFalse(p.canUseTouch());assertFalse(p.canRouteAudio());}
- @Test public void noInventedCapabilities(){assertFalse(ZnpDeviceProfile.detect("N02").canShowGoro());assertFalse(ZnpDeviceProfile.detect("Z02").canRouteAudio());}
+ @Test public void namesNeverInventCapabilities(){
+  ZnpDeviceProfile p=ZnpDeviceProfile.detect("ZNP Z02");
+  assertTrue(p.isCandidate());assertFalse(p.canShowGoro());assertFalse(p.canRouteAudio());assertFalse(p.canUseTouch());
+ }
 }
