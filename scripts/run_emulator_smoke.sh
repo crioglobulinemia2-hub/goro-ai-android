@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 set -uo pipefail
 mkdir -p build
-# Keep this in sync with app/build.gradle's applicationId.
-PACKAGE_NAME=ar.goro.ai.parallel
-APP_ACTIVITY=ar.goro.ai.MainActivity
+# Read the real Android identifiers from the project instead of duplicating them.
+PACKAGE_NAME="$(sed -n "s/^[[:space:]]*applicationId ['\"]\([^'\"]*\)['\"].*/\1/p" app/build.gradle | head -n 1)"
+APP_NAMESPACE="$(sed -n 's/^package[[:space:]]\+\([^;]*\);/\1/p' app/src/main/java/ar/goro/ai/MainActivity.java | head -n 1)"
+APP_ACTIVITY="$APP_NAMESPACE.MainActivity"
+if [ -z "$PACKAGE_NAME" ] || [ -z "$APP_NAMESPACE" ]; then
+  echo "Unable to resolve applicationId or MainActivity package from the Android project."
+  exit 1
+fi
 adb logcat -c >/dev/null 2>&1 || true
 adb logcat -v threadtime > build/goro-emulator-logcat.txt 2>&1 &
 LOG_PID=$!
