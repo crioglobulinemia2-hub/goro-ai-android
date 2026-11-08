@@ -43,13 +43,14 @@ public final class GoroZn02GattInspector {
  private final ScanCallback scanListener=new ScanCallback(){
   @Override public void onScanResult(int callbackType,ScanResult result){
    if(closed||!scanning||result==null)return;
-   String name=result.getScanRecord()==null?null:result.getScanRecord().getDeviceName();
+   android.bluetooth.le.ScanRecord scanRecord=result.getScanRecord();
+   String name=scanRecord==null?null:scanRecord.getDeviceName();
    BluetoothDevice device=result.getDevice();
    if(name==null&&device!=null){
     try{name=device.getName();}catch(SecurityException ignored){}
    }
    // An advertised name is a candidate only, never authenticated model identity.
-   ZnpDeviceProfile candidate=ZnpDeviceProfile.detect(name);
+   ZnpDeviceProfile candidate=ZnpAdvertisement.profile(name,scanRecord==null?null:scanRecord.getBytes());
    if(!candidate.isCandidate())return;
    if(requestedModel!=null&&!candidate.model.name().equals(requestedModel+"_CANDIDATE"))return;
    detectedModel=candidate.modelLabel();
@@ -126,8 +127,8 @@ public final class GoroZn02GattInspector {
  public void scan(){scan(null);}
  public void scan(String model){
   if(closed){emit("Inspector BLE cerrado.");return;}
-  requestedModel=model==null?null:model.trim().toUpperCase(java.util.Locale.ROOT);
-  if(requestedModel!=null&&!requestedModel.matches("Z01|Z02|N02")){emit("Modelo ZNP no reconocido para diagnóstico.");return;}
+  requestedModel=model==null?null:ZnpDeviceProfile.canonicalModel(model);
+  if(model!=null&&requestedModel==null){emit("Modelo ZNP no reconocido para diagnóstico. Elegí AZ01, AZ02 o AN02.");return;}
   if(neededPermissions().length>0){emit("Faltan permisos Android para el inventario BLE.");return;}
   try{
    BluetoothManager manager=(BluetoothManager)context.getSystemService(Context.BLUETOOTH_SERVICE);
