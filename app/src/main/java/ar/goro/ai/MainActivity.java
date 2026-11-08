@@ -59,7 +59,7 @@ public class MainActivity extends Activity {
   private EditText command;
   private TextToSpeech tts;
   private boolean voiceReady=false;
-  private boolean localVoiceReady=false;
+  private boolean maleVoiceReady=false;
   private String selectedGoroVoice="";
   private SharedPreferences memory;
   private MemoryStore memoryStore;
@@ -104,19 +104,12 @@ public class MainActivity extends Activity {
     });
     tts=new TextToSpeech(this, status -> {
       voiceReady=status==TextToSpeech.SUCCESS;
-      localVoiceReady=false;selectedGoroVoice="";
+      maleVoiceReady=false;selectedGoroVoice="";
       if(voiceReady) {
-        int lang=tts.setLanguage(new Locale("es","AR"));
-        if(lang==TextToSpeech.LANG_MISSING_DATA||lang==TextToSpeech.LANG_NOT_SUPPORTED)
-          lang=tts.setLanguage(new Locale("es","ES"));
-        if(lang!=TextToSpeech.LANG_MISSING_DATA&&lang!=TextToSpeech.LANG_NOT_SUPPORTED) {
-          Voice male=GoroVoiceSelector.select(tts.getVoices());
-          if(male!=null){tts.setVoice(male);selectedGoroVoice=male.getName();}
-          tts.setSpeechRate(0.96f);tts.setPitch(male!=null?0.92f:0.82f);
-          localVoiceReady=true;
-        }
-        runOnUiThread(()->{if(dashboard!=null)dashboard.showVoiceStatus(
-          localVoiceReady?(selectedGoroVoice.isEmpty()?"Voz española disponible":"Voz masculina · "+selectedGoroVoice):"No hay voz española TTS instalada");});
+        tts.setLanguage(new Locale("es","AR"));
+        Voice male=GoroVoiceSelector.select(tts.getVoices());
+        if(male!=null){tts.setVoice(male);tts.setSpeechRate(0.96f);tts.setPitch(0.92f);maleVoiceReady=true;selectedGoroVoice=male.getName();}
+        runOnUiThread(()->{if(dashboard!=null)dashboard.showVoiceStatus(maleVoiceReady?"Voz masculina · "+selectedGoroVoice:"Sin voz masculina española instalada");});
         tts.setOnUtteranceProgressListener(new UtteranceProgressListener(){
           public void onStart(String id){runOnUiThread(()->{if(state!=null)state.setText("GORO · Hablando");});}
           public void onDone(String id){runOnUiThread(()->{if(state!=null)state.setText(voiceActive?"GORO · Escuchando":"GORO · Listo");if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();});}
@@ -165,7 +158,7 @@ public class MainActivity extends Activity {
     command=dashboard.command;
     calendarAccountLabel=dashboard.accountLabel;
     dashboard.showNvidiaStatus(nemotronGateway==null?"NVIDIA NIM: requiere API key":"NVIDIA NIM: clave guardada · sin prueba de conexión");
-    dashboard.showVoiceStatus(speechGateway!=null?"NVIDIA Magpie · voz masculina Diego · sin prueba de audio":"Voz masculina local: "+(localVoiceReady?selectedGoroVoice:"no disponible"));
+    dashboard.showVoiceStatus(speechGateway!=null?"NVIDIA Magpie · voz masculina Diego · sin prueba de audio":"Voz masculina local: "+(maleVoiceReady?selectedGoroVoice:"no disponible"));
     setContentView(dashboard);
   }
   private void listen() {
@@ -196,7 +189,7 @@ public class MainActivity extends Activity {
       if(goroAudioPlayer!=null)goroAudioPlayer.stop();
       speechGateway.synthesize(message,(wav,error)->{
         if(error!=null||wav==null){
-          if(localVoiceReady){if(state!=null)state.setText("GORO · Voz española local");tts.speak(message,TextToSpeech.QUEUE_FLUSH,null,"goro_reply");}
+          if(maleVoiceReady){if(state!=null)state.setText("GORO · Voz local masculina");tts.speak(message,TextToSpeech.QUEUE_FLUSH,null,"goro_reply");}
           else{if(state!=null)state.setText("GORO · Error de voz NVIDIA");if(output!=null)output.setText(message+"\\n\\nVoz NVIDIA no disponible: "+error);if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();}
           return;
         }
@@ -206,12 +199,12 @@ public class MainActivity extends Activity {
           public void onError(String problem){if(state!=null)state.setText("GORO · Error de reproducción");if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();}
         });
       });
-    }else if(localVoiceReady){
-      if(state!=null)state.setText("GORO · Voz española local");
+    }else if(maleVoiceReady){
+      if(state!=null)state.setText("GORO · Voz masculina local");
       if(voiceSession!=null)voiceSession.pauseForResponse();
       tts.speak(message,TextToSpeech.QUEUE_FLUSH,null,"goro_reply");
     }else{
-      if(state!=null)state.setText("GORO · No hay voz local española. Configurá síntesis de voz en Android o NVIDIA");
+      if(state!=null)state.setText("GORO · Configurá la clave NVIDIA para voz masculina");
       if(voiceSession!=null&&voiceActive)voiceSession.resumeAfterResponse();
     }
   }

@@ -82,7 +82,7 @@ public final class JieliChargingCaseBridge {
     String name=null;
     try{name=device.getName();}catch(SecurityException ignored){}
     String normalized=name==null?"":name.toUpperCase(java.util.Locale.ROOT);
-    boolean namedZnp=normalized.contains("Z02")||normalized.contains("N02")||normalized.contains("AN02")||normalized.contains("AZ02")||normalized.contains("AZ01")||normalized.contains("ZNP");
+    boolean namedZnp=normalized.contains("Z02")||normalized.contains("N02")||normalized.contains("ZNP");
     if(!chargingCase&&!namedZnp)return;
     target=device;
     controller.stopScan();
@@ -141,7 +141,7 @@ public final class JieliChargingCaseBridge {
   if(scanning){emit("La búsqueda ZNP ya está activa.");return;}
   target=null;connected=false;
   controller.addBTRcspEventCallback(eventCallback);
-  emit("Buscando dispositivos ZNP/Z02/N02/AN02/AZ02/AZ01 mediante RCSP JieLi…");
+  emit("Buscando Z02/N02 mediante el escáner RCSP oficial de JieLi…");
   scanning=controller.startBleScan(20000);
   if(!scanning)emit("El SDK JieLi no pudo iniciar el escaneo. Revisá Bluetooth y permisos.");
  }
