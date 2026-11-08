@@ -9,6 +9,9 @@ public class ZnpDeviceProfileTest {
   assertEquals(ZnpDeviceProfile.Model.Z02_CANDIDATE,ZnpDeviceProfile.detect("ZNP-Z02").model);
   assertEquals(ZnpDeviceProfile.Model.N02_CANDIDATE,ZnpDeviceProfile.detect("ZNP N02").model);
   assertEquals(ZnpDeviceProfile.Model.N02_CANDIDATE,ZnpDeviceProfile.detect("ZN02").model);
+  assertEquals(ZnpDeviceProfile.Model.N02_CANDIDATE,ZnpDeviceProfile.detect("AN02").model);
+  assertEquals(ZnpDeviceProfile.Model.Z02_CANDIDATE,ZnpDeviceProfile.detect("AZ02").model);
+  assertEquals(ZnpDeviceProfile.Model.Z01_CANDIDATE,ZnpDeviceProfile.detect("AZ01").model);
  }
  @Test public void onlyZ02HasAPreviouslyVerifiedRcspProfile(){
   assertTrue(ZnpDeviceProfile.detect("ZNP Z02").isRcspCandidate());
@@ -24,6 +27,12 @@ public class ZnpDeviceProfileTest {
   assertEquals("z01",ZnpDeviceProfile.detect("ZNP Z01").animationProfile());
   assertEquals("z02",ZnpDeviceProfile.detect("ZNP Z02").animationProfile());
   assertEquals("n02",ZnpDeviceProfile.detect("ZNP N02").animationProfile());
+ }
+ @Test public void aliasesNormalizeToCanonicalConnectionProfiles(){
+  assertEquals("N02",ZnpDeviceProfile.canonicalModel("AN02"));
+  assertEquals("Z02",ZnpDeviceProfile.canonicalModel("AZ02"));
+  assertEquals("Z01",ZnpDeviceProfile.canonicalModel("AZ01"));
+  assertNull(ZnpDeviceProfile.canonicalModel("UNKNOWN"));
  }
  @Test public void genericRcspDoesNotIdentifyDevice(){
   assertEquals(ZnpDeviceProfile.Model.UNKNOWN,ZnpDeviceProfile.detect("Unknown badge",true).model);
