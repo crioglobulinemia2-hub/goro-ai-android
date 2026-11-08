@@ -76,7 +76,7 @@ public final class ZnpBleDiscovery {
   scanner=adapter.getBluetoothLeScanner();
   if(scanner==null){emit("El escáner Bluetooth no está disponible.");return;}
   found=false;active=true;advertisedModel="desconocido";
-  emit("Buscando Z02/N02. Solo se leerán servicios GATT públicos.");
+  emit("Buscando Z02, N02, AN02, AZ02 y AZ01. Solo se leerán servicios GATT públicos.");
   scanCallback=new ScanCallback(){
    @Override public void onScanResult(int callbackType,ScanResult result){
     if(!active||found||result==null)return;
