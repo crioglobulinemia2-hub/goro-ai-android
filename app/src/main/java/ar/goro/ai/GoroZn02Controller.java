@@ -88,7 +88,7 @@ public final class GoroZn02Controller {
  private ByteArrayOutputStream microphonePcm=new ByteArrayOutputStream();
  private boolean recording;
  private boolean draining;
- private Runnable authPoll,authTimeout,voiceTimeout,drainTimeout,drainFinishTimeout,connectionCheck;
+ private Runnable authPoll,authTimeout,voiceTimeout,drainTimeout,drainFinishTimeout,connectionCheck,connectTimeout;
  private OnChargingCaseListener caseListener;
  private OnChargingCaseListener createCaseListener(long epoch){
   return new OnChargingCaseListener(){
@@ -158,6 +158,20 @@ public final class GoroZn02Controller {
       // ZNP charging cases are BLE RCSP endpoints. Persist the same transport
       // choice used by JieLi's charging-bin reference implementation.
       DeviceAddrManager.getInstance().saveDeviceConnectWay(device,BluetoothConstant.PROTOCOL_TYPE_BLE);
+      if(connectTimeout!=null)mainHandler.removeCallbacks(connectTimeout);
+      connectTimeout=()->{
+       if(closed||connected||!isTarget(device))return;
+       connectionEpoch++;
+       if(authPoll!=null)mainHandler.removeCallbacks(authPoll);
+       if(authTimeout!=null)mainHandler.removeCallbacks(authTimeout);
+       if(connectionCheck!=null)mainHandler.removeCallbacks(connectionCheck);
+       releaseVoice();cancelScreenUpload();releaseCaseObservation();bondSession.close();
+       connected=false;vendorProtocolVerified=false;target=null;targetDeviceType=-1;caseOp=null;
+       try{controller.disconnectDevice(device);}catch(RuntimeException ignored){}
+       connectTimeout=null;
+       emit("El dispositivo fue detectado, pero no completó el enlace BLE/RCSP en 20 segundos. Se liberó el intento; volvé a buscarlo.");
+      };
+      mainHandler.postDelayed(connectTimeout,20000);
       controller.connectDevice(device,BluetoothConstant.PROTOCOL_TYPE_BLE);
      }catch(RuntimeException error){emit("El SDK JieLi no pudo iniciar la conexión BLE RCSP: "+error.getClass().getSimpleName());}
     });
@@ -167,6 +181,8 @@ public final class GoroZn02Controller {
      if(closed||!isTarget(device))return;
      if(status==StateCode.CONNECTION_OK||status==StateCode.CONNECTION_CONNECTED){
       if(connectionCheck!=null)mainHandler.removeCallbacks(connectionCheck);
+      if(connectTimeout!=null)mainHandler.removeCallbacks(connectTimeout);
+      connectTimeout=null;
       // JieLi reports both transport-connected and ready for the same link.
       // Restarting authentication here would invalidate an active capture's
       // epoch without releasing it, leaving every later startVoice blocked.
@@ -180,6 +196,8 @@ public final class GoroZn02Controller {
       connectionCheck=()->{
        if(closed||!isTarget(device)||controller==null)return;
        if(!controller.isDeviceConnected(device)){
+        if(connectTimeout!=null)mainHandler.removeCallbacks(connectTimeout);
+        connectTimeout=null;
         connectionEpoch++;connected=false;vendorProtocolVerified=false;releaseVoice();cancelScreenUpload();releaseCaseObservation();bondSession.close();
         if(authPoll!=null)mainHandler.removeCallbacks(authPoll);
         if(authTimeout!=null)mainHandler.removeCallbacks(authTimeout);
@@ -265,7 +283,9 @@ public final class GoroZn02Controller {
   }catch(SecurityException error){emit("Android no autorizó el acceso Bluetooth de "+modelLabel()+".");return;}
    catch(RuntimeException error){emit("El SDK no pudo inicializarse para "+modelLabel()+". No se envió ningún comando.");return;}
   if(scanning){emit("La búsqueda ZNP ya está activa.");return;}
-  target=null;connected=false;vendorProtocolVerified=false;
+  if(connectTimeout!=null)mainHandler.removeCallbacks(connectTimeout);
+  connectTimeout=null;
+  target=null;targetDeviceType=-1;connected=false;vendorProtocolVerified=false;
   if(!callbackRegistered){controller.addBTRcspEventCallback(eventCallback);callbackRegistered=true;}
   emit("Buscando "+modelLabel()+" por Bluetooth LE…");
   scanning=controller.startBleScan(20000);
@@ -725,6 +745,8 @@ public final class GoroZn02Controller {
   if(authPoll!=null)mainHandler.removeCallbacks(authPoll);
   if(authTimeout!=null)mainHandler.removeCallbacks(authTimeout);
   if(connectionCheck!=null)mainHandler.removeCallbacks(connectionCheck);
+  if(connectTimeout!=null)mainHandler.removeCallbacks(connectTimeout);
+  connectTimeout=null;
   bondSession.close();
   BluetoothDevice previous=target;
   target=null;
@@ -768,7 +790,7 @@ public final class GoroZn02Controller {
  }
  public synchronized void close(){
   if(closed)return;closed=true;connectionEpoch++;releaseVoice();cancelScreenUpload();releaseCaseObservation();bondSession.close();
-  if(authPoll!=null)mainHandler.removeCallbacks(authPoll);if(authTimeout!=null)mainHandler.removeCallbacks(authTimeout);if(connectionCheck!=null)mainHandler.removeCallbacks(connectionCheck);
+  if(authPoll!=null)mainHandler.removeCallbacks(authPoll);if(authTimeout!=null)mainHandler.removeCallbacks(authTimeout);if(connectionCheck!=null)mainHandler.removeCallbacks(connectionCheck);if(connectTimeout!=null)mainHandler.removeCallbacks(connectTimeout);connectTimeout=null;
   if(controller!=null){
    if(scanning)controller.stopScan();
    if(callbackRegistered){controller.removeBTRcspEventCallback(eventCallback);callbackRegistered=false;}
