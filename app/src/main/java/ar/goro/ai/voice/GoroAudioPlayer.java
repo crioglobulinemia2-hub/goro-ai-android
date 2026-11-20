@@ -2,6 +2,7 @@ package ar.goro.ai.voice;
 
 import android.content.Context;
 import android.media.MediaPlayer;
+import android.media.AudioAttributes;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -22,6 +23,9 @@ public final class GoroAudioPlayer {
    currentFile=File.createTempFile("goro-voice-",".wav",context.getCacheDir());
    try(FileOutputStream out=new FileOutputStream(currentFile)){out.write(wav);out.flush();}
    player=new MediaPlayer();
+   player.setAudioAttributes(new AudioAttributes.Builder()
+    .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build());
    player.setOnPreparedListener(mp->{synchronized(GoroAudioPlayer.this){if(player!=mp)return;mp.start();if(GoroAudioPlayer.this.listener!=null)GoroAudioPlayer.this.listener.onStarted();}});
    player.setOnCompletionListener(mp->{Listener done; synchronized(GoroAudioPlayer.this){if(player!=mp)return;done=GoroAudioPlayer.this.listener;releaseLocked();}if(done!=null)done.onCompleted();});
    player.setOnErrorListener((mp,what,extra)->{Listener failed;synchronized(GoroAudioPlayer.this){if(player!=mp)return true;failed=GoroAudioPlayer.this.listener;releaseLocked();}if(failed!=null)failed.onError("Error al reproducir audio ("+what+"/"+extra+")");return true;});

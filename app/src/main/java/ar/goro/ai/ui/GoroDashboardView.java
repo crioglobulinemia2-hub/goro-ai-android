@@ -2,7 +2,6 @@ package ar.goro.ai.ui;
 
 import android.app.Activity;
 import android.content.res.ColorStateList;
-import android.content.res.Configuration;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -13,12 +12,13 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.TextClock;
 import ar.goro.ai.avatar.GoroAvatarView;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -27,45 +27,58 @@ import java.util.Locale;
 /**
  * Live, native Android dashboard based on the approved GORO reference.
  * Real widgets and buttons: never assert calendar, weather or device values that were not read.
- * The final full-body rigged GLB remains mandatory; the empty avatar stage is intentionally
- * explicit rather than presenting a flat bitmap or primitive as a finished humanoid.
+ * The environment is a backdrop only. The robot, service data and every control
+ * are rendered independently; connection states are supplied by their gateways.
  */
 public final class GoroDashboardView extends LinearLayout {
  public interface Actions {
   void onCommand(String command);
-  void onVoiceSession();
   void onLinkAccount();
+  void onReadGmail();
   void onCalendarPermission();
   void onUnlinkAccount();
   void onWeather();
   void onForecast();
   void onReminders();
-  void onBleScan();
   void onConfigureNvidia();
   void onTestNvidia();
-  void onConnectZnp();
-  void onZnpLightOn();
-  void onZnpLightOff();
-  void onZnpReadLight();
+  void onConnectZn02();
+  void onInspectZn02();
+  void onZn02LightOn();
+  void onZn02LightOff();
+  void onZn02ReadLight();
+  void onZn02AudioOn();
+  void onZn02AudioOff();
   void onInstallGoroAnimation();
  }
  public final TextView output;
  public final TextView state;
  public final TextView accountLabel;
- public final EditText command;
- public final Button talk;
+ private TextView conversationStatus;
  public final FrameLayout avatarStage;
+ private final TextView speechBubble;
+ private final GoroAvatarView avatar;
  private final TextView agendaValue;
  private final TextView weatherValue;
+ private final TextView weatherPreview;
+ private final TextView devicesPreview;
+ private final TextView gmailPreview;
  private final TextView devicesValue;
  private final TextView nvidiaValue;
+ private final TextView voiceValue;
+ private final TextView gmailValue;
  private final TextView sectionValue;
- private final TextView clock;
+ private final TextClock clock;
  private final Activity activity;
  private final Actions actions;
  private final GoroUiState ui=new GoroUiState();
  private final boolean tablet;
  private final LinearLayout navigation;
+ private final LinearLayout settingsPanel;
+ private final LinearLayout devicePanel;
+ private LinearLayout heroPane,quickPane,controlsPane;
+ private LinearLayout homeColumns;
+ private ScrollView mainScrollContainer;
  private GoroTheme palette;
  private String pendingAvatarStatus;
 
@@ -76,167 +89,269 @@ public final class GoroDashboardView extends LinearLayout {
   tablet=activity.getResources().getConfiguration().smallestScreenWidthDp>=600;
   palette=GoroTheme.of(readTheme(activity));
   setOrientation(VERTICAL);setBackgroundColor(palette.background);
-  setPadding(dp(12),dp(12),dp(12),dp(8));
+  setPadding(dp(8),dp(4),dp(8),dp(4));
 
   LinearLayout header=new LinearLayout(activity);header.setGravity(Gravity.CENTER_VERTICAL);
   header.setOrientation(HORIZONTAL);
-  clock=text("",tablet?21:17,true,palette.text);
-  clock.setText(new SimpleDateFormat("HH:mm · EEE dd MMM",new Locale("es","AR")).format(new Date()));
-  LinearLayout.LayoutParams clockParams=new LinearLayout.LayoutParams(0,dp(52),1f);
-  header.addView(clock,clockParams);
-  TextView logo=text("GORO   ASISTENTE PERSONAL",tablet?22:16,true,palette.text);
-  header.addView(logo);
-  addView(header,new LinearLayout.LayoutParams(-1,dp(56)));
+  ImageView mark=new ImageView(activity);
+  mark.setImageResource(ar.goro.ai.R.drawable.ic_goro_foreground);
+  mark.setScaleType(ImageView.ScaleType.FIT_CENTER);
+  mark.setPadding(dp(3),dp(3),dp(3),dp(3));
+  mark.setBackground(gradient(palette.robotBackdrop,palette.surfaceElevated,dp(15)));
+  LinearLayout.LayoutParams markParams=new LinearLayout.LayoutParams(dp(44),dp(44));
+  markParams.setMargins(dp(3),0,dp(9),0);
+  header.addView(mark,markParams);
+  TextView logo=text("GORO IA",tablet?25:22,true,palette.text);
+  logo.setLetterSpacing(.10f);
+  header.addView(logo,new LinearLayout.LayoutParams(0,dp(52),1f));
+  TextView personal=text("TU ASISTENTE",10,true,palette.muted);
+  personal.setLetterSpacing(.10f);header.addView(personal);
+  addView(header,new LinearLayout.LayoutParams(-1,dp(54)));
 
   LinearLayout columns=new LinearLayout(activity);
-  columns.setOrientation(tablet?HORIZONTAL:VERTICAL);
+  columns.setOrientation(VERTICAL);
   addView(columns,new LinearLayout.LayoutParams(-1,0,1f));
 
-  navigation=new LinearLayout(activity);navigation.setOrientation(tablet?VERTICAL:HORIZONTAL);
-  if(tablet) {
-   ScrollView navScroller=new ScrollView(activity);
-   navScroller.setFillViewport(true);
-   navScroller.addView(navigation);
-   columns.addView(navScroller,new LinearLayout.LayoutParams(dp(170),-1));
-  } else {
-   HorizontalScrollView navScroller=new HorizontalScrollView(activity);
-   navScroller.setHorizontalScrollBarEnabled(false);
-   navScroller.addView(navigation);
-   columns.addView(navScroller,new LinearLayout.LayoutParams(-1,dp(52)));
-  }
-  for(GoroSection section:GoroSection.values()){
+  navigation=new LinearLayout(activity);navigation.setOrientation(HORIZONTAL);
+  navigation.setGravity(Gravity.CENTER);
+  for(GoroSection section:new GoroSection[]{GoroSection.HOME,GoroSection.EXPLORE,GoroSection.AUTOMATIONS,GoroSection.SETTINGS}){
    Button item=button(section.label,()->select(section),false);
-   LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(tablet?-1:-2,dp(42));
-   np.setMargins(dp(3),dp(3),dp(3),dp(3));
+   item.setTag(section);
+   item.setCompoundDrawablesWithIntrinsicBounds(null,icon(section.label),null,null);
+   item.setCompoundDrawablePadding(dp(4));item.setTextSize(10);
+   LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(0,dp(66),1f);
+   np.setMargins(dp(2),dp(2),dp(2),dp(2));
    navigation.addView(item,np);
   }
 
   LinearLayout mainColumn=new LinearLayout(activity);mainColumn.setOrientation(VERTICAL);
   ScrollView mainScroll=new ScrollView(activity);mainScroll.setFillViewport(true);
+  mainScrollContainer=mainScroll;
   mainScroll.addView(mainColumn);
-  LinearLayout.LayoutParams central=tablet?new LinearLayout.LayoutParams(0,-1,1f):new LinearLayout.LayoutParams(-1,0,1f);
+  LinearLayout.LayoutParams central=new LinearLayout.LayoutParams(-1,0,1f);
   columns.addView(mainScroll,central);
 
+  homeColumns=new LinearLayout(activity);
+  homeColumns.setOrientation(tablet?HORIZONTAL:VERTICAL);
+  mainColumn.addView(homeColumns,new LinearLayout.LayoutParams(-1,-2));
+  LinearLayout heroColumn=new LinearLayout(activity);heroColumn.setOrientation(VERTICAL);
+  homeColumns.addView(heroColumn,new LinearLayout.LayoutParams(tablet?0:-1,-2,tablet?1.5f:0f));
+
   LinearLayout hero=new LinearLayout(activity);hero.setOrientation(VERTICAL);
-  hero.setPadding(dp(12),dp(10),dp(12),dp(12));
+  heroPane=hero;
+  hero.setPadding(0,0,0,0);
   hero.setBackground(gradient(palette.robotBackdrop,palette.surfaceElevated,dp(24)));
-  LinearLayout.LayoutParams heroParams=new LinearLayout.LayoutParams(-1,tablet?dp(340):dp(260));
-  heroParams.setMargins(dp(8),dp(4),dp(8),dp(8));
-  mainColumn.addView(hero,heroParams);
-  TextView title=text("GORO  ·  ASISTENTE PERSONAL",tablet?18:16,true,palette.text);
-  hero.addView(title,new LinearLayout.LayoutParams(-1,dp(36)));
+  LinearLayout.LayoutParams heroParams=new LinearLayout.LayoutParams(-1,tablet?dp(530):dp(410));
+  heroParams.setMargins(dp(4),dp(4),dp(4),dp(8));
+  heroColumn.addView(hero,heroParams);
   avatarStage=new FrameLayout(activity);
-  if(enableAvatar){avatarStage.addView(new GoroAvatarView(activity,this::onAvatarStatus),
-      new FrameLayout.LayoutParams(-1,-1));}
+  avatarStage.setBackground(gradient(palette.robotBackdrop,palette.surface,dp(20)));
+  avatarStage.setClipToOutline(true);
+  ImageView room=new ImageView(activity);
+  room.setImageResource(ar.goro.ai.R.drawable.goro_room);
+  room.setScaleType(ImageView.ScaleType.CENTER_CROP);
+  room.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
+  avatarStage.addView(room,new FrameLayout.LayoutParams(-1,-1));
+  avatar=enableAvatar?new GoroAvatarView(activity,this::onAvatarStatus):null;
+  if(avatar!=null){
+   FrameLayout.LayoutParams robotParams=new FrameLayout.LayoutParams(-1,-1);
+   robotParams.setMargins(0,dp(72),0,dp(12));
+   avatarStage.addView(avatar,robotParams);
+  }
   else{TextView testStage=text("Avatar renderer disabled in JVM test",13,false,palette.muted);testStage.setGravity(Gravity.CENTER);avatarStage.addView(testStage,new FrameLayout.LayoutParams(-1,-1));}
+  LinearLayout stageHeader=new LinearLayout(activity);stageHeader.setGravity(Gravity.CENTER_VERTICAL);
+  stageHeader.setPadding(dp(14),dp(12),dp(14),dp(12));
+  stageHeader.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,new int[]{0xe6030e18,0x00030e18}));
+  weatherPreview=text("Clima local\nTocá para consultar",12,false,Color.WHITE);
+  weatherPreview.setCompoundDrawablesWithIntrinsicBounds(icon("Clima"),null,null,null);
+  weatherPreview.setCompoundDrawablePadding(dp(8));
+  weatherPreview.setOnClickListener(v->actions.onWeather());
+  weatherPreview.setContentDescription("Consultar clima de mi ubicación");
+  stageHeader.addView(weatherPreview,new LinearLayout.LayoutParams(0,-2,1f));
+  clock=new TextClock(activity);clock.setTextColor(Color.WHITE);clock.setTextSize(tablet?26:21);
+  clock.setFormat24Hour("EEE d MMM\nHH:mm");clock.setFormat12Hour("EEE d MMM\nHH:mm");
+  clock.setGravity(Gravity.RIGHT);clock.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
+  stageHeader.addView(clock,new LinearLayout.LayoutParams(-2,-2));
+  avatarStage.addView(stageHeader,new FrameLayout.LayoutParams(-1,dp(82),Gravity.TOP));
+  speechBubble=text("GORO · Preparando conexión de voz",tablet?14:12,true,Color.WHITE);
+  speechBubble.setGravity(Gravity.CENTER_VERTICAL);
+  speechBubble.setMaxLines(3);
+  speechBubble.setPadding(dp(12),dp(10),dp(12),dp(10));
+  speechBubble.setBackground(gradient(0xec0a2339,0xe9102f49,dp(15)));
+  speechBubble.setElevation(dp(8));
+  speechBubble.setClickable(false);
+  FrameLayout.LayoutParams speechParams=new FrameLayout.LayoutParams(dp(tablet?214:166),-2,Gravity.RIGHT|Gravity.BOTTOM);
+  speechParams.setMargins(dp(8),dp(8),dp(10),dp(18));
+  avatarStage.addView(speechBubble,speechParams);
   hero.addView(avatarStage,new LinearLayout.LayoutParams(-1,0,1f));
   sectionValue=text("Inicio · Panel personal",15,true,palette.text);
-  hero.addView(sectionValue,new LinearLayout.LayoutParams(-1,dp(30)));
 
   state=text("GORO · Servicios locales",15,true,palette.accentSecondary);
   if(pendingAvatarStatus!=null)state.setText(pendingAvatarStatus);
   LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(-1,dp(34));
   sp.setMargins(dp(12),dp(2),dp(8),0);
-  mainColumn.addView(state,sp);
+  heroColumn.addView(state,sp);
 
-  output=text("Las funciones locales están disponibles. NVIDIA remoto y el avatar 3D todavía no están conectados.",16,false,palette.text);
+  output=text("GORO IA · Conversación manos libres por ZNP Z02. La conexión se inicia automáticamente.",14,false,palette.text);
   output.setPadding(dp(14),dp(12),dp(14),dp(12));
   output.setBackground(gradient(palette.surface,palette.surfaceElevated,dp(15)));
   LinearLayout.LayoutParams op=new LinearLayout.LayoutParams(-1,-2);
   op.setMargins(dp(8),0,dp(8),dp(12));
-  mainColumn.addView(output,op);
+  heroColumn.addView(output,op);
 
-  command=new EditText(activity);
-  command.setHint("Escribí o dictá una orden");
-  command.setTextColor(palette.text);
-  command.setHintTextColor(palette.muted);
-  command.setSingleLine(false);
-  command.setMinLines(1);
-  command.setMaxLines(3);
-  command.setBackground(gradient(palette.surface,palette.surface,dp(16)));
-  command.setPadding(dp(16),dp(10),dp(16),dp(10));
-  LinearLayout.LayoutParams cmdParams=new LinearLayout.LayoutParams(-1,-2);
-  cmdParams.setMargins(dp(8),0,dp(8),dp(10));
-  mainColumn.addView(command,cmdParams);
+  LinearLayout quick=new LinearLayout(activity);quick.setOrientation(HORIZONTAL);quick.setGravity(Gravity.CENTER);
+  quickPane=quick;
+  Button agendaQuick=button("Agenda",()->actions.onCommand("agenda hoy"),false);
+  Button gmailQuick=button("Gmail",()->actions.onReadGmail(),false);
+  Button devicesQuick=button("Dispositivos",()->select(GoroSection.DEVICES),false);
+  devicesQuick.setTextSize(10f);devicesQuick.setSingleLine(true);
+  Button projectsQuick=button("Proyectos",()->select(GoroSection.EXPLORE),false);
+  for(Button item:new Button[]{agendaQuick,gmailQuick,devicesQuick,projectsQuick}){
+   item.setCompoundDrawablesWithIntrinsicBounds(null,icon(item.getText().toString()),null,null);
+   item.setCompoundDrawablePadding(dp(5));item.setTextSize(10);
+   LinearLayout.LayoutParams qp=new LinearLayout.LayoutParams(0,dp(66),1f);
+   qp.setMargins(dp(2),0,dp(2),0);quick.addView(item,qp);
+  }
+  LinearLayout.LayoutParams quickParams=new LinearLayout.LayoutParams(-1,dp(70));
+  quickParams.setMargins(dp(8),0,dp(8),dp(4));heroColumn.addView(quick,quickParams);
 
   LinearLayout controls=new LinearLayout(activity);
+  controlsPane=controls;
   controls.setGravity(Gravity.CENTER);
-  talk=button("Micrófono · Conversación continua",()->actions.onVoiceSession(),true);
-  controls.addView(talk,new LinearLayout.LayoutParams(0,dp(52),1f));
-  Button send=button("Enviar",()->actions.onCommand(command.getText().toString().trim()),false);
-  controls.addView(send,new LinearLayout.LayoutParams(dp(102),dp(52)));
+  conversationStatus=text("Z02 · esperando conexión automática",14,true,palette.accentSecondary);
+  conversationStatus.setGravity(Gravity.CENTER);
+  conversationStatus.setPadding(dp(14),dp(12),dp(14),dp(12));
+  conversationStatus.setBackground(gradient(palette.surface,palette.surfaceElevated,dp(16)));
+  conversationStatus.setCompoundDrawablesWithIntrinsicBounds(icon("Micrófono"),null,null,null);
+  conversationStatus.setCompoundDrawablePadding(dp(8));
+  controls.addView(conversationStatus,new LinearLayout.LayoutParams(-1,dp(52)));
   LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-1,dp(52));
   cp.setMargins(dp(8),0,dp(8),dp(8));
-  mainColumn.addView(controls,cp);
+  heroColumn.addView(controls,cp);
 
-  LinearLayout tools=new LinearLayout(activity);
-  tools.setOrientation(VERTICAL);
-  tools.setPadding(dp(9),dp(6),dp(9),dp(4));
-  if(tablet){ScrollView toolsScroll=new ScrollView(activity);toolsScroll.addView(tools);columns.addView(toolsScroll,new LinearLayout.LayoutParams(dp(244),-1));}
-  else mainColumn.addView(tools,new LinearLayout.LayoutParams(-1,-2));
   weatherValue=text("Sin consultar. Usar ubicación GPS.",14,false,palette.text);
   agendaValue=text("Sin consultar. Vinculá tu cuenta Google.",14,false,palette.text);
-  devicesValue=text("Sin datos de vinculación verificados.",14,false,palette.text);
+  devicesValue=text("ZNP Z02 · Conexión automática pendiente.",14,false,palette.text);
   nvidiaValue=text("NVIDIA NIM: sin configurar",14,false,palette.text);
-
-  LinearLayout weatherCard=card("CLIMA LOCAL",weatherValue);
-  tools.addView(weatherCard,cardParams());
-  tools.addView(button("Consultar GPS",()->actions.onWeather(),false),new LinearLayout.LayoutParams(-1,dp(46)));
-  tools.addView(button("Pronóstico · 3 días",()->actions.onForecast(),false),new LinearLayout.LayoutParams(-1,dp(46)));
-  LinearLayout agendaCard=card("AGENDA DE HOY",agendaValue);
-  tools.addView(agendaCard,cardParams());
+  voiceValue=text("Magpie Diego: sin conexión verificada.",14,false,palette.text);
+  gmailValue=text("Gmail: sin autorización OAuth.",14,false,palette.text);
   accountLabel=text(account==null?"Google Calendar: sin vincular":"Calendar · "+account,12,false,palette.muted);
-  tools.addView(accountLabel,new LinearLayout.LayoutParams(-1,dp(42)));
-  tools.addView(button("Vincular cuenta Google",()->actions.onLinkAccount(),false),new LinearLayout.LayoutParams(-1,dp(44)));
-  tools.addView(button("Autorizar Google Calendar",()->actions.onCalendarPermission(),false),new LinearLayout.LayoutParams(-1,dp(44)));
-  tools.addView(button("Desvincular cuenta",()->actions.onUnlinkAccount(),false),new LinearLayout.LayoutParams(-1,dp(44)));
-  tools.addView(button("Consultar agenda",()->actions.onCommand("agenda hoy"),false),new LinearLayout.LayoutParams(-1,dp(46)));
-  tools.addView(card("INTELIGENCIA NEMOTRON",nvidiaValue),cardParams());
-  tools.addView(button("Configurar clave NVIDIA",()->actions.onConfigureNvidia(),false),new LinearLayout.LayoutParams(-1,dp(44)));
-  tools.addView(button("Probar conexión Nemotron",()->actions.onTestNvidia(),false),new LinearLayout.LayoutParams(-1,dp(44)));
-  tools.addView(card("DISPOSITIVOS",devicesValue),cardParams());
-  tools.addView(button("Inspeccionar BLE Z02/N02",()->actions.onBleScan(),false),new LinearLayout.LayoutParams(-1,dp(44)));
-  tools.addView(button("Conectar ZNP por RCSP JieLi",()->actions.onConnectZnp(),true),new LinearLayout.LayoutParams(-1,dp(48)));
-  tools.addView(button("Encender luz del estuche",()->actions.onZnpLightOn(),false),new LinearLayout.LayoutParams(-1,dp(44)));
-  tools.addView(button("Apagar luz del estuche",()->actions.onZnpLightOff(),false),new LinearLayout.LayoutParams(-1,dp(44)));
-  tools.addView(button("Consultar estado de luz",()->actions.onZnpReadLight(),false),new LinearLayout.LayoutParams(-1,dp(44)));
-  tools.addView(button("Enviar animación GORO al visor",()->actions.onInstallGoroAnimation(),true),new LinearLayout.LayoutParams(-1,dp(48)));
-  TextView warning=text("Datos y conexión: solo estados verificados",12,false,palette.muted);
-  tools.addView(warning);
+  devicesPreview=text("ZNP Z02 · Conexión automática pendiente.",14,false,palette.text);
+  gmailPreview=text("Gmail: sin autorización OAuth.",14,false,palette.text);
+  LinearLayout summary=new LinearLayout(activity);summary.setOrientation(VERTICAL);
+  LinearLayout.LayoutParams summaryParams=new LinearLayout.LayoutParams(tablet?0:-1,-2,tablet?1f:0f);
+  summaryParams.setMargins(dp(6),dp(4),dp(6),dp(8));
+  homeColumns.addView(summary,summaryParams);
+  summary.addView(summaryCard("AGENDA DEL DÍA",agendaValue,"Ver agenda",()->actions.onCommand("agenda hoy")),cardParams());
+  summary.addView(summaryCard("CLIMA LOCAL",weatherValue,"Consultar clima",()->actions.onWeather()),cardParams());
+  summary.addView(summaryCard("MIS DISPOSITIVOS",devicesPreview,"Ver conexión",()->select(GoroSection.DEVICES)),cardParams());
+  summary.addView(summaryCard("GMAIL",gmailPreview,"Ver correos",()->actions.onReadGmail()),cardParams());
 
-  LinearLayout featureRow=new LinearLayout(activity);featureRow.setOrientation(HORIZONTAL);
-  for(GoroTheme.Mode mode:GoroTheme.Mode.values()){
-   String name=mode==GoroTheme.Mode.LIGHT?"Claro":mode==GoroTheme.Mode.DARK?"Oscuro":"Profesional";
-   featureRow.addView(button(name,()->selectTheme(mode),false),new LinearLayout.LayoutParams(0,dp(48),1f));
-  }
-  addView(featureRow,new LinearLayout.LayoutParams(-1,dp(48)));
+  settingsPanel=new LinearLayout(activity);settingsPanel.setOrientation(VERTICAL);
+  settingsPanel.addView(accountLabel,new LinearLayout.LayoutParams(-1,dp(32)));
+  settingsPanel.addView(button("Vincular cuenta Google",()->actions.onLinkAccount(),false),new LinearLayout.LayoutParams(-1,dp(42)));
+  settingsPanel.addView(button("Autorizar Calendar",()->actions.onCalendarPermission(),false),new LinearLayout.LayoutParams(-1,dp(42)));
+  settingsPanel.addView(button("Autorizar Gmail",()->actions.onReadGmail(),false),new LinearLayout.LayoutParams(-1,dp(42)));
+  settingsPanel.addView(button("Desvincular cuenta Google",()->actions.onUnlinkAccount(),false),new LinearLayout.LayoutParams(-1,dp(42)));
+  settingsPanel.addView(card("NVIDIA NEMOTRON",nvidiaValue),cardParams());
+  settingsPanel.addView(card("GMAIL",gmailValue),cardParams());
+  settingsPanel.addView(card("MAGPIE DIEGO",voiceValue),cardParams());
+  settingsPanel.addView(button("Configurar NVIDIA",()->actions.onConfigureNvidia(),false),new LinearLayout.LayoutParams(-1,dp(42)));
+  settingsPanel.addView(button("Verificar NVIDIA",()->actions.onTestNvidia(),false),new LinearLayout.LayoutParams(-1,dp(42)));
+  settingsPanel.addView(button("Cambiar tema",()->selectTheme(readTheme(activity)==GoroTheme.Mode.DARK?GoroTheme.Mode.LIGHT:GoroTheme.Mode.DARK),false),new LinearLayout.LayoutParams(-1,dp(42)));
+  settingsPanel.setVisibility(GONE);
+  mainColumn.addView(settingsPanel,new LinearLayout.LayoutParams(-1,-2));
+
+  devicePanel=new LinearLayout(activity);devicePanel.setOrientation(VERTICAL);
+  devicePanel.addView(card("ZNP Z02",devicesValue),cardParams());
+  devicePanel.addView(button("Conectar ZNP Z02",()->actions.onConnectZn02(),true),new LinearLayout.LayoutParams(-1,dp(46)));
+  devicePanel.addView(text("Audio bidireccional: verificando micrófono RCSP y salida A2DP",12,false,palette.muted),new LinearLayout.LayoutParams(-1,dp(42)));
+  devicePanel.addView(text("Conversación manos libres automática cuando Z02 y NVIDIA estén conectados",12,false,palette.muted),new LinearLayout.LayoutParams(-1,dp(42)));
+  devicePanel.addView(button("Instalar animación GORO en visor Z02",()->actions.onInstallGoroAnimation(),false),new LinearLayout.LayoutParams(-1,dp(46)));
+  devicePanel.setVisibility(GONE);
+  mainColumn.addView(devicePanel,new LinearLayout.LayoutParams(-1,-2));
+
+  addView(navigation,new LinearLayout.LayoutParams(-1,dp(70)));
   select(GoroSection.HOME);
  }
 
  private void select(GoroSection section){
   ui.section(section);
-  sectionValue.setText(section.label+" · GORO AI");
+  sectionValue.setText(section.label+" · GORO IA");
+  for(int n=0;n<navigation.getChildCount();n++){
+   Button item=(Button)navigation.getChildAt(n);
+   boolean selected=item.getTag()==section;
+   int front=selected?Color.WHITE:palette.text;
+   int first=selected?palette.accent:palette.surface;
+   int last=selected?palette.accentSecondary:palette.surfaceElevated;
+   item.setTextColor(front);
+   GradientDrawable fill=gradient(first,last,dp(14));
+   GradientDrawable mask=new GradientDrawable();
+   mask.setColor(Color.WHITE);mask.setCornerRadius(dp(14));
+   item.setBackground(new RippleDrawable(ColorStateList.valueOf(palette.accentSecondary),fill,mask));
+   item.setElevation(selected?dp(6):dp(2));
+  }
+  settingsPanel.setVisibility(section==GoroSection.SETTINGS?VISIBLE:GONE);
+  devicePanel.setVisibility(section==GoroSection.DEVICES?VISIBLE:GONE);
+  boolean utilityPage=section==GoroSection.SETTINGS||section==GoroSection.DEVICES;
+  homeColumns.setVisibility(utilityPage?GONE:VISIBLE);
+  heroPane.setVisibility(utilityPage?GONE:VISIBLE);
+  quickPane.setVisibility(utilityPage?GONE:VISIBLE);
+  controlsPane.setVisibility(utilityPage?GONE:VISIBLE);
+  if(mainScrollContainer!=null)mainScrollContainer.post(()->mainScrollContainer.scrollTo(0,0));
   switch(section){
-   case HOME: output.setText("Inicio. Conversación, agenda, clima y dispositivos, sin valores inventados.");break;
-   case AGENDA: output.setText("Agenda. Consultá tus eventos, o pedile a GORO que los cree, cambie o elimine, con confirmación.");break;
-   case ALARMS: output.setText("Alarmas. Pedime: alarma a las 07:30, o temporizador de 10 minutos.");break;
-   case WEATHER: output.setText("Clima. La consulta usa tu ubicación real solo con tu permiso.");actions.onWeather();break;
-   case MEMORY: output.setText("Memoria local. Pedí: mis recuerdos, o guardá un dato diciendo acordate que...");break;
-   case DEVICES: output.setText("Dispositivos. No se indica conexión si Android no la confirmó.");break;
-   case AUTOMATIONS: output.setText("Automatizaciones. Programá recordatorios en lenguaje natural.");actions.onReminders();break;
-   case SETTINGS: output.setText("Ajustes. Podés vincular una cuenta Google, autorizar calendario y cambiar el tema.");break;
+   case HOME: output.setText("GORO IA · Conversación manos libres por ZNP Z02. La conexión se inicia automáticamente.");break;
+   case EXPLORE: output.setText("Explorar proyectos. Pedime que retomemos cualquiera de tus proyectos.");break;
+   case DEVICES: output.setText("ZNP Z02. GORO busca el dispositivo, autentica RCSP y prepara el micrófono y el audio Bluetooth.");break;
+   case AUTOMATIONS: output.setText("Automatizaciones. Pedime recordatorios, alarmas o temporizadores en lenguaje natural.");actions.onReminders();break;
+   case SETTINGS: output.setText("Ajustes y conexiones. Configurá las cuentas y servicios que quieras vincular.");break;
   }
  }
  public void showAgenda(String value){agendaValue.setText(value==null?"Sin datos.":value);}
- public void showWeather(String value){weatherValue.setText(value==null?"Sin datos.":value);}
- public void showDeviceStatus(String value){devicesValue.setText(value==null?"Sin datos de dispositivo.":value);}
- public void setVoiceActive(boolean active){talk.setText(active?"Detener conversación":"Micrófono · Conversación continua");}
- public void showVoiceStatus(String value){state.setText(value==null?"Voz no disponible":value);}
- private void onAvatarStatus(String value){pendingAvatarStatus=value;if(state!=null)state.setText(value);}
+ public void showWeather(String value){
+  String report=value==null?"Clima no disponible.":value;
+  weatherValue.setText(report);
+  weatherPreview.setText(report);weatherPreview.setMaxLines(3);
+ }
+ public void showDeviceStatus(String value){
+  String status=value==null?"Sin datos de dispositivo.":value;
+  devicesValue.setText(status);devicesPreview.setText(status);
+ }
+ public void setVoiceActive(boolean active){
+  String status=active?"Micrófono Z02 activo · conversación manos libres":"Micrófono Z02 · esperando conexión automática";
+  voiceValue.setText(status);
+  if(conversationStatus!=null)conversationStatus.setText(status);
+  if(state!=null)state.setText(active?"GORO · Escuchando desde Z02":"GORO · Conversación automática");
+ }
+ public void showVoiceStatus(String value){
+  String detail=value==null?"Voz no disponible":value;
+  voiceValue.setText(detail);
+  state.setText(detail.contains("falta API key")?"Configurá NVIDIA en Ajustes para conversar":
+      detail.contains("confirmó")?"Voz Diego disponible":"Voz pendiente de conexión · revisá Ajustes");
+ }
+ private void onAvatarStatus(String value){
+  pendingAvatarStatus=value;
+  if(state!=null&&value!=null&&value.startsWith("Error"))state.setText("Robot 3D no disponible");
+ }
+ public void showAvatarMood(GoroAvatarView.Mood mood){if(avatar!=null)avatar.setMood(mood);}
+ public void avatarSpeak(String spoken,byte[] audio){if(avatar!=null)avatar.startSpeaking(spoken,audio);}
+ public void showAssistantMessage(String value){
+  if(value==null||value.trim().isEmpty())return;
+  String message=value.trim().replace('\n',' ');
+  speechBubble.setText(message.length()>104?message.substring(0,101)+"…":message);
+ }
+ public void showGmailStatus(String value){
+  String status=value==null?"Gmail no disponible":value;
+  gmailValue.setText(status);gmailPreview.setText(status);
+ }
  public void showNvidiaStatus(String value){nvidiaValue.setText(value==null?"NVIDIA NIM: sin estado":value);}
  private static GoroTheme.Mode readTheme(Activity a){
   String saved=a.getSharedPreferences("goro_ui",Activity.MODE_PRIVATE).getString("theme_mode",null);
-  if(saved==null){return a.getSharedPreferences("goro_ui",Activity.MODE_PRIVATE).getBoolean("dark",false)?GoroTheme.Mode.DARK:GoroTheme.Mode.LIGHT;}
+  if(saved==null){
+   android.content.SharedPreferences prefs=a.getSharedPreferences("goro_ui",Activity.MODE_PRIVATE);
+   if(prefs.contains("dark"))return prefs.getBoolean("dark",true)?GoroTheme.Mode.DARK:GoroTheme.Mode.LIGHT;
+   return GoroTheme.Mode.DARK;
+  }
   try{return GoroTheme.Mode.valueOf(saved);}catch(Exception e){return GoroTheme.Mode.LIGHT;}
  }
  private void selectTheme(GoroTheme.Mode mode){
@@ -252,6 +367,14 @@ public final class GoroDashboardView extends LinearLayout {
   card.addView(value,new LinearLayout.LayoutParams(-1,-2));
   return card;
  }
+ private LinearLayout summaryCard(String heading,TextView value,String action,Runnable click){
+  LinearLayout result=card(heading,value);
+  Button link=button(action,click,false);
+  link.setTextColor(palette.accentSecondary);
+  LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(44));lp.topMargin=dp(8);
+  result.addView(link,lp);return result;
+ }
+ private GoroIconDrawable icon(String name){return new GoroIconDrawable(name,palette.accentSecondary,dp(25));}
  private LinearLayout.LayoutParams cardParams(){
   LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);
   lp.setMargins(dp(3),dp(7),dp(3),dp(7));return lp;
