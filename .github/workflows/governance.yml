@@ -1,0 +1,44 @@
+name: Governance
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  canonical-state:
+    name: canonical-state
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout candidate SHA
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Verify canonical base and stale branch
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          test "$BASE_REF" = "main"
+          test "$HEAD_REF" != "main"
+          case "$HEAD_REF" in
+            work/*|fix/*|feat/*|feature/*|codex/*|admin/*|chore/*|release/*|hotfix/*) ;;
+            *) echo "Branch name not allowed: $HEAD_REF"; exit 1 ;;
+          esac
+          git fetch origin main --no-tags
+          MAIN_SHA="$(git rev-parse origin/main)"
+          CANDIDATE_SHA="$(git rev-parse HEAD)"
+          echo "main=$MAIN_SHA"
+          echo "candidate=$CANDIDATE_SHA"
+          test "$CANDIDATE_SHA" = "$HEAD_SHA"
+          if ! git merge-base --is-ancestor "$MAIN_SHA" "$CANDIDATE_SHA"; then
+            echo "Candidate is stale: current main is not an ancestor of the candidate."
+            exit 1
+          fi
