@@ -1,33 +1,27 @@
-# GORO AI — Diseño visual y de animación aprobado
+# GORO IA: referencia aprobada y criterio de aceptación
 
-Referencia: imagen de diseño compartida repetidamente por el propietario el 1 de noviembre de 2026. Esta referencia es obligatoria para la experiencia visual final, no una ilustración optativa. La imagen es un concepto estático: una implementación funcional debe crear el robot como modelo 3D articulado, no usar el collage como interfaz.
+La referencia vigente es «GORO IA: Asistente Futurista Conectado.png». El propietario rechazó la interfaz anterior con menú vertical y columna de botones técnicos. La imagen de referencia define la identidad visual; no sustituye la aplicación funcional.
 
-## Personaje
-Robot humanoide amistoso estilo G1 personalizado, cuerpo blanco perlado/titanio, detalles grafito, ojos grandes azules de aspecto óptico, boca visible y expresiva, articulaciones de cuello, hombros, codos, muñecas, manos y dedos. Mantener proporciones, acabados, expresividad, iluminación y calidad cinematográfica de la referencia. Ningún icono genérico puede sustituirlo.
+## Pantalla principal
 
-## Animación obligatoria
-- Modelo 3D real con rig esquelético y animación procedural, no GIF, secuencias de PNG o sprites de Falta Envido.
-- Ojos: parpadeos y mirada independientes; seguimiento contextual.
-- Boca: sincronización labial con sonido por visemas/blendshapes, transiciones suaves y capacidad de interrupción.
-- Cabeza, hombros, codos, muñecas y dedos: gestos dinámicos con control por articulaciones, transiciones continuas y no repetitivas.
-- Estados: escucha, piensa, habla, confirma una acción, alerta y espera.
-- Objetivo de calidad: articulación coherente en tiempo real y medición de FPS/consumo en Android. No declarar rendimiento sin pruebas.
-- No hacer playback de animaciones fijas presentadas como inteligencia contextual.
+Fondo azul profundo, tarjetas discretas, acentos cian, blanco y metal. Robot humanoide GORO de cuerpo completo, cabeza y pies visibles, visor negro, ojos cian, auriculares laterales y nombre en el pecho. Globo contextual con acceso a la respuesta completa. Hora, fecha y clima real en tarjetas compactas.
 
-## Interfaces aprobadas
-1. Modo principal claro: ambiente cálido con iluminación natural y materiales premium, robot grande visible, menú lateral Inicio / Agenda / Alarmas / Clima / Memoria / Dispositivos / Automatizar / Ajustes, tarjetas meteorológicas y agenda, controles discretos de escucha.
-2. Modo oscuro: grafito con cobre y acentos cyan/azul, robot con reflejos y ojos iluminados, panel de eventos y conversación.
-3. Modo profesional: superficie clara con acceso a documentos y datos, robot visible y capaz de señalar contenidos.
-4. Modo transparente: variación visual del robot con partes translúcidas y estructura aparente, solo si el motor soporta materiales correspondientes.
+Accesos rápidos: Agenda, Gmail, micrófono central, Proyectos y Dispositivos. Navegación inferior: Conversar, Explorar, Automatizar y Ajustes. Agenda y Dispositivos son pantallas independientes. Los controles técnicos van en Ajustes. La conversación no requiere iniciar y terminar manualmente cada turno.
 
-## Comportamiento
-Conversación por voz natural sin pulsar iniciar/finalizar por cada turno; interrupciones, memoria, Google Calendar/calendarios Android, alarmas, temporizadores, clima, automatizaciones. Los datos de pantalla deben ser reales y nunca simulados como conexión exitosa.
+Debe respetar las barras de Android, la pantalla de la Tab A8 y la de teléfonos. Ninguna tarjeta puede ocultar la cabeza. Las superficies y normales del GLB deben orientarse correctamente. El controlador de cámara de Filament debe conservar el encuadre durante cada render.
 
-## Dispositivos
-ZNP Z02 y ZNP N02 deben contemplarse en la arquitectura Bluetooth. El visor del estuche requiere adaptación de interfaz y validación del protocolo; no se declara soportado 3D en el visor sin evidencia. La experiencia Android completa continúa aunque se desconecte el estuche.
+## Personaje y movimiento
 
-## Reglas de entrega
-- Prohibido sustituir el diseño aprobado por pantalla de texto y botón EJECUTAR.
-- Sin versiones intermedias para que el usuario las instale o pruebe.
-- No declarar terminado con solo compilar. Validar funciones, render y conexiones.
-- El producto final debe compararse visual y funcionalmente contra la imagen de referencia.
+Robot articulado con skin weights, cuello, hombros, codos, muñecas, manos y dedos. Estados de espera, escucha, pensamiento, conversación, confirmación y alerta. Visemas A/E/I/O/U/M-B-P, parpadeo independiente, sonrisa y cejas. La boca responde a la señal de audio real y al texto; no declarar sincronización fonética exacta sin medición.
+
+La estructura técnica del rig no acredita por sí sola la calidad artística. El generador y el render actuales siguen sujetos a comparación con la referencia; no constituyen aprobación del propietario ni un modelo cinematográfico definitivo.
+
+## Servicios y dispositivo
+
+Nemotron exacto: nvidia/nemotron-3.5-super-vl-120b-a12b. Voz Magpie-Multilingual.ES-US.Diego. Reconocimiento Parakeet/Riva con audio PCM16 mono 16 kHz del ZNP Z02. Credenciales privadas fuera de Git y de CI público. Z02 requiere autenticación RCSP real y salida multimedia confirmada por Android. Ningún mensaje puede afirmar conexión sin confirmación del servicio o hardware.
+
+Gmail requiere consentimiento y cliente OAuth Android registrado para ar.goro.ai.personal con el certificado de la instalación. La lectura mediante código no sustituye esa configuración. Calendar, memoria, recordatorios y clima deben verificarse con datos reales y los permisos correspondientes.
+
+## Entrega
+
+No entregar otra versión intermedia para que el propietario la pruebe. Compilar, pasar pruebas automáticas y generar un APK firmado no equivale a terminar. La aceptación final requiere comparación visual, autorización Gmail y conversación completa sobre el Z02 físico. Conservar el identificador y comprobar compatibilidad de firma antes de actualizar una instalación existente; nunca resolver un conflicto borrando datos sin autorización.

@@ -1,1 +1,4 @@
-<resources><string name="app_name">GORO AI</string><string name="google_oauth_client_id"></string></resources>
+<resources>
+    <string name="app_name">GORO IA Prueba</string>
+    <string name="google_oauth_client_id"></string>
+</resources>

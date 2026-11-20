@@ -5,45 +5,28 @@ import json
 import pathlib
 import os
 import subprocess
-import struct
+from prepare_avatar import AUTHORED_RELATIVE, validate_contract
+from sign_owner_apk import SigningError, apk_certificate, check_compatibility, package_info
 from datetime import datetime, timezone
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 ASSET = ROOT / "app/src/main/assets/goro/goro_rigged.glb"
+AUTHORED_ASSET = ROOT / AUTHORED_RELATIVE
 EVIDENCE = ROOT / "evidence"
 
 def glb_report():
-    if not ASSET.exists():
-        return False, "Falta GLB rigged del robot aprobado."
+    if not AUTHORED_ASSET.is_file():
+        return False, "Falta GLB autorado en " + AUTHORED_RELATIVE + "; el procedural es solo de desarrollo."
+    if not ASSET.is_file():
+        return False, "Falta el GLB empaquetado para Android."
     try:
         data = ASSET.read_bytes()
-        if len(data) < 20 or data[:4] != b"glTF":
-            return False, "Archivo no es GLB 2.0."
-        version, length = struct.unpack_from("<II", data, 4)
-        if version != 2 or length != len(data):
-            return False, "GLB inválido o incompleto."
-        json_length, chunk_type = struct.unpack_from("<II", data, 12)
-        if chunk_type != 0x4E4F534A:
-            return False, "Falta bloque JSON."
-        gltf = json.loads(data[20:20 + json_length].decode("utf-8"))
-        nodes = {n.get("name") for n in gltf.get("nodes", [])}
-        bones = {"root","pelvis","spine","chest","neck","head","left_shoulder","left_elbow",
-                 "left_wrist","left_hand","right_shoulder","right_elbow","right_wrist","right_hand"}
-        if not bones.issubset(nodes):
-            return False, "Rig incompleto. Faltan huesos requeridos."
-        if not gltf.get("skins"):
-            return False, "GLB sin skeleton/skin."
-        shapes = set()
-        for mesh in gltf.get("meshes", []):
-            shapes.update(mesh.get("extras", {}).get("targetNames", []))
-        if not {"viseme_A","viseme_E","viseme_I","viseme_O","viseme_U",
-                "viseme_MBP","eye_blink_left","eye_blink_right","brow_raise","smile"}.issubset(shapes):
-            return False, "GLB sin visemas y expresiones faciales exigidas."
-        if not gltf.get("materials") or not gltf.get("textures"):
-            return False, "GLB sin materiales y texturas PBR."
-        return True, "Estructura GLB y rig declarados; calidad visual y movimiento requieren prueba física."
-    except (OSError, ValueError, KeyError, struct.error, UnicodeError) as exc:
-        return False, "Error inspeccionando GLB: " + type(exc).__name__
+        if data != AUTHORED_ASSET.read_bytes():
+            return False, "El GLB empaquetado no coincide con la fuente autorada."
+        validate_contract(data, authored=True)
+        return True, "Fuente autorada preservada y contrato GLB verificado; falta aceptación visual y física."
+    except (OSError, ValueError, TypeError, KeyError, IndexError, AttributeError) as exc:
+        return False, "Error inspeccionando GLB autorado: " + type(exc).__name__
 
 def verified(name, required):
     path = EVIDENCE / name
@@ -58,10 +41,26 @@ def verified(name, required):
     except (OSError, ValueError, TypeError):
         return False, "Evidencia JSON inválida: " + name
 
+def installed_update_report(apk, build_tools):
+    """A valid signature alone does not establish an update preserving app data."""
+    try:
+        evidence = json.loads((EVIDENCE / "signature_compatibility.json").read_text(encoding="utf-8"))
+        if evidence.get("installed_device_certificate_verified") is not True:
+            return False, "No se verificó el certificado de la app instalada; una firma válida no basta."
+        baseline = {"package": evidence["installed_package"],
+                    "version_code": evidence["installed_version_code"]}
+        if not isinstance(baseline["version_code"], int) or isinstance(baseline["version_code"], bool):
+            return False, "Versión instalada inválida en evidencia de firma."
+        check_compatibility(package_info(apk, build_tools), baseline,
+                            apk_certificate(apk, build_tools), evidence["installed_certificate_sha256"])
+        return True, "Paquete, versión y certificado de la APK coinciden con la evidencia del dispositivo."
+    except (SigningError, OSError, ValueError, TypeError, KeyError, subprocess.TimeoutExpired):
+        return False, "No se acreditó una actualización compatible con la instalación existente."
+
 def stage_checks():
     avatar_ok, avatar_msg = glb_report()
     nvidia_ok, nvidia_msg = verified("nvidia_e2e.json",
-                                   ["authenticated_proxy", "nemotron_response", "rate_limit_test"])
+                                   ["nvidia_authenticated", "nemotron_response", "rate_limit_test"])
     visual_ok, visual_msg = verified("visual_match.json",
                                    ["approved_reference_comparison", "light_dark_professional", "android_capture"])
     concept_ok, concept_msg = verified("concept_e2e.json",
@@ -69,13 +68,20 @@ def stage_checks():
                                       "memory_persistence", "reminders"])
     haptic_ok, haptic_msg = verified("haptics_physical.json",
                                     ["pressed_scale", "ripple_feedback", "haptic_motor"])
+    speech_ok, speech_msg = verified("speech_e2e.json",
+                                    ["magpie_authenticated", "diego_voice_id", "wav_header_valid",
+                                     "playback_device_confirmed"])
+    gmail_ok, gmail_msg = verified("gmail_e2e.json",
+                                  ["oauth_authorized", "gmail_api_authenticated", "message_list_read"])
     ble_ok, ble_msg = verified("znp_hardware.json",
-                             ["z02_observed", "n02_observed", "audio_confirmed", "touch_confirmed", "display_verified"])
+                             ["n02_observed", "n02_identity_verified", "n02_protocol_verified", "audio_confirmed", "touch_confirmed", "display_verified"])
     android_ok, android_msg = verified("android_physical.json",
                                      ["calendar_sync", "gps_weather", "continuous_voice", "reconnect",
                                       "frame_rate_measured", "memory_measured"])
     apk=ROOT / "app/build/outputs/apk/release/app-release.apk"
     signed=False
+    update_ok=False
+    update_msg="APK release firmada inexistente; compatibilidad de actualización sin verificar."
     if apk.is_file():
         sdk=pathlib.Path(os.environ.get("ANDROID_HOME", "/usr/local/lib/android/sdk"))
         candidates=sorted(sdk.glob("build-tools/*/apksigner"), reverse=True)
@@ -83,15 +89,20 @@ def stage_checks():
             result=subprocess.run([str(candidates[0]), "verify", "--verbose", str(apk)],
                                   capture_output=True, text=True, timeout=30)
             signed=result.returncode==0
+            if signed:
+                update_ok,update_msg=installed_update_report(apk,candidates[0].parent)
     return [
       {"step": "04 NVIDIA", "ok": nvidia_ok, "reason": nvidia_msg},
       {"step": "09 3D", "ok": avatar_ok and android_ok, "reason": avatar_msg if not avatar_ok else android_msg},
       {"step": "10 Visual", "ok": visual_ok, "reason": visual_msg},
       {"step": "10 Tactile", "ok": haptic_ok, "reason": haptic_msg},
+      {"step": "05 NVIDIA Speech", "ok": speech_ok, "reason": speech_msg},
+      {"step": "06 Gmail API", "ok": gmail_ok, "reason": gmail_msg},
       {"step": "Concept E2E", "ok": concept_ok, "reason": concept_msg},
       {"step": "11 ZNP", "ok": ble_ok, "reason": ble_msg},
       {"step": "12 Pruebas físicas", "ok": android_ok, "reason": android_msg},
       {"step": "12 APK firmada", "ok": signed, "reason": "Firma APK verificada con apksigner." if signed else "APK release inexistente o firma aún no verificada."},
+      {"step": "12 Actualización compatible", "ok": update_ok, "reason": update_msg},
     ]
 
 def main():
