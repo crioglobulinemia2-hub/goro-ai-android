@@ -61,7 +61,7 @@ def verified(name, required):
 def stage_checks():
     avatar_ok, avatar_msg = glb_report()
     nvidia_ok, nvidia_msg = verified("nvidia_e2e.json",
-                                   ["authenticated_proxy", "nemotron_response", "rate_limit_test"])
+                                   ["nvidia_authenticated", "nemotron_response", "rate_limit_test"])
     visual_ok, visual_msg = verified("visual_match.json",
                                    ["approved_reference_comparison", "light_dark_professional", "android_capture"])
     concept_ok, concept_msg = verified("concept_e2e.json",
@@ -69,8 +69,13 @@ def stage_checks():
                                       "memory_persistence", "reminders"])
     haptic_ok, haptic_msg = verified("haptics_physical.json",
                                     ["pressed_scale", "ripple_feedback", "haptic_motor"])
+    speech_ok, speech_msg = verified("speech_e2e.json",
+                                    ["magpie_authenticated", "diego_voice_id", "wav_header_valid",
+                                     "playback_device_confirmed"])
+    gmail_ok, gmail_msg = verified("gmail_e2e.json",
+                                  ["oauth_authorized", "gmail_api_authenticated", "message_list_read"])
     ble_ok, ble_msg = verified("znp_hardware.json",
-                             ["z02_observed", "n02_observed", "audio_confirmed", "touch_confirmed", "display_verified"])
+                             ["n02_observed", "n02_identity_verified", "n02_protocol_verified", "audio_confirmed", "touch_confirmed", "display_verified"])
     android_ok, android_msg = verified("android_physical.json",
                                      ["calendar_sync", "gps_weather", "continuous_voice", "reconnect",
                                       "frame_rate_measured", "memory_measured"])
@@ -88,6 +93,8 @@ def stage_checks():
       {"step": "09 3D", "ok": avatar_ok and android_ok, "reason": avatar_msg if not avatar_ok else android_msg},
       {"step": "10 Visual", "ok": visual_ok, "reason": visual_msg},
       {"step": "10 Tactile", "ok": haptic_ok, "reason": haptic_msg},
+      {"step": "05 NVIDIA Speech", "ok": speech_ok, "reason": speech_msg},
+      {"step": "06 Gmail API", "ok": gmail_ok, "reason": gmail_msg},
       {"step": "Concept E2E", "ok": concept_ok, "reason": concept_msg},
       {"step": "11 ZNP", "ok": ble_ok, "reason": ble_msg},
       {"step": "12 Pruebas físicas", "ok": android_ok, "reason": android_msg},
