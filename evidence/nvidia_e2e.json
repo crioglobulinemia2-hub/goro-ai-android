@@ -1,0 +1,16 @@
+{
+  "evidence_kind": "recovered_service_response",
+  "service_test_date": "2026-11-04",
+  "nvidia_authenticated": true,
+  "nemotron_response": true,
+  "rate_limit_test": false,
+  "http_status": 200,
+  "response_text": "GORO conectado.",
+  "finish_reason": "stop",
+  "limitations": [
+    "Saved real HTTP response, not a new request from the final Android APK.",
+    "Rate limiting was not tested.",
+    "No physical Z02 conversation was verified."
+  ],
+  "source_response_sha256": "0bafe3f4cde5277aa3503297f2a3c3dd3574ff9d2cb58bbcdd3abb067254f853"
+}

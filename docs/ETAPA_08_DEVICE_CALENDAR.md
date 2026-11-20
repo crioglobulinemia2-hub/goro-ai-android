@@ -4,7 +4,7 @@ La integración usa CalendarContract. No necesita OAuth propio ni backend. Acced
 
 Seguridad:
 - Solo calendarios visibles, sincronizados y con nivel de acceso contributor o superior para crear.
-- Listados excluyen eventos recurrentes (RRULE) para evitar tratar series como eventos únicos.
+- Los listados usan Instances e incluyen ocurrencias de eventos recurrentes dentro del período consultado.
 - Update/delete vuelven a leer el evento y rechazan series recurrentes.
 - Cada operación de escritura exige confirmación verbal previa en MainActivity.
 - La API solo reporta éxito si ContentResolver devuelve URI/filas afectadas.
